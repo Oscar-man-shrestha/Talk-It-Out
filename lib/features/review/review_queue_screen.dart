@@ -1,0 +1,766 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:talk_it_out/app/repository_providers.dart';
+import 'package:talk_it_out/core/errors/repository_exception.dart';
+import 'package:talk_it_out/core/strings/app_strings.dart';
+import 'package:talk_it_out/core/ui/labels.dart';
+import 'package:talk_it_out/core/ui/screen_async.dart';
+import 'package:talk_it_out/core/widgets/async_body.dart';
+import 'package:talk_it_out/features/groups/group_providers.dart';
+import 'package:talk_it_out/features/review/data/raw_message.dart';
+import 'package:talk_it_out/features/review/review_providers.dart';
+
+// Stitch Monochrome Precision tokens
+const _kPrimary = Color(0xFF000000);
+const _kSurface = Color(0xFFFFFFFF);
+const _kSurfaceMuted = Color(0xFFF4F4F5);
+const _kSurfaceSubtle = Color(0xFFFAFAFA);
+const _kBorderSubtle = Color(0xFFE4E4E7);
+const _kTextPrimary = Color(0xFF09090B);
+const _kTextSecondary = Color(0xFF71717A);
+const _kTextTertiary = Color(0xFFA1A1AA);
+
+class ReviewQueueScreen extends ConsumerStatefulWidget {
+  const ReviewQueueScreen({required this.groupId, super.key});
+
+  final String groupId;
+
+  @override
+  ConsumerState<ReviewQueueScreen> createState() => _ReviewQueueScreenState();
+}
+
+class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
+  int _activeTab = 0; // 0: Pending, 1: Approved, 2: Rejected
+
+  @override
+  Widget build(BuildContext context) {
+    final queue = ref.watch(reviewQueueProvider(widget.groupId));
+    final groupAsync = ref.watch(groupDetailProvider(widget.groupId));
+    final groupAgenda =
+        groupAsync.value?.agenda ?? 'AI Ethics & Workplace Policy';
+    final items = queue.value ?? const <RawMessage>[];
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final hPad = screenWidth > 860 ? (screenWidth - 800) / 2 : 16.0;
+
+    return Scaffold(
+      backgroundColor: _kSurface,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(56),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: _kSurface,
+            border: Border(bottom: BorderSide(color: _kBorderSubtle)),
+          ),
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new,
+                      size: 18,
+                      color: _kTextPrimary,
+                    ),
+                    onPressed: () => Navigator.of(context).maybePop(),
+                  ),
+                  const SizedBox(width: 4),
+                  const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'TALK IT OUT',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                          color: _kTextSecondary,
+                        ),
+                      ),
+                      Text(
+                        'Talk It Out • Review Queue',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.2,
+                          color: _kTextPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.more_vert,
+                      size: 20,
+                      color: _kTextSecondary,
+                    ),
+                    onPressed: () {},
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      body: AsyncBody(
+        status: asyncStatus(queue, isEmpty: items.isEmpty),
+        errorMessage: errorText(queue.error),
+        onRetry: () => ref.invalidate(reviewQueueProvider(widget.groupId)),
+        empty: _EmptyReviewState(hPad: hPad),
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 48),
+          children: [
+            // 1. Topic Context Header Sub-bar (matches HTML 3)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: const BoxDecoration(
+                          color: _kPrimary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          groupAgenda.toUpperCase(),
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.6,
+                            color: _kTextSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2.5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _kSurfaceMuted,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.sensors, size: 12, color: _kTextPrimary),
+                      SizedBox(width: 4),
+                      Text(
+                        'LIVE',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w700,
+                          color: _kTextPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // 2. Operational Buffer Stats Card (matches HTML 3)
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _kSurfaceSubtle,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _kBorderSubtle),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            '${items.length} awaiting moderation',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: _kTextPrimary,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _kPrimary,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'ACTIVE',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      const Row(
+                        children: [
+                          Text(
+                            'Active buffer sync',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _kTextSecondary,
+                            ),
+                          ),
+                          SizedBox(width: 4),
+                          Text('•', style: TextStyle(color: _kTextTertiary)),
+                          SizedBox(width: 4),
+                          Text(
+                            'Est. wait time: ~4 mins',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _kTextSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Container(
+                    height: 34,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: _kSurface,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _kBorderSubtle),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.tune, size: 16, color: _kTextPrimary),
+                        SizedBox(width: 5),
+                        Text(
+                          'Filter',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _kTextPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // 3. Filter Navigation Pills (matches HTML 3)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _FilterPill(
+                    label: 'Pending',
+                    count: '${items.length}',
+                    selected: _activeTab == 0,
+                    onTap: () => setState(() => _activeTab = 0),
+                  ),
+                  const SizedBox(width: 8),
+                  _FilterPill(
+                    label: 'Approved',
+                    count: '24',
+                    selected: _activeTab == 1,
+                    onTap: () => setState(() => _activeTab = 1),
+                  ),
+                  const SizedBox(width: 8),
+                  _FilterPill(
+                    label: 'Rejected',
+                    count: '2',
+                    selected: _activeTab == 2,
+                    onTap: () => setState(() => _activeTab = 2),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // 4. Queue Cards List
+            for (final message in items) ...[
+              _QueueCard(
+                message: message,
+                groupId: widget.groupId,
+                onReject: () async {
+                  try {
+                    await ref.read(reviewRepositoryProvider).reject(message.id);
+                    ref.invalidate(reviewQueueProvider(widget.groupId));
+                  } on RepositoryException catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(SnackBar(content: Text(e.message)));
+                    }
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            const SizedBox(height: 10),
+            // Bottom Tip Indicator (matches HTML 3)
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.swipe, size: 16, color: _kTextTertiary),
+                SizedBox(width: 6),
+                Text(
+                  'Tip: Swipe card right to approve instantly',
+                  style: TextStyle(fontSize: 11, color: _kTextTertiary),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterPill extends StatelessWidget {
+  const _FilterPill({
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final String count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: selected ? _kPrimary : _kSurfaceMuted,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label.toUpperCase(),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+                color: selected ? Colors.white : _kTextSecondary,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: selected
+                    ? Colors.white.withValues(alpha: 0.25)
+                    : _kSurface,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                count,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.w700,
+                  color: selected ? Colors.white : _kTextSecondary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QueueCard extends StatelessWidget {
+  const _QueueCard({
+    required this.message,
+    required this.groupId,
+    required this.onReject,
+  });
+
+  final RawMessage message;
+  final String groupId;
+  final VoidCallback onReject;
+
+  @override
+  Widget build(BuildContext context) {
+    final isAnon = message.isAnonymous;
+    final senderTitle = isAnon
+        ? 'Anonymous #${message.senderId.length > 3 ? message.senderId.substring(0, 3).toUpperCase() : "8B9"}'
+        : message.senderName;
+    final relevance = message.relevanceScore != null
+        ? '${(message.relevanceScore! * 100).round()}% Relevance'
+        : '94% Relevance';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _kSurfaceSubtle,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _kBorderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Metadata Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: isAnon ? _kPrimary : _kSurfaceMuted,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: isAnon
+                        ? const Icon(
+                            Icons.visibility_off,
+                            size: 13,
+                            color: Colors.white,
+                          )
+                        : Text(
+                            message.senderName.isNotEmpty
+                                ? message.senderName[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: _kTextPrimary,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    senderTitle,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: _kTextPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    formatWhen(message.createdAt),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                      color: _kTextTertiary,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _kSurface,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: _kBorderSubtle),
+                ),
+                child: Text(
+                  relevance,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w600,
+                    color: _kTextPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Tag Pill
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+            decoration: BoxDecoration(
+              color: _kSurface,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: _kBorderSubtle),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.gavel, size: 12, color: _kTextPrimary),
+                SizedBox(width: 4),
+                Text(
+                  'POLICY FEEDBACK',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                    color: _kTextPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Raw Input Block
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _kSurface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _kBorderSubtle),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.format_quote, size: 13, color: _kTextTertiary),
+                    SizedBox(width: 3),
+                    Text(
+                      'RAW INPUT',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
+                        color: _kTextTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '“${message.originalText}”',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.4,
+                    color: _kTextPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Neutral Synthesis Panel
+          if (message.rewrittenText != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _kSurface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _kBorderSubtle),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.auto_fix_high,
+                            size: 13,
+                            color: _kTextSecondary,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'NEUTRAL SYNTHESIS',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.6,
+                              color: _kTextSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        'Model: CleanSynthetics-v4',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontFamily: 'monospace',
+                          color: _kTextTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    '“${message.rewrittenText}”',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      fontWeight: FontWeight.w500,
+                      color: _kTextPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+
+          // Action Row (Reject / Rerun / Review & Decide)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  InkWell(
+                    onTap: onReject,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: _kSurface,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: _kBorderSubtle),
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        size: 18,
+                        color: _kTextSecondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  InkWell(
+                    onTap: () {},
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: _kSurface,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: _kBorderSubtle),
+                      ),
+                      child: const Icon(
+                        Icons.cached,
+                        size: 18,
+                        color: _kTextSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              FilledButton(
+                onPressed: () =>
+                    context.push('/groups/$groupId/review/${message.id}'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _kPrimary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Review & Decide',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    SizedBox(width: 5),
+                    Icon(Icons.arrow_forward, size: 14),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyReviewState extends StatelessWidget {
+  const _EmptyReviewState({required this.hPad});
+
+  final double hPad;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: hPad),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: _kSurfaceMuted,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _kBorderSubtle),
+              ),
+              child: const Icon(
+                Icons.task_alt_outlined,
+                size: 24,
+                color: _kTextSecondary,
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              AppStrings.reviewEmpty,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: _kTextSecondary,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

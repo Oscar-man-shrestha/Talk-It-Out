@@ -10,6 +10,7 @@ import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
 import 'package:talk_it_out/features/feed/data/post.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
+import 'package:talk_it_out/features/profile/profile_state.dart';
 
 const _border = Color(0xFFE4E4E7);
 const _ink = Color(0xFF09090B);
@@ -178,9 +179,12 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     final items = feed.value ?? const <Post>[];
     final visible = _visible(items);
     final userId = ref.watch(sessionProvider).value?.id;
+    final userProfile = ref.watch(userProfileProvider);
     final openCount = items.where((post) => post.commentCount == 0).length;
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final hPad = screenWidth > 640 ? (screenWidth - 576) / 2 : 14.0;
+    final isDesktop = screenWidth >= 900;
+    final isMobile = screenWidth < 600;
+    final hPad = isDesktop ? (screenWidth - 860) / 2 : (isMobile ? 12.0 : 20.0);
     final compactHeader = screenWidth < 640;
     final scheme = Theme.of(context).colorScheme;
 
@@ -223,13 +227,25 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           Material(
             color: Colors.black,
             shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
             child: InkWell(
               customBorder: const CircleBorder(),
               onTap: () => context.go('/profile'),
-              child: const SizedBox(
+              child: SizedBox(
                 width: 32,
                 height: 32,
-                child: Icon(Icons.person, size: 17, color: Colors.white),
+                child: userProfile.avatarUrl != null
+                    ? Image.network(
+                        userProfile.avatarUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(
+                              Icons.person,
+                              size: 17,
+                              color: Colors.white,
+                            ),
+                      )
+                    : const Icon(Icons.person, size: 17, color: Colors.white),
               ),
             ),
           ),

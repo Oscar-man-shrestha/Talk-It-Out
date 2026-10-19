@@ -21,6 +21,11 @@ class StitchPageHeader extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isDesktop = screenWidth >= 900;
+    final isMobile = screenWidth < 600;
+    final hPad = isDesktop ? (screenWidth - 860) / 2 : (isMobile ? 12.0 : 16.0);
+
     return Material(
       color: scheme.surface,
       shape: Border(
@@ -34,7 +39,7 @@ class StitchPageHeader extends StatelessWidget implements PreferredSizeWidget {
         child: SizedBox(
           height: 56,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: hPad),
             child: Row(
               children: [
                 ?leading,

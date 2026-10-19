@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:talk_it_out/core/api/api_guard.dart';
 import 'package:talk_it_out/core/api/endpoints.dart';
+import 'package:talk_it_out/core/models/enums.dart';
 import 'package:talk_it_out/core/models/group.dart';
 import 'package:talk_it_out/core/models/group_member.dart';
 import 'package:talk_it_out/core/models/page_result.dart';
@@ -101,6 +102,56 @@ class ApiGroupRepository implements GroupRepository {
         queryParameters: pageQuery(limit: limit, cursor: cursor),
       );
       return decodePage(response.data, MyMessageStatus.fromJson);
+    });
+  }
+
+  @override
+  Future<PublishedMessage> sendControllerMessage(
+    String groupId, {
+    required String text,
+  }) {
+    return guardApi(() async {
+      final response = await _dio.post(
+        '${Endpoints.groupMessages(groupId)}/controller',
+        data: {'text': text},
+      );
+      return PublishedMessage.fromJson(asJsonMap(response.data));
+    });
+  }
+
+  @override
+  Future<void> deleteMessage(String groupId, String messageId) {
+    return guardApi(() async {
+      await _dio.delete('${Endpoints.groupMessages(groupId)}/$messageId');
+    });
+  }
+
+  @override
+  Future<void> removeMember(String groupId, String userId) {
+    return guardApi(() async {
+      await _dio.delete('${Endpoints.groupMembers(groupId)}/$userId');
+    });
+  }
+
+  @override
+  Future<GroupMember> addMember(
+    String groupId, {
+    required String username,
+    GroupRole role = GroupRole.contributor,
+  }) {
+    return guardApi(() async {
+      final response = await _dio.post(
+        Endpoints.groupMembers(groupId),
+        data: {'username': username, 'role': role.name},
+      );
+      return GroupMember.fromJson(asJsonMap(response.data));
+    });
+  }
+
+  @override
+  Future<void> leaveGroup(String groupId) {
+    return guardApi(() async {
+      await _dio.post('${Endpoints.group(groupId)}/leave');
     });
   }
 }

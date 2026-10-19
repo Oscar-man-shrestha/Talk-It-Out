@@ -96,7 +96,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final hPad = screenWidth > 640 ? (screenWidth - 440) / 2 : 16.0;
+    final isDesktopOrTablet = screenWidth > 540;
+    final hPad = isDesktopOrTablet ? (screenWidth - 440) / 2 : 20.0;
 
     return Scaffold(
       backgroundColor: _kSurface,

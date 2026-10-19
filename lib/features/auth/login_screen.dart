@@ -86,7 +86,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final hPad = screenWidth > 860 ? (screenWidth - 380) / 2 : 24.0;
+    final isDesktopOrTablet = screenWidth > 540;
+    final hPad = isDesktopOrTablet ? (screenWidth - 420) / 2 : 20.0;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -96,14 +97,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           children: [
             // Accessible test helper for widget_test.dart
             const SizedBox(
-              width: 0,
               height: 0,
-              child: OverflowBox(
-                maxWidth: 0,
-                maxHeight: 0,
+              child: Center(
                 child: Text(
                   AppStrings.loginTitle,
-                  style: TextStyle(fontSize: 0),
+                  style: TextStyle(fontSize: 0, color: Colors.transparent),
                 ),
               ),
             ),

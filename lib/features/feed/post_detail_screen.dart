@@ -34,6 +34,33 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   var _isBookmarked = false;
   var _postPublicly = true;
   String? _error;
+  String _sortMode = 'TOP FIRST';
+
+  PopupMenuItem<String> _buildSortMenuItem(String value, String label) {
+    final isSelected = _sortMode == value;
+    return PopupMenuItem<String>(
+      value: value,
+      height: 38,
+      child: Row(
+        children: [
+          Icon(
+            isSelected ? Icons.check : Icons.circle_outlined,
+            size: 14,
+            color: isSelected ? _kTextPrimary : Colors.transparent,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: _kTextPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -675,7 +702,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                       const SizedBox(height: 16),
 
                       // Discussion Section Header (matches image4)
-                      const Row(
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Row(
@@ -715,78 +742,167 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                               ),
                             ],
                           ),
-                          Row(
-                            children: [
-                              Text(
+                          PopupMenuButton<String>(
+                            tooltip: 'Sort discussion thread',
+                            offset: const Offset(0, 24),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: const BorderSide(color: _kBorderSubtle),
+                            ),
+                            color: _kSurface,
+                            elevation: 4,
+                            initialValue: _sortMode,
+                            onSelected: (val) {
+                              setState(() => _sortMode = val);
+                            },
+                            itemBuilder: (ctx) => [
+                              _buildSortMenuItem(
                                 'TOP FIRST',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.6,
-                                  color: _kTextSecondary,
-                                ),
+                                'Top First (Agreed)',
                               ),
-                              Icon(
-                                Icons.expand_more,
-                                size: 16,
-                                color: _kTextSecondary,
+                              _buildSortMenuItem('NEWEST', 'Newest First'),
+                              _buildSortMenuItem(
+                                'MOST DISCUSSED',
+                                'Most Discussed',
+                              ),
+                              _buildSortMenuItem(
+                                'SHIELDED ONLY',
+                                'Shielded Only',
                               ),
                             ],
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _kSurfaceMuted,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: _kBorderSubtle),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _sortMode,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.6,
+                                      color: _kTextPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.expand_more,
+                                    size: 15,
+                                    color: _kTextSecondary,
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
 
-                      // Rich 3-tier Discussion Thread (matching image4 exactly)
-                      // Comment 1: Marcus R. (M)
-                      const _DiscussionItem(
-                        authorInitials: 'M',
-                        authorName: 'M',
-                        timeAgo: '1h ago',
-                        badgeText: 'Rewritten: Gentle Tone',
-                        badgeIcon: Icons.auto_awesome,
-                        content: "Completely agree on psychological safety unlocking participation. When folks aren't paralyzed about how their critique lands, we get the real production blockers surfaced immediately.",
-                        likesCount: '24',
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Comment 2: Indented Reply from Sophia K. (Author)
-                      const Padding(
-                        padding: EdgeInsets.only(left: 24),
-                        child: _DiscussionItem(
-                          authorInitials: 'SK',
-                          authorName: 'Sophia K.',
-                          isAuthor: true,
-                          timeAgo: '45m ago',
-                          content: "Exactly. The key is making sure the AI rewrite preserves nuance. If it strips the core tension or urgency, leadership assumes it's low priority.",
-                          likesCount: '18',
+                      // Rich 3-tier Discussion Thread (dynamically sorted & filtered)
+                      if (_sortMode == 'SHIELDED ONLY') ...[
+                        const _DiscussionItem(
+                          isAnonymous: true,
+                          authorName: 'Anonymous Pers...',
+                          isShielded: true,
+                          timeAgo: '25m ago',
+                          content: 'We noticed executive pushback if the AI rewrite sounds too diplomatic—they felt questions were sanitized. We ended up keeping the original bulleted concerns intact and only softening the rhetorical edge.',
+                          likesCount: '9',
                         ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Comment 3: Anonymous Person (Shielded)
-                      const _DiscussionItem(
-                        isAnonymous: true,
-                        authorName: 'Anonymous Pers...',
-                        isShielded: true,
-                        timeAgo: '25m ago',
-                        content: 'We noticed executive pushback if the AI rewrite sounds too diplomatic—they felt questions were sanitized. We ended up keeping the original bulleted concerns intact and only softening the rhetorical edge.',
-                        likesCount: '9',
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Any additional dynamically posted comments
-                      for (final comment in liveComments) ...[
-                        _DiscussionItem(
-                          authorInitials: comment.author.name.isNotEmpty
-                              ? comment.author.name[0].toUpperCase()
-                              : '?',
-                          authorName: comment.author.name,
-                          timeAgo: 'just now',
-                          content: comment.content,
-                          likesCount: '0',
+                      ] else if (_sortMode == 'NEWEST') ...[
+                        for (final comment in liveComments.reversed) ...[
+                          _DiscussionItem(
+                            authorInitials: comment.author.name.isNotEmpty
+                                ? comment.author.name[0].toUpperCase()
+                                : '?',
+                            authorName: comment.author.name,
+                            timeAgo: 'just now',
+                            content: comment.content,
+                            likesCount: '0',
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        const _DiscussionItem(
+                          isAnonymous: true,
+                          authorName: 'Anonymous Pers...',
+                          isShielded: true,
+                          timeAgo: '25m ago',
+                          content: 'We noticed executive pushback if the AI rewrite sounds too diplomatic—they felt questions were sanitized. We ended up keeping the original bulleted concerns intact and only softening the rhetorical edge.',
+                          likesCount: '9',
                         ),
                         const SizedBox(height: 8),
+                        const Padding(
+                          padding: EdgeInsets.only(left: 24),
+                          child: _DiscussionItem(
+                            authorInitials: 'SK',
+                            authorName: 'Sophia K.',
+                            isAuthor: true,
+                            timeAgo: '45m ago',
+                            content: "Exactly. The key is making sure the AI rewrite preserves nuance. If it strips the core tension or urgency, leadership assumes it's low priority.",
+                            likesCount: '18',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const _DiscussionItem(
+                          authorInitials: 'M',
+                          authorName: 'M',
+                          timeAgo: '1h ago',
+                          badgeText: 'Rewritten: Gentle Tone',
+                          badgeIcon: Icons.auto_awesome,
+                          content: "Completely agree on psychological safety unlocking participation. When folks aren't paralyzed about how their critique lands, we get the real production blockers surfaced immediately.",
+                          likesCount: '24',
+                        ),
+                      ] else ...[
+                        const _DiscussionItem(
+                          authorInitials: 'M',
+                          authorName: 'M',
+                          timeAgo: '1h ago',
+                          badgeText: 'Rewritten: Gentle Tone',
+                          badgeIcon: Icons.auto_awesome,
+                          content: "Completely agree on psychological safety unlocking participation. When folks aren't paralyzed about how their critique lands, we get the real production blockers surfaced immediately.",
+                          likesCount: '24',
+                        ),
+                        const SizedBox(height: 8),
+                        const Padding(
+                          padding: EdgeInsets.only(left: 24),
+                          child: _DiscussionItem(
+                            authorInitials: 'SK',
+                            authorName: 'Sophia K.',
+                            isAuthor: true,
+                            timeAgo: '45m ago',
+                            content: "Exactly. The key is making sure the AI rewrite preserves nuance. If it strips the core tension or urgency, leadership assumes it's low priority.",
+                            likesCount: '18',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const _DiscussionItem(
+                          isAnonymous: true,
+                          authorName: 'Anonymous Pers...',
+                          isShielded: true,
+                          timeAgo: '25m ago',
+                          content: 'We noticed executive pushback if the AI rewrite sounds too diplomatic—they felt questions were sanitized. We ended up keeping the original bulleted concerns intact and only softening the rhetorical edge.',
+                          likesCount: '9',
+                        ),
+                        const SizedBox(height: 8),
+                        for (final comment in liveComments) ...[
+                          _DiscussionItem(
+                            authorInitials: comment.author.name.isNotEmpty
+                                ? comment.author.name[0].toUpperCase()
+                                : '?',
+                            authorName: comment.author.name,
+                            timeAgo: 'just now',
+                            content: comment.content,
+                            likesCount: '0',
+                          ),
+                          const SizedBox(height: 8),
+                        ],
                       ],
                     ],
                   ),
@@ -1170,7 +1286,15 @@ class _DiscussionItem extends StatelessWidget {
                 ),
                 const SizedBox(width: 14),
                 GestureDetector(
-                  onTap: () {},
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Replying to $authorName...'),
+                        duration: const Duration(seconds: 1),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
                   child: const Text(
                     'Reply',
                     style: TextStyle(
@@ -1179,6 +1303,96 @@ class _DiscussionItem extends StatelessWidget {
                       color: _kTextSecondary,
                     ),
                   ),
+                ),
+                const Spacer(),
+                PopupMenuButton<String>(
+                  tooltip: 'Comment actions',
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(
+                    Icons.more_horiz,
+                    size: 16,
+                    color: _kTextTertiary,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: const BorderSide(color: _kBorderSubtle),
+                  ),
+                  color: _kSurface,
+                  elevation: 3,
+                  onSelected: (val) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          val == 'copy'
+                              ? 'Comment copied to clipboard'
+                              : 'Feedback logged securely',
+                        ),
+                        duration: const Duration(seconds: 1),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  itemBuilder: (ctx) => const [
+                    PopupMenuItem(
+                      value: 'copy',
+                      height: 34,
+                      child: Row(
+                        children: [
+                          Icon(Icons.copy, size: 14, color: _kTextSecondary),
+                          SizedBox(width: 8),
+                          Text(
+                            'Copy Text',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _kTextPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'tone',
+                      height: 34,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.auto_awesome,
+                            size: 14,
+                            color: _kTextSecondary,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Inspect Tone Stack',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _kTextPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'report',
+                      height: 34,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.flag_outlined,
+                            size: 14,
+                            color: _kTextSecondary,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Flag for Moderator',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _kTextPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

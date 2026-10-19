@@ -40,7 +40,9 @@ class _MyMessagesScreenState extends ConsumerState<MyMessagesScreen> {
     final messages = ref.watch(myMessagesProvider(widget.groupId));
     final liveItems = messages.value ?? const <MyMessageStatus>[];
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final hPad = screenWidth > 860 ? (screenWidth - 420) / 2 : 16.0;
+    final isDesktop = screenWidth >= 900;
+    final isMobile = screenWidth < 600;
+    final hPad = isDesktop ? (screenWidth - 860) / 2 : (isMobile ? 12.0 : 20.0);
 
     // Build the ledger items list, ensuring the demonstrative items from the PNG are included
     final allLedgerCards = <_LedgerCardData>[

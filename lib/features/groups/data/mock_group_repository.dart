@@ -161,6 +161,106 @@ class MockGroupRepository implements GroupRepository {
   }
 
   @override
+  Future<PublishedMessage> sendControllerMessage(
+    String groupId, {
+    required String text,
+  }) {
+    return runMock(_controls, () {
+      final group = _requireGroup(groupId);
+      if (group.myRole != GroupRole.controller) {
+        throw const RepositoryException(
+          code: 'forbidden',
+          message: 'Only controllers can send controller announcements.',
+        );
+      }
+      final clean = text.trim();
+      if (clean.isEmpty) {
+        throw const RepositoryException(
+          code: 'validation',
+          message: AppStrings.messageRequired,
+        );
+      }
+      final id = 'pm${_nextMessage++}';
+      final msg = PublishedMessage(
+        id: id,
+        groupId: groupId,
+        text: clean,
+        displaySender: const DisplaySender(
+          id: MockIds.priya,
+          name: 'Priya (Controller)',
+        ),
+        publishedAt: DateTime.now().toUtc(),
+      );
+      _bridge.published.add(msg);
+      return msg;
+    });
+  }
+
+  @override
+  Future<void> deleteMessage(String groupId, String messageId) {
+    return runMock(_controls, () {
+      _requireGroup(groupId);
+      _bridge.published.removeWhere(
+        (m) => m.id == messageId && m.groupId == groupId,
+      );
+    });
+  }
+
+  @override
+  Future<void> removeMember(String groupId, String userId) {
+    return runMock(_controls, () {
+      _requireGroup(groupId);
+      final currentMembers = _board.membersByGroup[groupId];
+      if (currentMembers != null) {
+        _board.membersByGroup[groupId] = currentMembers
+            .where((m) => m.userId != userId)
+            .toList();
+      }
+    });
+  }
+
+  @override
+  Future<GroupMember> addMember(
+    String groupId, {
+    required String username,
+    GroupRole role = GroupRole.contributor,
+  }) {
+    return runMock(_controls, () {
+      _requireGroup(groupId);
+      final clean = username.trim().replaceAll('@', '');
+      if (clean.isEmpty) {
+        throw const RepositoryException(
+          code: 'validation',
+          message: 'Username cannot be empty.',
+        );
+      }
+      final newMember = GroupMember(
+        userId: 'u_${DateTime.now().millisecondsSinceEpoch}',
+        name: clean,
+        role: role,
+      );
+      final currentMembers =
+          _board.membersByGroup[groupId] ?? const <GroupMember>[];
+      _board.membersByGroup[groupId] = [...currentMembers, newMember];
+      return newMember;
+    });
+  }
+
+  @override
+  Future<void> leaveGroup(String groupId) {
+    return runMock(_controls, () {
+      _requireGroup(groupId);
+      final currentMembers = _board.membersByGroup[groupId];
+      if (currentMembers != null) {
+        _board.membersByGroup[groupId] = currentMembers
+            .where((m) => m.userId != MockIds.priya)
+            .toList();
+      }
+      _board.groups.removeWhere((g) => g.id == groupId);
+    });
+  }
+
+  @override
   Future<PageResult<MyMessageStatus>> listMyMessages(
     String groupId, {
     int? limit,

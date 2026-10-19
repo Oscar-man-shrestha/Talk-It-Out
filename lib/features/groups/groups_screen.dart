@@ -11,6 +11,7 @@ import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/data/published_message.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
+import 'package:talk_it_out/features/profile/profile_state.dart';
 
 const _border = Color(0xFFE4E4E7);
 const _ink = Color(0xFF09090B);
@@ -29,6 +30,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   final _search = TextEditingController();
   GroupRole? _role;
   var _showBanner = true;
+  String _sortOrder = 'Recent Activity';
 
   @override
   void dispose() {
@@ -39,8 +41,11 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   @override
   Widget build(BuildContext context) {
     final groups = ref.watch(groupsProvider);
+    final userProfile = ref.watch(userProfileProvider);
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final hPad = screenWidth > 640 ? (screenWidth - 576) / 2 : 16.0;
+    final isDesktop = screenWidth >= 900;
+    final isMobile = screenWidth < 600;
+    final hPad = isDesktop ? (screenWidth - 860) / 2 : (isMobile ? 12.0 : 20.0);
     final query = _search.text.trim().toLowerCase();
     final allGroups = groups.value ?? const <Group>[];
     final controllerCount = allGroups
@@ -56,6 +61,12 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
           query.isEmpty || group.agenda.toLowerCase().contains(query);
       return matchesRole && matchesQuery;
     }).toList();
+
+    if (_sortOrder == 'Alphabetical') {
+      items.sort(
+        (a, b) => a.agenda.toLowerCase().compareTo(b.agenda.toLowerCase()),
+      );
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -78,13 +89,25 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
           Material(
             color: Colors.black,
             shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
             child: InkWell(
               customBorder: const CircleBorder(),
               onTap: () => context.go('/profile'),
-              child: const SizedBox(
+              child: SizedBox(
                 width: 36,
                 height: 36,
-                child: Icon(Icons.person, size: 18, color: Colors.white),
+                child: userProfile.avatarUrl != null
+                    ? Image.network(
+                        userProfile.avatarUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(
+                              Icons.person,
+                              size: 18,
+                              color: Colors.white,
+                            ),
+                      )
+                    : const Icon(Icons.person, size: 18, color: Colors.white),
               ),
             ),
           ),
@@ -203,6 +226,80 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                       selected: _role == GroupRole.contributor,
                       onTap: () =>
                           setState(() => _role = GroupRole.contributor),
+                    ),
+                    const SizedBox(width: 8),
+                    PopupMenuButton<String>(
+                      tooltip: 'Sort groups',
+                      initialValue: _sortOrder,
+                      onSelected: (val) => setState(() => _sortOrder = val),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: const BorderSide(color: _border),
+                      ),
+                      color: Colors.white,
+                      elevation: 3,
+                      itemBuilder: (ctx) => const [
+                        PopupMenuItem(
+                          value: 'Recent Activity',
+                          height: 36,
+                          child: Row(
+                            children: [
+                              Icon(Icons.bolt, size: 14, color: _ink),
+                              SizedBox(width: 6),
+                              Text(
+                                'Recent Activity',
+                                style: TextStyle(fontSize: 12, color: _ink),
+                              ),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'Alphabetical',
+                          height: 36,
+                          child: Row(
+                            children: [
+                              Icon(Icons.sort_by_alpha, size: 14, color: _ink),
+                              SizedBox(width: 6),
+                              Text(
+                                'Alphabetical (A-Z)',
+                                style: TextStyle(fontSize: 12, color: _ink),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _low,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: _border),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.sort, size: 13, color: _muted),
+                            const SizedBox(width: 4),
+                            Text(
+                              _sortOrder,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: _ink,
+                              ),
+                            ),
+                            const SizedBox(width: 2),
+                            const Icon(
+                              Icons.expand_more,
+                              size: 14,
+                              color: _muted,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),

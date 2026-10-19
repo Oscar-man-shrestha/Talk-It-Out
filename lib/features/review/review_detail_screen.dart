@@ -139,6 +139,11 @@ class _ReviewDetailAppBar extends StatelessWidget
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isDesktop = screenWidth >= 900;
+    final isMobile = screenWidth < 600;
+    final hPad = isDesktop ? (screenWidth - 860) / 2 : (isMobile ? 12.0 : 16.0);
+
     return Container(
       height: 56,
       decoration: const BoxDecoration(
@@ -148,7 +153,7 @@ class _ReviewDetailAppBar extends StatelessWidget
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: EdgeInsets.symmetric(horizontal: hPad),
           child: Row(
             children: [
               IconButton(
@@ -265,7 +270,9 @@ class ReviewDetailBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final hPad = screenWidth > 860 ? (screenWidth - 800) / 2 : 16.0;
+    final isDesktop = screenWidth >= 900;
+    final isMobile = screenWidth < 600;
+    final hPad = isDesktop ? (screenWidth - 860) / 2 : (isMobile ? 12.0 : 20.0);
 
     return Stack(
       children: [

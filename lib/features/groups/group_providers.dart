@@ -140,3 +140,69 @@ String unreadBadgeLabel(int count) {
   if (count > 4) return '4+';
   return '$count';
 }
+
+/// Emoji reactions state for published messages (WhatsApp & Instagram style).
+class MessageReactionsState {
+  const MessageReactionsState({
+    this.counts = const {},
+    this.userReactions = const {},
+  });
+
+  /// Map of messageId -> Map of emoji -> count
+  final Map<String, Map<String, int>> counts;
+
+  /// Map of messageId -> Set of emojis reacted by current user
+  final Map<String, Set<String>> userReactions;
+
+  Map<String, int> getCounts(String messageId) => counts[messageId] ?? const {};
+
+  bool hasReacted(String messageId, String emoji) =>
+      userReactions[messageId]?.contains(emoji) ?? false;
+}
+
+class MessageReactionsNotifier extends Notifier<MessageReactionsState> {
+  @override
+  MessageReactionsState build() {
+    return const MessageReactionsState(
+      counts: {
+        'pm10': {'❤️': 2, '👍': 3},
+        'pm11': {'🔥': 4, '👏': 2},
+        'pm12': {'💡': 3, '👍': 1},
+        'pm13': {'❤️': 2},
+      },
+      userReactions: {
+        'pm10': {'❤️'},
+      },
+    );
+  }
+
+  void toggleReaction(String messageId, String emoji) {
+    final currentCounts = Map<String, int>.from(state.getCounts(messageId));
+    final currentUserReactions = Set<String>.from(
+      state.userReactions[messageId] ?? const <String>{},
+    );
+
+    if (currentUserReactions.contains(emoji)) {
+      currentUserReactions.remove(emoji);
+      final c = (currentCounts[emoji] ?? 1) - 1;
+      if (c <= 0) {
+        currentCounts.remove(emoji);
+      } else {
+        currentCounts[emoji] = c;
+      }
+    } else {
+      currentUserReactions.add(emoji);
+      currentCounts[emoji] = (currentCounts[emoji] ?? 0) + 1;
+    }
+
+    state = MessageReactionsState(
+      counts: {...state.counts, messageId: currentCounts},
+      userReactions: {...state.userReactions, messageId: currentUserReactions},
+    );
+  }
+}
+
+final messageReactionsProvider =
+    NotifierProvider<MessageReactionsNotifier, MessageReactionsState>(
+      MessageReactionsNotifier.new,
+    );

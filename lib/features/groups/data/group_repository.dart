@@ -1,3 +1,4 @@
+import 'package:talk_it_out/core/models/enums.dart';
 import 'package:talk_it_out/core/models/group.dart';
 import 'package:talk_it_out/core/models/group_member.dart';
 import 'package:talk_it_out/core/models/page_result.dart';
@@ -29,6 +30,23 @@ abstract class GroupRepository {
     required String text,
     required bool isAnonymous,
   });
+
+  Future<PublishedMessage> sendControllerMessage(
+    String groupId, {
+    required String text,
+  });
+
+  Future<void> deleteMessage(String groupId, String messageId);
+
+  Future<void> removeMember(String groupId, String userId);
+
+  Future<GroupMember> addMember(
+    String groupId, {
+    required String username,
+    GroupRole role = GroupRole.contributor,
+  });
+
+  Future<void> leaveGroup(String groupId);
 
   Future<PageResult<MyMessageStatus>> listMyMessages(
     String groupId, {

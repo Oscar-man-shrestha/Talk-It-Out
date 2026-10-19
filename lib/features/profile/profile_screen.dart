@@ -132,7 +132,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             ),
                             SizedBox(width: 8),
                             Text(
-                              'Edit Public Profile (LinkedIn Style)',
+                              'Edit Public Profile',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
@@ -263,23 +263,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 12),
-
-                    // Custom Photo URL
-                    _EditProfileTextField(
-                      label: 'Or Custom Image / Photo URL',
-                      controller: avatarCtrl,
-                      hint: 'https://images.unsplash.com/... or photo URL',
-                      icon: Icons.link,
-                      onChanged: (val) {
-                        setModalState(() {
-                          selectedAvatar = val.trim().isEmpty
-                              ? null
-                              : val.trim();
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
 
                     // Full Name
                     _EditProfileTextField(
@@ -482,23 +465,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-
-                    // Custom URL Input
-                    _EditProfileTextField(
-                      label: 'Or Custom Image URL',
-                      controller: coverUrlCtrl,
-                      hint: 'https://images.unsplash.com/... or any image link',
-                      icon: Icons.link,
-                      onChanged: (val) {
-                        setModalState(() {
-                          currentCoverUrl = val.trim().isEmpty
-                              ? null
-                              : val.trim();
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
 
                     // Live Preview Box
                     if (currentCoverUrl != null) ...[
@@ -2509,7 +2475,6 @@ class _EditProfileTextField extends StatelessWidget {
     required this.hint,
     required this.icon,
     this.maxLines = 1,
-    this.onChanged,
   });
 
   final String label;
@@ -2517,7 +2482,6 @@ class _EditProfileTextField extends StatelessWidget {
   final String hint;
   final IconData icon;
   final int maxLines;
-  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -2542,7 +2506,6 @@ class _EditProfileTextField extends StatelessWidget {
           child: TextField(
             controller: controller,
             maxLines: maxLines,
-            onChanged: onChanged,
             style: const TextStyle(fontSize: 13, color: _kTextPrimary),
             decoration: InputDecoration(
               prefixIcon: Icon(icon, size: 16, color: _kTextTertiary),

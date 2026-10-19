@@ -12,10 +12,15 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-10-19 21:25 (IST)
-**Current phase:** Phases 0–10 complete. Full device responsiveness overhaul (mobile < 600px, tablet 600–900px, desktop/ultrawide >= 900px) & controller composer visual parity complete.
-**Overall status:** Comprehensive responsive layout overhaul applied across all screens (`GroupChatScreen`, `GroupsScreen`, `FeedScreen`, `NotificationsScreen`, `ProfileScreen`, `MembersScreen`, `CreateGroupScreen`, `ReviewQueueScreen`, `ReviewDetailScreen`, `LoginScreen`, `RegisterScreen`, and `StitchPageHeader`). Fixed hardcoded clamps (e.g. `576px` and `420px`), establishing adaptive content columns, responsive horizontal paddings, responsive message bubble max-widths (`0.84 * screenWidth` on mobile, `540px` on tablet, `640px` on desktop), and non-overflowing session banners. Unified controller composer to have identical modern look-and-feel (white container, input pill, emoji button, attachment button, black Send button) while adhering strictly to anonymity privacy rules (no anonymous checkbox for controller). Verified: `dart format` pass, `flutter analyze` 0 issues, test suites passing.
-**Next step:** Await user feedback and product decisions on remaining open items.
+**Last updated:** 2026-10-20 03:30 (IST)
+**Current phase:** Phases 0–12 complete. Repository professionalization complete: overhauled root `README.md`, authored `LICENSE` (MIT), `CONTRIBUTING.md`, and `SECURITY.md`.
+**Overall status:** 
+1. Transformed `README.md` into an open-source, production-grade documentation portal featuring technology badges, architecture flowcharts, dual-shielded collaboration mechanics, exhaustive 18-feature catalog, comprehensive documentation suite map, quickstart guides (mock vs live), quality gate commands, directory tree, privacy hard rules, and tech stack references.
+2. Added standard MIT `LICENSE` file.
+3. Authored `CONTRIBUTING.md` outlining non-negotiable privacy golden rules (zero-knowledge decoupling, RawMessage isolation), Riverpod development workflows, code style conventions, and PR checklists.
+4. Authored `SECURITY.md` establishing supported versions, zero-knowledge architectural commitments, hardware-backed token storage policies, and coordinated vulnerability disclosure procedures.
+5. All quality gates passing: `dart format` pass, `flutter analyze` 0 issues, automated test suites passing (`privacy_ui_test.dart` and `no_raw_message_import_test.dart`).
+**Next step:** Await user product feedback or backend integration testing.
 **Blockers:** None for frontend. Preview live at `http://127.0.0.1:52000`.
 
 | Phase | Name | Status | Last run # |
@@ -31,10 +36,12 @@ Rules for this file:
 | 8 | Polish and tests | Done | 005 |
 | 9 | Real API | Done | 005 |
 | 10 | UI/UX overhaul | Done | 034 |
+| 11 | Backend Handoff Docs & Profile Polish | Done | 035 |
+| 12 | Repository Professionalization | Done | 036 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
-**Quality gates (latest known):** `dart format` pass (112 files), `flutter analyze` 0 issues (passed), core test suites passing (`privacy_ui_test.dart` 5 passed, `no_raw_message_import_test.dart` passed, `mock_repositories_test.dart` passed) (Run 034).
+**Quality gates (latest known):** `dart format` pass, `flutter analyze` 0 issues (passed in 53.6s), test suites passing (`privacy_ui_test.dart` 5 passed, `no_raw_message_import_test.dart` passed) (Run 035).
 
 ---
 
@@ -58,6 +65,7 @@ Items the user should confirm. Agents add rows here when they make an assumption
 | D12 | API contract in `API.md` is proposed, not confirmed by backend | Used as written | Open | |
 | D13 | `CURSOR_FRONTEND_BRIEF.md` was missing (Run 000 said it existed). Reconstructed this run from the other docs and PRD v1. | Brief section 7 copy and section 9 prompts used as written | Open | |
 | D14 | Groups have no unread field in the API | Unread is the count of published messages newer than the last time that chat was opened, kept in memory for the session | Open | |
+| D15 | Custom image URL text inputs removed in favor of image file uploads | File uploads (`pickImageFile()`) & presets only; backend requires CDN/S3 upload endpoints | Resolved | Image URL inputs removed per user prompt. Backend will accept multipart uploads to `/users/me/avatar` and `/users/me/cover` storing to S3/R2. |
 
 ---
 
@@ -1286,6 +1294,90 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] Frontend only: no backend/NLP/DB code added
 - **Next steps:** Open `http://127.0.0.1:52000/#/groups` in browser or mobile viewport to verify responsive layout transitions and controller message box parity.
 
+### Run 035: Profile UI Cleanup (Remove "(LinkedIn Style)" & Custom URL inputs) and Backend Engineering Handoff Documentation Suite
+- **Date/time:** 2026-10-20 01:05 (IST)
+- **Agent/tool:** Antigravity (Google DeepMind)
+- **Phase:** Phase 11 — Backend Handoff Docs & Profile Polish
+- **Prompt / task:** Remove "(LinkedIn Style)" from profile modal title, remove "Or Custom Image / Photo URL" section so only upload image and presets are used, and write comprehensive engineering handoff documentation (`PRD.md`, `ARCHITECTURE.md`, `PLAN.md`, `HANDOFF.md`) detailing all features, rationale, technical requirements, and database schemas for backend and database teammates.
+- **Result:** Completed
+- **Summary:**
+  1. Updated `lib/features/profile/profile_screen.dart`:
+     - Changed modal header from `'Edit Public Profile (LinkedIn Style)'` to `'Edit Public Profile'`.
+     - Removed `'Or Custom Image / Photo URL'` input field from the profile edit dialog.
+     - Removed `'Or Custom Image URL'` input field from the cover photo edit dialog.
+     - Preserved native file upload (`pickImageFile()`) and curated avatar presets as the exclusive, secure mechanisms.
+     - Removed unused `onChanged` parameter in `_EditProfileTextField` to clear analyzer warning.
+  2. Authored full engineering handoff documentation suite:
+     - `PRD.md`: Full Product Requirements Document detailing vision, problem statements, user personas, role permissions matrix, exhaustive breakdown of all 16 features with rationale, and non-functional security requirements.
+     - `ARCHITECTURE.md`: High-level system architecture, dual-table zero-knowledge anonymity isolation, full PostgreSQL 16 relational DDL schema (with foreign keys, enums, triggers, and indexes), two-stage async NLP pipeline (BullMQ + LLM), real-time WebSocket protocol, and threat mitigations.
+     - `PLAN.md`: 4-sprint, 6-phase engineering roadmap with clear milestones, deliverables, and team ownership matrix.
+     - `HANDOFF.md`: Master feature-by-feature handoff specification with exact HTTP endpoints, JSON request/response contracts, backend database expectations, and a step-by-step verification checklist for switching `USE_MOCK=false`.
+- **Files created:**
+  - `PRD.md`
+  - `ARCHITECTURE.md`
+  - `PLAN.md`
+  - `HANDOFF.md`
+  - `BACKEND_DATABASE_HANDOFF_REPORT.md`
+- **Files modified:**
+  - `lib/features/profile/profile_screen.dart`
+  - `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `dart format lib/features/profile/profile_screen.dart` -> pass
+  - `flutter analyze` -> pass (No issues found in 53.6s)
+  - `flutter test test/privacy_ui_test.dart test/no_raw_message_import_test.dart` -> pass (All 6 tests passed in 4s)
+- **Docs updated:** `PRD.md`, `ARCHITECTURE.md`, `PLAN.md`, `HANDOFF.md`, `BACKEND_DATABASE_HANDOFF_REPORT.md`, `LOGS.md` (Status Snapshot updated, Run 035 appended).
+- **Assumptions / decisions:** Custom photo URL text inputs removed per user prompt in favor of file uploads (`pickImageFile()`) and avatar presets; documented S3/R2 endpoints in `ARCHITECTURE.md` and `HANDOFF.md` (D15).
+- **Hard-rules check:**
+  - [x] Group-facing code uses only PublishedMessage (no RawMessage import)
+  - [x] No "show original" UI anywhere in contributor-facing code
+  - [x] Anonymity disclosure shown next to the checkbox, above Send (contributor composer)
+  - [x] No anonymous checkbox on controller composer
+  - [x] No logging of message text or sender identity
+  - [x] No out-of-scope feature added
+  - [x] Frontend only: no backend/NLP/DB code written into codebase; schemas provided in external markdown specs
+- **Next steps:** Backend and database engineers implement services according to `PLAN.md` and `HANDOFF.md`, and test live against the Flutter client using `--dart-define=USE_MOCK=false`.
 
-
-
+### Run 036: Repository Professionalization (README Overhaul, LICENSE, CONTRIBUTING, SECURITY)
+- **Date/time:** 2026-10-20 03:30 (IST)
+- **Agent/tool:** Antigravity (Google DeepMind)
+- **Phase:** Phase 12 — Repository Professionalization
+- **Prompt / task:** Make the repo more professional (README, guidelines, policies, open-source standard assets).
+- **Result:** Completed
+- **Summary:**
+  1. Overhauled `README.md` into an open-source, production-grade documentation portal:
+     - Badges: Flutter 3.x, Dart 3.x, Riverpod 2.x, GoRouter, Zero-Knowledge Privacy, MIT License, Multi-Platform.
+     - Dual-shielded collaboration problem/solution breakdown & Mermaid flowchart.
+     - Complete 18-feature catalog with screen links and descriptions.
+     - Complete documentation suite map (links to `BACKEND_DATABASE_HANDOFF_REPORT.md`, `PRD.md`, `ARCHITECTURE.md`, `PLAN.md`, `HANDOFF.md`, `API.md`, `DATA.md`).
+     - Quickstart setup instructions (code generation, mock mode, live API connection).
+     - CI quality gate commands and test coverage details.
+     - Feature-first directory tree and technology stack specs.
+  2. Created standard open-source `LICENSE` (MIT).
+  3. Created `CONTRIBUTING.md` outlining the 6 non-negotiable privacy golden rules, Riverpod architectural standards, code style, and PR checklist.
+  4. Created `SECURITY.md` establishing supported versions, zero-knowledge architectural commitments, hardware-backed token storage policies, and coordinated vulnerability disclosure procedures.
+- **Files created:**
+  - `LICENSE`
+  - `CONTRIBUTING.md`
+  - `SECURITY.md`
+- **Files modified:**
+  - `README.md`
+  - `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `dart format` -> pass
+  - `flutter analyze` -> pass (0 issues found)
+  - `flutter test test/privacy_ui_test.dart test/no_raw_message_import_test.dart` -> pass (all tests passing)
+- **Docs updated:** `README.md`, `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`, `LOGS.md` (Status Snapshot updated, Run 036 appended).
+- **Assumptions / decisions:** Standardized repository root to open-source enterprise standards.
+- **Hard-rules check:**
+  - [x] Group-facing code uses only PublishedMessage (no RawMessage import)
+  - [x] No "show original" UI anywhere in contributor-facing code
+  - [x] Anonymity disclosure shown next to the checkbox, above Send (contributor composer)
+  - [x] No anonymous checkbox on controller composer
+  - [x] No logging of message text or sender identity
+  - [x] No out-of-scope feature added
+  - [x] Frontend only: no backend/NLP/DB code written into codebase
+- **Next steps:** Open `http://127.0.0.1:52000/#/login` to explore the live web build or share the new documentation portal with collaborators.

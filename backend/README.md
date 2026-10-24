@@ -13,6 +13,23 @@ NLP. Feed content analysis goes through an isolated provider boundary
 provider (`FEED_PROVIDER=fake`); a real Team 12 adapter would implement the
 same internal contract without touching the database.
 
+## Groups rewrite pipeline (external Python worker)
+
+The real groups pipeline is built by a teammate in Python and plugs in through
+the versioned contract in `docs/groups-pipeline-contract.md`
+(contract_version: 1). The backend contains no NLP logic.
+
+- `PIPELINE_MODE=stub` (default): the in-process stub worker runs as today.
+- `PIPELINE_MODE=external`: the stub worker is suppressed; the Python worker
+  claims jobs at `POST /internal/pipeline/claim` and reports via
+  `/internal/pipeline/result` or `/internal/pipeline/fail`, authenticated
+  with the `X-Pipeline-Key` header (`PIPELINE_API_KEY`; unset disables the
+  internal API with 503). The worker never touches the database and never
+  receives sender identity or `is_anonymous`.
+- `scripts/fake-external-worker.sh` is a **test tool** (not a pipeline) that
+  claims one job and posts a canned result.
+- Submissions longer than `PIPELINE_MAX_INPUT_CHARS` are rejected with 422.
+
 ## Feed analysis notes
 
 - Posts and comments are analyzed asynchronously through the `jobs` outbox

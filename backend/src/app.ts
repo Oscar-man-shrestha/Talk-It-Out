@@ -5,6 +5,7 @@ import { Pool } from 'pg';
 import { Config } from './config';
 import { ApiError } from './errors';
 import { createApiRouter } from './routes';
+import { createInternalPipelineRouter } from './internal/pipeline';
 
 /**
  * Every error leaves the API as {"error":{"code","message"}} — including
@@ -56,6 +57,11 @@ export function buildApp(pool: Pool, appConfig: Config): Express {
   const api = createApiRouter(pool, appConfig);
   app.use('/', api);
   app.use('/api/v1', api);
+
+  // Internal pipeline API for the external Python worker. Mounted ONLY
+  // here — never under the Flutter-facing paths — and disabled (503)
+  // unless PIPELINE_API_KEY is set. See docs/groups-pipeline-contract.md.
+  app.use('/internal/pipeline', createInternalPipelineRouter(pool, appConfig));
 
   app.use((req: Request, res: Response) => {
     res

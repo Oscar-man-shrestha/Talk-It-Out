@@ -12,8 +12,8 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-10-24 12:05 (IST)
-**Current phase:** Phases 0–12 complete (frontend). Backend v1 slice plus slice 2 (group operations, feed, feed-analysis adapter) built on branch `backendv1` under `backend/`.
+**Last updated:** 2026-10-24 13:10 (IST)
+**Current phase:** Phases 0–12 complete (frontend). Backend v1 + slice 2 + groups-pipeline integration contract (for the external Python worker) built on branch `backendv1` under `backend/`.
 **Overall status:** 
 1. Transformed `README.md` into an open-source, production-grade documentation portal featuring technology badges, architecture flowcharts, dual-shielded collaboration mechanics, exhaustive 18-feature catalog, comprehensive documentation suite map, quickstart guides (mock vs live), quality gate commands, directory tree, privacy hard rules, and tech stack references.
 2. Added standard MIT `LICENSE` file.
@@ -21,7 +21,7 @@ Rules for this file:
 4. Authored `SECURITY.md` establishing supported versions, zero-knowledge architectural commitments, hardware-backed token storage policies, and coordinated vulnerability disclosure procedures.
 5. All quality gates passing: `dart format` pass, `flutter analyze` 0 issues, automated test suites passing (`privacy_ui_test.dart` and `no_raw_message_import_test.dart`).
 **Next step:** Integrate the Flutter app with the live backend (`USE_MOCK=false`, API base `http://localhost:3000`). This first needs the Flutter login-screen fix (it currently overrides the typed email/password). All client group/feed repository calls now have matching backend endpoints.
-**Blockers:** None for frontend (preview `http://127.0.0.1:52000`). Backend slices 1–2 are green (94/94 tests, lint and build clean); the NLP rewrite pipeline and the feed moderation provider are stubs/fakes.
+**Blockers:** None for frontend (preview `http://127.0.0.1:52000`). Backend slices 1–3 are green (108/108 tests, lint and build clean); the NLP rewrite pipeline (external Python worker now has a versioned contract to plug into: `backend/docs/groups-pipeline-contract.md`) and the feed moderation provider remain stubs/fakes.
 
 | Phase | Name | Status | Last run # |
 |---|---|---|---|
@@ -40,6 +40,7 @@ Rules for this file:
 | 12 | Repository Professionalization | Done | 036 |
 | 13 | Backend v1 slice (branch `backendv1`, `backend/`) | Done | 037 |
 | 14 | Backend slice 2: group ops, feed, feed-analysis adapter | Done | 038 |
+| 15 | Groups pipeline integration contract + internal worker API | Done | 039 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -1466,3 +1467,37 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] No logging of raw text, passwords, tokens, or sender identity — feed worker logs job ids/outcomes only; enforced by `test/privacy.logs.test.ts` and `test/feed-analysis.test.ts`
   - [x] Backend only: no Flutter file touched; only `LOGS.md` edited outside `backend/`
 - **Next steps:** Fix the Flutter login screen override and integrate with `USE_MOCK=false`; decide D16/D17; swap the fake feed provider for the real Team 12 adapter behind the same internal contract.
+
+### Run 039: Groups pipeline integration contract + internal worker API
+- **Date/time:** 2026-10-24 13:10 (IST)
+- **Agent/tool:** ZCode (GLM), backend agent under `backend/AGENTS.md`
+- **Phase:** 15 — Groups pipeline integration contract
+- **Prompt / task:** Define and implement the backend side of a versioned contract so a separate Python worker can process groups submissions with no change to the Flutter API or the database schema. No NLP/rewriting/scoring logic; the stub worker's behavior is untouched.
+- **Result:** Completed
+- **Summary:** Wrote `backend/docs/groups-pipeline-contract.md` (contract_version 1: claim/result/fail over HTTP, never direct DB access; payload/limit/lease/retry/idempotency/failure semantics; X-Pipeline-Key auth; privacy rules; JSON examples; a Python worker sketch) and implemented `POST /internal/pipeline/{claim,result,fail}` in `src/internal/pipeline.ts`, mounted only at `/internal/pipeline` (never under the Flutter paths). Claims use FOR UPDATE SKIP LOCKED with leases implemented by reusing `jobs.run_after` (running + past run_after = claimable again) — zero schema change. Results are strictly zod-validated, applied in one transaction only while the message is still pending, idempotent on duplicates, and discarded for decided messages; invalid results count as failed attempts with backoff until `PIPELINE_MAX_ATTEMPTS`, after which `pipeline_status='failed'` while the message stays controller-reviewable (accept still 409 without a rewrite). `PIPELINE_MODE=external` suppresses the stub worker at startup so the two consumers can never compete. Verified live: wrong key 401, accept-before-rewrite 409, `scripts/fake-external-worker.sh` claimed and applied, accept 200, chat shows the external rewrite with `display_sender: null`.
+- **Files created (all inside `backend/`):** `docs/groups-pipeline-contract.md`, `src/internal/pipeline.ts`, `test/pipeline-internal.test.ts` (14 tests), `scripts/fake-external-worker.sh` (test tool, NOT a pipeline)
+- **Files modified (all inside `backend/` except LOGS.md):** `src/config.ts` (+pipelineMode/pipelineApiKey/pipelineMaxInputChars/pipelineMaxOutputChars/pipelineLeaseSeconds/pipelineMaxAttempts, +`stubWorkerShouldRun`), `src/app.ts` (internal router mount), `src/server.ts` (stub suppressed in external mode), `src/routes/groups.ts` + `src/routes/index.ts` (submission rejects text over `PIPELINE_MAX_INPUT_CHARS` with 422), `test/helpers.ts` (per-test config overrides), `.env.example` (+6 PIPELINE_* vars), local `.env` (generated `PIPELINE_API_KEY`), `README.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `npm test` -> **108 passed, 0 failed** (15 files; 14 new)
+  - `npm run lint` -> pass (0 problems) · `npm run build` (tsc) -> pass
+  - Live external-mode run (server started `PIPELINE_MODE=external PIPELINE_API_KEY=…`): submit → wrong key 401 → accept-before-rewrite 409 → `fake-external-worker.sh` claim+result `{"applied":true}` → accept 200 → chat shows the external rewrite anonymously → mine accepted
+- **Docs updated:** `LOGS.md`; `backend/docs/groups-pipeline-contract.md` and `backend/README.md` created/updated. `API.md`/`DATA.md` unchanged (no public API change).
+- **Assumptions / decisions:**
+  - Leases reuse `jobs.run_after` (pending+past = due; running+past = lease expired) so the database schema is untouched, per the goal. Documented in code and contract.
+  - `claim` first marks not-yet-decided stale jobs done (jobs whose message was accepted/rejected are never handed to the worker).
+  - `result` with `outcome:"error"` is equivalent to `/fail`; `/fail` only applies to a `running` job (one decision per claim); attempts are counted per claim, so crash-looping claimants eventually fail the job. Backoff is 2s × attempts.
+  - Malformed results return the standard 422 envelope AND count as a failed attempt when the job id is identifiable; a `raw_message_id`/`job_id` mismatch is 422.
+  - `X-Pipeline-Key` compared via SHA-256 + `timingSafeEqual` (constant time, no length leak); unset key disables the routes with 503 `internal_api_disabled`.
+  - Claim payload keys are exactly job_id/raw_message_id/text/group_agenda/contract_version (test asserts exact keys; no sender id, no `is_anonymous`, no names; text never logged on either side).
+  - Internal routes are mounted only at `/internal/pipeline`, outside the `/` and `/api/v1` mounts.
+  - `stubWorkerShouldRun` lives in config.ts so the stub/external mutual exclusion is unit-testable without booting the server.
+- **Issues / blockers / known bugs:** The **real groups pipeline is not implemented** (stub unchanged; fake external worker is a labeled test tool). No per-job server-side timeout — the lease is the timeout (documented). `run_after` doubling as lease is a v1 simplification; if real leases need separate accounting later, add a nullable `lease_expires_at` via a new migration.
+- **Hard-rules check:**
+  - [x] No NLP/rewriting/scoring/classification logic added — results are stored as received after validation
+  - [x] Stub worker behavior untouched (kind filter from slice 2 only) and auto-suppressed in external mode
+  - [x] Worker never receives sender identity, `is_anonymous`, other members' data, or credentials; no raw text in logs on either side (tests assert)
+  - [x] Public API and database schema unchanged; relevance stays advisory (no hiding/rejecting)
+  - [x] Backend only: no Flutter file touched; only `LOGS.md` edited outside `backend/`
+- **Next steps:** Hand `docs/groups-pipeline-contract.md` to the Python pipeline teammate; when their worker is ready, run the backend with `PIPELINE_MODE=external` + a generated `PIPELINE_API_KEY` and re-run `scripts/fake-external-worker.sh` as the smoke test pattern. Flutter login-screen fix and `USE_MOCK=false` integration remain the frontend next step.

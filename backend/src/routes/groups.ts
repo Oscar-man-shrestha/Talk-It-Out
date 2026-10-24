@@ -30,11 +30,7 @@ const addMemberSchema = z.object({
 });
 
 const sendMessageSchema = z.object({
-  text: z
-    .string()
-    .trim()
-    .min(1, 'Write a message before sending.')
-    .max(5000, 'Message is too long.'),
+  text: z.string().trim().min(1, 'Write a message before sending.'),
   is_anonymous: z.boolean().default(false),
 });
 
@@ -119,9 +115,21 @@ function requireUuid(value: string, what: string): string {
   return value;
 }
 
-export function createGroupsRouter(pool: Pool, requireAuth: RequireAuth): Router {
+export function createGroupsRouter(
+  pool: Pool,
+  requireAuth: RequireAuth,
+  maxInputChars: number,
+): Router {
   const router = Router();
   router.use(requireAuth);
+  // Submission-time pipeline limit: the rewrite pipeline never receives
+  // text longer than PIPELINE_MAX_INPUT_CHARS (docs/groups-pipeline-contract.md §6).
+  const submitSchema = sendMessageSchema.extend({
+    text: sendMessageSchema.shape.text.max(
+      maxInputChars,
+      `Messages must be at most ${maxInputChars} characters.`,
+    ),
+  });
 
   router.post('/', async (req, res) => {
     const body = parseWith(createGroupSchema, req.body);
@@ -246,7 +254,7 @@ export function createGroupsRouter(pool: Pool, requireAuth: RequireAuth): Router
     if (role === 'controller') {
       throw forbidden('Controllers review messages instead of sending them.');
     }
-    const body = parseWith(sendMessageSchema, req.body);
+    const body = parseWith(submitSchema, req.body);
 
     const result = await withTransaction(pool, async (client) => {
       const { rows } = await client.query(

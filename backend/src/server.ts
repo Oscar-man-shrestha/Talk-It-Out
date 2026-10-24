@@ -1,4 +1,4 @@
-import { config } from './config';
+import { config, stubWorkerShouldRun } from './config';
 import { createPool } from './db';
 import { buildApp } from './app';
 import { startStubWorkerLoop } from './worker/stubWorker';
@@ -13,9 +13,14 @@ async function main() {
   });
 
   let stopWorker: (() => void) | undefined;
-  if (config.runStubWorker) {
+  if (stubWorkerShouldRun(config)) {
     stopWorker = startStubWorkerLoop(pool);
     console.log('Stub rewrite worker running in-process (NOT the real NLP pipeline).');
+  } else if (config.runStubWorker && config.pipelineMode === 'external') {
+    // The external Python worker owns the jobs; the stub must not compete.
+    console.log(
+      'PIPELINE_MODE=external: stub rewrite worker suppressed; the external worker claims at /internal/pipeline/*.',
+    );
   }
 
   let stopFeedWorker: (() => void) | undefined;

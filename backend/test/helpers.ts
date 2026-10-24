@@ -15,8 +15,8 @@ export function testPool(): Pool {
   return pool;
 }
 
-export function testApp(): Express {
-  return buildApp(testPool(), config);
+export function testApp(overrides: Partial<Config> = {}): Express {
+  return buildApp(testPool(), { ...config, ...overrides });
 }
 
 export async function ensureSchema(): Promise<void> {

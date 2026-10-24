@@ -15,6 +15,27 @@ export interface Config {
   runStubWorker: boolean;
   feedProvider: string;
   runFeedWorker: boolean;
+  /** 'stub' runs the in-process stub; 'external' waits for the Python worker. */
+  pipelineMode: 'stub' | 'external';
+  /** Shared secret for /internal/pipeline/*; empty string disables the API. */
+  pipelineApiKey: string;
+  pipelineMaxInputChars: number;
+  pipelineMaxOutputChars: number;
+  pipelineLeaseSeconds: number;
+  pipelineMaxAttempts: number;
+}
+
+/**
+ * The in-process stub worker must never run in external mode, or it would
+ * compete with the external Python worker for the same jobs.
+ */
+export function stubWorkerShouldRun(config: Config): boolean {
+  return config.runStubWorker && config.pipelineMode === 'stub';
+}
+
+function positiveInt(env: NodeJS.ProcessEnv, name: string, fallback: number): number {
+  const parsed = Number.parseInt(env[name] ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 export function parseCorsOrigins(raw: string | undefined): string[] | '*' {
@@ -52,6 +73,12 @@ function makeConfig(env: NodeJS.ProcessEnv, jwtSecret: string): Config {
     runStubWorker: (env.RUN_STUB_WORKER ?? 'false').toLowerCase() === 'true',
     feedProvider: env.FEED_PROVIDER ?? 'fake',
     runFeedWorker: (env.RUN_FEED_WORKER ?? 'false').toLowerCase() === 'true',
+    pipelineMode: env.PIPELINE_MODE === 'external' ? 'external' : 'stub',
+    pipelineApiKey: env.PIPELINE_API_KEY ?? '',
+    pipelineMaxInputChars: positiveInt(env, 'PIPELINE_MAX_INPUT_CHARS', 5000),
+    pipelineMaxOutputChars: positiveInt(env, 'PIPELINE_MAX_OUTPUT_CHARS', 8000),
+    pipelineLeaseSeconds: positiveInt(env, 'PIPELINE_LEASE_SECONDS', 300),
+    pipelineMaxAttempts: positiveInt(env, 'PIPELINE_MAX_ATTEMPTS', 3),
   };
 }
 

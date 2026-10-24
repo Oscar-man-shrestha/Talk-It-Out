@@ -24,7 +24,10 @@ export function createApiRouter(pool: Pool, appConfig: Config): Router {
 
   router.use('/auth', createAuthRouter(pool, appConfig.jwtSecret, requireAuth));
   router.get('/me', requireAuth, createMeHandler());
-  router.use('/groups', createGroupsRouter(pool, requireAuth));
+  router.use(
+    '/groups',
+    createGroupsRouter(pool, requireAuth, appConfig.pipelineMaxInputChars),
+  );
   router.use('/messages', createMessagesRouter(pool, requireAuth));
   router.use('/posts', createFeedRouter(pool, requireAuth));
   router.use('/notifications', createNotificationsRouter(pool, requireAuth));

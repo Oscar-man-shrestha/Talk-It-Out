@@ -12,16 +12,16 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-10-20 03:30 (IST)
-**Current phase:** Phases 0–12 complete. Repository professionalization complete: overhauled root `README.md`, authored `LICENSE` (MIT), `CONTRIBUTING.md`, and `SECURITY.md`.
+**Last updated:** 2026-10-24 12:05 (IST)
+**Current phase:** Phases 0–12 complete (frontend). Backend v1 slice plus slice 2 (group operations, feed, feed-analysis adapter) built on branch `backendv1` under `backend/`.
 **Overall status:** 
 1. Transformed `README.md` into an open-source, production-grade documentation portal featuring technology badges, architecture flowcharts, dual-shielded collaboration mechanics, exhaustive 18-feature catalog, comprehensive documentation suite map, quickstart guides (mock vs live), quality gate commands, directory tree, privacy hard rules, and tech stack references.
 2. Added standard MIT `LICENSE` file.
 3. Authored `CONTRIBUTING.md` outlining non-negotiable privacy golden rules (zero-knowledge decoupling, RawMessage isolation), Riverpod development workflows, code style conventions, and PR checklists.
 4. Authored `SECURITY.md` establishing supported versions, zero-knowledge architectural commitments, hardware-backed token storage policies, and coordinated vulnerability disclosure procedures.
 5. All quality gates passing: `dart format` pass, `flutter analyze` 0 issues, automated test suites passing (`privacy_ui_test.dart` and `no_raw_message_import_test.dart`).
-**Next step:** Await user product feedback or backend integration testing.
-**Blockers:** None for frontend. Preview live at `http://127.0.0.1:52000`.
+**Next step:** Integrate the Flutter app with the live backend (`USE_MOCK=false`, API base `http://localhost:3000`). This first needs the Flutter login-screen fix (it currently overrides the typed email/password). All client group/feed repository calls now have matching backend endpoints.
+**Blockers:** None for frontend (preview `http://127.0.0.1:52000`). Backend slices 1–2 are green (94/94 tests, lint and build clean); the NLP rewrite pipeline and the feed moderation provider are stubs/fakes.
 
 | Phase | Name | Status | Last run # |
 |---|---|---|---|
@@ -38,6 +38,8 @@ Rules for this file:
 | 10 | UI/UX overhaul | Done | 034 |
 | 11 | Backend Handoff Docs & Profile Polish | Done | 035 |
 | 12 | Repository Professionalization | Done | 036 |
+| 13 | Backend v1 slice (branch `backendv1`, `backend/`) | Done | 037 |
+| 14 | Backend slice 2: group ops, feed, feed-analysis adapter | Done | 038 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -66,6 +68,8 @@ Items the user should confirm. Agents add rows here when they make an assumption
 | D13 | `CURSOR_FRONTEND_BRIEF.md` was missing (Run 000 said it existed). Reconstructed this run from the other docs and PRD v1. | Brief section 7 copy and section 9 prompts used as written | Open | |
 | D14 | Groups have no unread field in the API | Unread is the count of published messages newer than the last time that chat was opened, kept in memory for the session | Open | |
 | D15 | Custom image URL text inputs removed in favor of image file uploads | File uploads (`pickImageFile()`) & presets only; backend requires CDN/S3 upload endpoints | Resolved | Image URL inputs removed per user prompt. Backend will accept multipart uploads to `/users/me/avatar` and `/users/me/cover` storing to S3/R2. |
+| D16 | Backend list orderings and small response defaults not pinned by the client contract | Backend orders: groups & notifications newest-first, `/messages/mine` newest-first, members / chat / review-queue oldest-first; `POST /notifications/:id/read` returns 204 with no body; a notification not owned by the caller is 404 (no existence leak); invalid `limit`/`cursor` → 400 envelope; `limit` clamped to 100 | Open | |
+| D17 | How the real NLP pipeline replaces the stub worker | `backend/src/worker/stubWorker.ts` is a labeled placeholder (prefix "rewrite", constant scores) behind the `jobs` outbox; swap the `processJob` body, keep the pending-only guards | Open | |
 
 ---
 
@@ -1381,3 +1385,84 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] No out-of-scope feature added
   - [x] Frontend only: no backend/NLP/DB code written into codebase
 - **Next steps:** Open `http://127.0.0.1:52000/#/login` to explore the live web build or share the new documentation portal with collaborators.
+
+### Run 037: Backend v1 slice (auth, groups, moderated messaging, notifications)
+- **Date/time:** 2026-10-24 11:00 (IST)
+- **Agent/tool:** ZCode (GLM), backend agent under `backend/AGENTS.md`
+- **Phase:** 13 — Backend v1 slice
+- **Prompt / task:** Implement the Express + PostgreSQL backend under `backend/` on branch `backendv1`, using the Flutter `Api*Repository` classes and `*.g.dart` models as the HTTP contract. (Run was interrupted once by a service error and resumed; source files were finished, not redone.)
+- **Result:** Completed
+- **Summary:** Built and verified the full v1 backend slice: JWT auth (argon2), groups with one controller per group, member add by username, anonymous/non-anonymous message submission through a `raw_messages` + `jobs` outbox transaction, a clearly-labeled stub rewrite worker (queued→processing→done with pending-only guards), controller review queue, accept (publishes only the rewrite, single published row under concurrency) and reject (reason-free notification), published chat with `display_sender` null for anonymous rows, `/messages/mine` status-only, and notifications with unread count. Every error is the `{"error":{code,message}}` envelope; lists are `{items,next_cursor}` keyset pages. 67 supertest/vitest tests and eslint pass; a live curl flow was verified against the running server (see `backend/scripts/demo-flow.sh`).
+- **Files created (all inside `backend/`):** `package.json`, `tsconfig.json`, `eslint.config.mjs`, `vitest.config.ts`, `.gitignore`, `.env.example` (`.env` generated locally, gitignored), `docker-compose.yml`, `docker/init.sql` (app + separate test db), `migrations/001_init.sql`, `README.md`, `scripts/demo-flow.sh`, `src/{app,config,db,errors,migrate,migrate-cli,pagination,server,types}.ts`, `src/middleware/auth.ts`, `src/routes/{auth,groups,messages,notifications,index}.ts`, `src/worker/stubWorker.ts`, `test/{helpers,health.errors,auth,groups,flow,review,worker.accept,db.constraints,contract,notifications,privacy.logs,pagination}.test.ts`
+- **Files modified:** `LOGS.md` only (this entry + snapshot + D16/D17). No Flutter file was touched. (The `M AGENTS.md` / `M lib/**.g.dart` entries in git status predate this run.)
+- **Files deleted:** none
+- **Dependencies added:** express 5, pg, zod 3, argon2, jsonwebtoken, cors, dotenv; dev: typescript, tsx, vitest, supertest, eslint (+typescript-eslint), @types/*
+- **Commands run and results:**
+  - `docker compose up -d` -> Postgres 16 healthy on host port 5433 (app db + test db)
+  - `npm install` -> pass (after fixing argon2 to ^0.45.1)
+  - `npm run migrate` (and `-- --test-db`) -> applied `001_init.sql` to both databases
+  - `npm test` -> **67 passed, 0 failed** (11 files)
+  - `npm run lint` -> pass (0 problems)
+  - `npm run build` (tsc) -> pass
+  - Live flow `bash scripts/demo-flow.sh` against `RUN_STUB_WORKER=true npm run dev` -> full submit→worker→accept→chat→notifications→reject flow verified, chat shows no forbidden keys
+- **Docs updated:** `LOGS.md`; `backend/README.md` created. `API.md`/`DATA.md` unchanged (the implemented contract matches the client code, which is the source of truth; ordering/nullability gaps recorded as D16).
+- **Assumptions / decisions:**
+  - Stack per task: TypeScript + Express 5 + PostgreSQL 16 (pg, plain SQL migrations, no ORM) + zod + argon2 + jsonwebtoken; vitest + supertest; eslint 9 flat config.
+  - Same router mounted at `/` and `/api/v1` (Flutter default base `http://localhost:3000`).
+  - Username derived at registration: lowercased email local-part restricted to `[a-z0-9._-]`; on collision `-` + first 4 hex of the user id (longer suffixes only in the pathological case). Case-insensitive lookup on member add.
+  - Submission inserts raw message + outbox job + controller notification in one transaction; the job row holds only `raw_message_id`.
+  - Stub worker: `FOR UPDATE SKIP LOCKED` claim, queued→processing→done, `rewritten_text='[stub rewrite] '||original_text`, scores 0.9/0.8, label `relevant`; every update guarded by `status='pending'` so late results never change a decided message; bounded retries (3 attempts, linear backoff) then `pipeline_status='failed'`. Idempotent: rewrite recomputed from the original, never stacked.
+  - Accept requires `pipeline_status='done'` + non-empty rewrite, else **409 "This message has no rewrite yet."**; any repeat decision is 409 `already_decided`; concurrent accepts yield one published row (row lock + re-check).
+  - Pagination: opaque base64 keyset cursor on (timestamp,id); timestamps are truncated to milliseconds so cursors survive the JS Date round-trip; invalid limit/cursor → 400 envelope; limit clamped to 100.
+  - List orderings and the 204 mark-read response recorded as D16.
+  - Logging: only method+path for 500s and worker error names; never bodies, tokens, or message text (enforced by `test/privacy.logs.test.ts`).
+- **Issues / blockers / known bugs:** The real NLP pipeline is not implemented (stub only, D17). The Flutter app was NOT verified against this backend — the login screen currently overrides the typed email/password (separate frontend fix), and the client also calls controller-direct-message/delete/remove/leave endpoints that are intentionally outside this slice.
+- **Hard-rules check:**
+  - [x] Group-facing responses contain only `PublishedMessage` fields (no `raw_message_id`, `original_text`, `sender_id`, `is_anonymous`) — enforced by tests
+  - [x] Review endpoints 403 anyone who is not that group's controller — enforced by tests
+  - [x] `messages/mine` returns status only (id, group_id, status, is_anonymous, created_at)
+  - [x] Rejection notifications carry no reason
+  - [x] No logging of raw text, passwords, tokens, or sender identity — enforced by tests
+  - [x] No controller transfer, auto-approve, rejection reasons, or relevance-based hiding invented
+  - [x] Backend only: no Flutter file touched; only `LOGS.md` edited outside `backend/`
+- **Next steps:** Fix the Flutter login screen override, then run the app with `--dart-define=USE_MOCK=false --dart-define=API_BASE_URL=http://localhost:3000` against `RUN_STUB_WORKER=true npm run dev`. Decide D16/D17.
+
+### Run 038: Backend slice 2 — group operations, public feed, feed-analysis adapter
+- **Date/time:** 2026-10-24 12:05 (IST)
+- **Agent/tool:** ZCode (GLM), backend agent under `backend/AGENTS.md`
+- **Phase:** 14 — Backend slice 2
+- **Prompt / task:** Implement Part A group operations (controller direct message, delete message, remove member, leave), Part B feed (posts/comments/likes, post-to-group, analysis tracking), and Part C isolated feed-analysis adapter with a fake provider and outbox worker. Contract = Flutter `Api*Repository` code and `*.g.dart` models.
+- **Result:** Completed
+- **Summary:** All four group operations, the full feed surface, and the Team 12 feed-analysis boundary are implemented and verified: **94/94 tests** (14 files; 27 new), eslint clean, `tsc` build clean, and a live curl run of the extended `scripts/demo-flow.sh` against `RUN_STUB_WORKER=true RUN_FEED_WORKER=true npm run dev` (controller announcement publishes directly with attribution; post with `nsfw-test` gets `nsfw_flag:true` + provider flags from the fake analysis; like and comment counts from rows; post converts to a group whose agenda is the post content).
+- **Files created (all inside `backend/`):**
+  - `migrations/002_feed.sql` — posts, comments, post_likes, analysis-tracking columns (analysis_status/analysis_nsfw/analysis_flags jsonb/analysis_provider_version/content_revision), `jobs` extended for a second kind (`analyze_feed_content` with content_type/content_id/content_revision, `raw_message_id` now nullable, CHECK enforcing per-kind payload shape), `groups.source_post_id` FK
+  - `migrations/003_one_group_per_post.sql` — partial unique index on `groups(source_post_id)` so a post converts at most once
+  - `src/routes/feed.ts` — all `/posts` endpoints
+  - `src/feed-analysis/provider.ts` — internal boundary contract (contract_version 1, NOT Team 12's), strict zod result schema, deterministic fake provider (flags the literal word "nsfw-test") with normal/unavailable/error modes, `createFeedProvider` factory
+  - `src/feed-analysis/worker.ts` — `runFeedWorkerOnce`/`startFeedWorkerLoop`: claims `analyze_feed_content` jobs FOR UPDATE SKIP LOCKED, per-call timeout, bounded retries with backoff, stale `content_revision` results discarded, malformed provider output → failed (never "safe")
+  - `test/group-ops.test.ts` (10 tests), `test/feed.test.ts` (9), `test/feed-analysis.test.ts` (8)
+- **Files modified (all inside `backend/` except LOGS.md):** `src/routes/groups.ts` (4 new endpoints; review queue + pending counts now require the author to still be a member), `src/routes/index.ts`, `src/worker/stubWorker.ts` (claims only `process_raw_message` jobs so it can never eat feed jobs), `src/config.ts`, `src/server.ts`, `src/app.ts` (opt-in `LOG_ERROR_STACKS=1` for 500 stack traces; still no bodies logged), `test/helpers.ts`, `.env.example` (+`FEED_PROVIDER`, `RUN_FEED_WORKER`), local `.env`, `README.md`, `scripts/demo-flow.sh`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `npm run migrate` (+ `-- --test-db`) -> applied 002 and 003 to both databases
+  - `npm test` -> **94 passed, 0 failed** (14 files)
+  - `npm run lint` -> pass (0 problems)
+  - `npm run build` (tsc) -> pass
+  - Live `bash scripts/demo-flow.sh` -> full slice-1 + slice-2 flow verified
+- **Docs updated:** `LOGS.md` (this entry + snapshot); `backend/README.md`. `API.md`/`DATA.md` untouched (client code is the contract).
+- **Assumptions / decisions:**
+  - Part A: controller announcements publish directly (`is_controller=true`, never anonymous, no raw message/job/review rows); delete is controller-only and idempotent-404; removed members' pending items leave the queue via an author-membership EXISTS filter (counts stay consistent with the queue) while their raw rows remain for audit; leaving is 403 for non-members and the exact message "Controllers must transfer ownership before leaving." for controllers — transfer itself is NOT implemented (per D4).
+  - Part B: `nsfw_flag`/`other_flags` serialize as false/`{}` unless `analysis_status='complete'` (the client model cannot represent pending/failed/unavailable; DB keeps the true status — code comment in 002 + `src/routes/feed.ts`); reaction/comment counts computed from rows (no stored counters); reactions are per-user idempotent with only `type:"like"` accepted (422 otherwise); feed list orderings: posts newest-first, comments oldest-first; post→group is author-only, agenda = post content, `source_post_id` = post id, second conversion 409.
+  - Part C: one outbox table, two job kinds, two independent claim queries/loops; provider requests carry only request_id, content type/id/revision, and the post/comment text (no group data, no sender identity, no credentials); `outcome:'unavailable'` records analysis_status 'unavailable' and finishes the job (no retry); `outcome:'error'`/timeouts retry up to 3 attempts with linear backoff, then job+content 'failed'; stale revision = result discarded with the job marked done; malformed output fails fast.
+  - `FEED_PROVIDER` default `fake`, unknown names fail server startup loudly; `RUN_FEED_WORKER` default false, `.env.example` documents `true` for dev.
+  - Dev note: an orphaned pre-slice-2 node process held port 3000 during the first live check (served 404s for new routes); killed it, restarted, and re-verified. If `/posts` ever 404s on a "running" server, check for a stale listener (`netstat -ano | grep :3000`).
+- **Issues / blockers / known bugs:** Real NLP rewrite pipeline still stubbed (D17); feed moderation provider is the fake (flagging only the literal "nsfw-test"); no content editing yet (the `content_revision` machinery is ready for it); Flutter app NOT verified against the backend (login-screen override still a frontend fix; untested claims are never made).
+- **Hard-rules check:**
+  - [x] Group-facing responses still contain only `PublishedMessage` fields (controller announcements and deletions included; tests re-run)
+  - [x] Review endpoints still 403 non-controllers; queue hides removed members' pending items
+  - [x] `messages/mine` unchanged (status only)
+  - [x] No rejection reasons, no auto-approve, no relevance-based hiding, no invented controller transfer (leave returns the exact 409 message)
+  - [x] No logging of raw text, passwords, tokens, or sender identity — feed worker logs job ids/outcomes only; enforced by `test/privacy.logs.test.ts` and `test/feed-analysis.test.ts`
+  - [x] Backend only: no Flutter file touched; only `LOGS.md` edited outside `backend/`
+- **Next steps:** Fix the Flutter login screen override and integrate with `USE_MOCK=false`; decide D16/D17; swap the fake feed provider for the real Team 12 adapter behind the same internal contract.

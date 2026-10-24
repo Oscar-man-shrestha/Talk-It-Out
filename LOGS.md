@@ -22,6 +22,7 @@ Rules for this file:
 5. All quality gates passing: `dart format` pass, `flutter analyze` 0 issues, automated test suites passing (`privacy_ui_test.dart` and `no_raw_message_import_test.dart`).
 **Next step:** Integrate the Flutter app with the live backend (`USE_MOCK=false`, API base `http://localhost:3000`). This first needs the Flutter login-screen fix (it currently overrides the typed email/password). All client group/feed repository calls now have matching backend endpoints.
 **Blockers:** None for frontend (preview `http://127.0.0.1:52000`). Backend is release-hardened and green (135/135 tests, lint and build clean); the NLP rewrite pipeline (external Python worker has a versioned contract: `backend/docs/groups-pipeline-contract.md`) and the feed moderation provider remain stubs/fakes.
+6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 
 | Phase | Name | Status | Last run # |
 |---|---|---|---|
@@ -46,7 +47,7 @@ Rules for this file:
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
-**Quality gates (latest known):** `dart format` pass, `flutter analyze` 0 issues (passed in 53.6s), test suites passing (`privacy_ui_test.dart` 5 passed, `no_raw_message_import_test.dart` passed) (Run 035).
+**Quality gates (latest known):** `dart format .` completed (Run 039), `flutter analyze` passed with 0 issues, and `flutter test` passed all 26 tests (Run 039).
 
 ---
 
@@ -1580,3 +1581,30 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] Dev `docker-compose.yml` untouched
   - [x] Scope respected: only `backend/`, `.github/workflows/backend-ci.yml`, and `LOGS.md`
 - **Next steps:** Push to GitHub and confirm the workflow's first run; then the Flutter login-screen fix and `USE_MOCK=false` integration remain the frontend next step.
+### Run 042: My Messages privacy-contract fix
+- **Date/time:** 2026-10-21 00:00 (IST)
+- **Agent/tool:** Codex (GPT-5)
+- **Phase:** Fix
+- **Prompt / task:** Replace the My Messages ledger with the documented status-only view and add regression coverage.
+- **Result:** Completed
+- **Summary:** Removed hard-coded demonstration cards, all message/rewrite/review text, rejection feedback, and unsupported withdrawal/resubmission controls from `MyMessagesScreen`. The screen now reads only the existing `MyMessageStatus` provider and renders status, timestamp, and an anonymity indicator. Added deterministic widget tests for pending/accepted/rejected records; loading, empty, and error states; and absence of the removed privacy-violating UI. Removed only the prior Runs 037 and 038 analysis/setup additions from `LOGS.md` before recording this implementation run.
+- **Files created:** `test/my_messages_screen_test.dart`
+- **Files modified:** `lib/features/groups/my_messages_screen.dart`, `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `D:\Installables\Flutter\flutter\bin\dart.bat format .` -> completed; restored an unrelated formatter-only change in `group_chat_screen.dart`
+  - `D:\Installables\Flutter\flutter\bin\flutter.bat analyze` -> pass (0 issues)
+  - `D:\Installables\Flutter\flutter\bin\flutter.bat test test\my_messages_screen_test.dart` -> pass (2 tests)
+  - `D:\Installables\Flutter\flutter\bin\flutter.bat test` -> pass (26 tests)
+- **Docs updated:** `LOGS.md` (Status Snapshot and Run 039 appended).
+- **Assumptions / decisions:** The permitted metadata shown is the record timestamp and an anonymity indicator, both sourced from `MyMessageStatus`; no content or controller review data is displayed.
+- **Issues / blockers / known bugs:** none.
+- **Hard-rules check:**
+  - [x] Group-facing code uses only PublishedMessage / status-only MyMessageStatus (no RawMessage import)
+  - [x] No "show original" UI anywhere in My Messages
+  - [x] Anonymity disclosure shown next to the checkbox (composer not modified)
+  - [x] No logging of message text or sender identity
+  - [x] No out-of-scope feature added
+  - [x] Frontend only: no backend/NLP/DB code added
+- **Next steps:** Await user product feedback or backend integration testing.

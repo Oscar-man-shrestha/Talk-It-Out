@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16
+    container_name: talkitout-db
+    environment:
+      POSTGRES_USER: talkitout
+      POSTGRES_PASSWORD: talkitout
+      POSTGRES_DB: talkitout
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U talkitout -d talkitout"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pgdata:

@@ -12,17 +12,17 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-10-21 00:00 (IST)
-**Current phase:** Phases 0–12 complete. Repository professionalization complete: overhauled root `README.md`, authored `LICENSE` (MIT), `CONTRIBUTING.md`, and `SECURITY.md`.
+**Last updated:** 2026-10-24 17:30 (IST)
+**Current phase:** Phases 0–12 complete (frontend). Backend v1 + slice 2 + pipeline contract + release hardening + CI/containerization built on branch `backendv1` under `backend/`.
 **Overall status:** 
 1. Transformed `README.md` into an open-source, production-grade documentation portal featuring technology badges, architecture flowcharts, dual-shielded collaboration mechanics, exhaustive 18-feature catalog, comprehensive documentation suite map, quickstart guides (mock vs live), quality gate commands, directory tree, privacy hard rules, and tech stack references.
 2. Added standard MIT `LICENSE` file.
 3. Authored `CONTRIBUTING.md` outlining non-negotiable privacy golden rules (zero-knowledge decoupling, RawMessage isolation), Riverpod development workflows, code style conventions, and PR checklists.
 4. Authored `SECURITY.md` establishing supported versions, zero-knowledge architectural commitments, hardware-backed token storage policies, and coordinated vulnerability disclosure procedures.
 5. All quality gates passing: `dart format` pass, `flutter analyze` 0 issues, automated test suites passing (`privacy_ui_test.dart` and `no_raw_message_import_test.dart`).
+**Next step:** Integrate the Flutter app with the live backend (`USE_MOCK=false`, API base `http://localhost:3000`). This first needs the Flutter login-screen fix (it currently overrides the typed email/password). All client group/feed repository calls now have matching backend endpoints.
+**Blockers:** None for frontend (preview `http://127.0.0.1:52000`). Backend is release-hardened and green (135/135 tests, lint and build clean); the NLP rewrite pipeline (external Python worker has a versioned contract: `backend/docs/groups-pipeline-contract.md`) and the feed moderation provider remain stubs/fakes.
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
-**Next step:** Await user product feedback or backend integration testing.
-**Blockers:** None for frontend.
 
 | Phase | Name | Status | Last run # |
 |---|---|---|---|
@@ -39,6 +39,11 @@ Rules for this file:
 | 10 | UI/UX overhaul | Done | 034 |
 | 11 | Backend Handoff Docs & Profile Polish | Done | 035 |
 | 12 | Repository Professionalization | Done | 036 |
+| 13 | Backend v1 slice (branch `backendv1`, `backend/`) | Done | 037 |
+| 14 | Backend slice 2: group ops, feed, feed-analysis adapter | Done | 038 |
+| 15 | Groups pipeline integration contract + internal worker API | Done | 039 |
+| 16 | Backend release hardening | Done | 040 |
+| 17 | Backend CI and containerization | Done | 041 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -67,6 +72,8 @@ Items the user should confirm. Agents add rows here when they make an assumption
 | D13 | `CURSOR_FRONTEND_BRIEF.md` was missing (Run 000 said it existed). Reconstructed this run from the other docs and PRD v1. | Brief section 7 copy and section 9 prompts used as written | Open | |
 | D14 | Groups have no unread field in the API | Unread is the count of published messages newer than the last time that chat was opened, kept in memory for the session | Open | |
 | D15 | Custom image URL text inputs removed in favor of image file uploads | File uploads (`pickImageFile()`) & presets only; backend requires CDN/S3 upload endpoints | Resolved | Image URL inputs removed per user prompt. Backend will accept multipart uploads to `/users/me/avatar` and `/users/me/cover` storing to S3/R2. |
+| D16 | Backend list orderings and small response defaults not pinned by the client contract | Backend orders: groups & notifications newest-first, `/messages/mine` newest-first, members / chat / review-queue oldest-first; `POST /notifications/:id/read` returns 204 with no body; a notification not owned by the caller is 404 (no existence leak); invalid `limit`/`cursor` → 400 envelope; `limit` clamped to 100 | Open | |
+| D17 | How the real NLP pipeline replaces the stub worker | `backend/src/worker/stubWorker.ts` is a labeled placeholder (prefix "rewrite", constant scores) behind the `jobs` outbox; swap the `processJob` body, keep the pending-only guards | Open | |
 
 ---
 
@@ -1383,7 +1390,198 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] Frontend only: no backend/NLP/DB code written into codebase
 - **Next steps:** Open `http://127.0.0.1:52000/#/login` to explore the live web build or share the new documentation portal with collaborators.
 
-### Run 039: My Messages privacy-contract fix
+### Run 037: Backend v1 slice (auth, groups, moderated messaging, notifications)
+- **Date/time:** 2026-10-24 11:00 (IST)
+- **Agent/tool:** ZCode (GLM), backend agent under `backend/AGENTS.md`
+- **Phase:** 13 — Backend v1 slice
+- **Prompt / task:** Implement the Express + PostgreSQL backend under `backend/` on branch `backendv1`, using the Flutter `Api*Repository` classes and `*.g.dart` models as the HTTP contract. (Run was interrupted once by a service error and resumed; source files were finished, not redone.)
+- **Result:** Completed
+- **Summary:** Built and verified the full v1 backend slice: JWT auth (argon2), groups with one controller per group, member add by username, anonymous/non-anonymous message submission through a `raw_messages` + `jobs` outbox transaction, a clearly-labeled stub rewrite worker (queued→processing→done with pending-only guards), controller review queue, accept (publishes only the rewrite, single published row under concurrency) and reject (reason-free notification), published chat with `display_sender` null for anonymous rows, `/messages/mine` status-only, and notifications with unread count. Every error is the `{"error":{code,message}}` envelope; lists are `{items,next_cursor}` keyset pages. 67 supertest/vitest tests and eslint pass; a live curl flow was verified against the running server (see `backend/scripts/demo-flow.sh`).
+- **Files created (all inside `backend/`):** `package.json`, `tsconfig.json`, `eslint.config.mjs`, `vitest.config.ts`, `.gitignore`, `.env.example` (`.env` generated locally, gitignored), `docker-compose.yml`, `docker/init.sql` (app + separate test db), `migrations/001_init.sql`, `README.md`, `scripts/demo-flow.sh`, `src/{app,config,db,errors,migrate,migrate-cli,pagination,server,types}.ts`, `src/middleware/auth.ts`, `src/routes/{auth,groups,messages,notifications,index}.ts`, `src/worker/stubWorker.ts`, `test/{helpers,health.errors,auth,groups,flow,review,worker.accept,db.constraints,contract,notifications,privacy.logs,pagination}.test.ts`
+- **Files modified:** `LOGS.md` only (this entry + snapshot + D16/D17). No Flutter file was touched. (The `M AGENTS.md` / `M lib/**.g.dart` entries in git status predate this run.)
+- **Files deleted:** none
+- **Dependencies added:** express 5, pg, zod 3, argon2, jsonwebtoken, cors, dotenv; dev: typescript, tsx, vitest, supertest, eslint (+typescript-eslint), @types/*
+- **Commands run and results:**
+  - `docker compose up -d` -> Postgres 16 healthy on host port 5433 (app db + test db)
+  - `npm install` -> pass (after fixing argon2 to ^0.45.1)
+  - `npm run migrate` (and `-- --test-db`) -> applied `001_init.sql` to both databases
+  - `npm test` -> **67 passed, 0 failed** (11 files)
+  - `npm run lint` -> pass (0 problems)
+  - `npm run build` (tsc) -> pass
+  - Live flow `bash scripts/demo-flow.sh` against `RUN_STUB_WORKER=true npm run dev` -> full submit→worker→accept→chat→notifications→reject flow verified, chat shows no forbidden keys
+- **Docs updated:** `LOGS.md`; `backend/README.md` created. `API.md`/`DATA.md` unchanged (the implemented contract matches the client code, which is the source of truth; ordering/nullability gaps recorded as D16).
+- **Assumptions / decisions:**
+  - Stack per task: TypeScript + Express 5 + PostgreSQL 16 (pg, plain SQL migrations, no ORM) + zod + argon2 + jsonwebtoken; vitest + supertest; eslint 9 flat config.
+  - Same router mounted at `/` and `/api/v1` (Flutter default base `http://localhost:3000`).
+  - Username derived at registration: lowercased email local-part restricted to `[a-z0-9._-]`; on collision `-` + first 4 hex of the user id (longer suffixes only in the pathological case). Case-insensitive lookup on member add.
+  - Submission inserts raw message + outbox job + controller notification in one transaction; the job row holds only `raw_message_id`.
+  - Stub worker: `FOR UPDATE SKIP LOCKED` claim, queued→processing→done, `rewritten_text='[stub rewrite] '||original_text`, scores 0.9/0.8, label `relevant`; every update guarded by `status='pending'` so late results never change a decided message; bounded retries (3 attempts, linear backoff) then `pipeline_status='failed'`. Idempotent: rewrite recomputed from the original, never stacked.
+  - Accept requires `pipeline_status='done'` + non-empty rewrite, else **409 "This message has no rewrite yet."**; any repeat decision is 409 `already_decided`; concurrent accepts yield one published row (row lock + re-check).
+  - Pagination: opaque base64 keyset cursor on (timestamp,id); timestamps are truncated to milliseconds so cursors survive the JS Date round-trip; invalid limit/cursor → 400 envelope; limit clamped to 100.
+  - List orderings and the 204 mark-read response recorded as D16.
+  - Logging: only method+path for 500s and worker error names; never bodies, tokens, or message text (enforced by `test/privacy.logs.test.ts`).
+- **Issues / blockers / known bugs:** The real NLP pipeline is not implemented (stub only, D17). The Flutter app was NOT verified against this backend — the login screen currently overrides the typed email/password (separate frontend fix), and the client also calls controller-direct-message/delete/remove/leave endpoints that are intentionally outside this slice.
+- **Hard-rules check:**
+  - [x] Group-facing responses contain only `PublishedMessage` fields (no `raw_message_id`, `original_text`, `sender_id`, `is_anonymous`) — enforced by tests
+  - [x] Review endpoints 403 anyone who is not that group's controller — enforced by tests
+  - [x] `messages/mine` returns status only (id, group_id, status, is_anonymous, created_at)
+  - [x] Rejection notifications carry no reason
+  - [x] No logging of raw text, passwords, tokens, or sender identity — enforced by tests
+  - [x] No controller transfer, auto-approve, rejection reasons, or relevance-based hiding invented
+  - [x] Backend only: no Flutter file touched; only `LOGS.md` edited outside `backend/`
+- **Next steps:** Fix the Flutter login screen override, then run the app with `--dart-define=USE_MOCK=false --dart-define=API_BASE_URL=http://localhost:3000` against `RUN_STUB_WORKER=true npm run dev`. Decide D16/D17.
+
+### Run 038: Backend slice 2 — group operations, public feed, feed-analysis adapter
+- **Date/time:** 2026-10-24 12:05 (IST)
+- **Agent/tool:** ZCode (GLM), backend agent under `backend/AGENTS.md`
+- **Phase:** 14 — Backend slice 2
+- **Prompt / task:** Implement Part A group operations (controller direct message, delete message, remove member, leave), Part B feed (posts/comments/likes, post-to-group, analysis tracking), and Part C isolated feed-analysis adapter with a fake provider and outbox worker. Contract = Flutter `Api*Repository` code and `*.g.dart` models.
+- **Result:** Completed
+- **Summary:** All four group operations, the full feed surface, and the Team 12 feed-analysis boundary are implemented and verified: **94/94 tests** (14 files; 27 new), eslint clean, `tsc` build clean, and a live curl run of the extended `scripts/demo-flow.sh` against `RUN_STUB_WORKER=true RUN_FEED_WORKER=true npm run dev` (controller announcement publishes directly with attribution; post with `nsfw-test` gets `nsfw_flag:true` + provider flags from the fake analysis; like and comment counts from rows; post converts to a group whose agenda is the post content).
+- **Files created (all inside `backend/`):**
+  - `migrations/002_feed.sql` — posts, comments, post_likes, analysis-tracking columns (analysis_status/analysis_nsfw/analysis_flags jsonb/analysis_provider_version/content_revision), `jobs` extended for a second kind (`analyze_feed_content` with content_type/content_id/content_revision, `raw_message_id` now nullable, CHECK enforcing per-kind payload shape), `groups.source_post_id` FK
+  - `migrations/003_one_group_per_post.sql` — partial unique index on `groups(source_post_id)` so a post converts at most once
+  - `src/routes/feed.ts` — all `/posts` endpoints
+  - `src/feed-analysis/provider.ts` — internal boundary contract (contract_version 1, NOT Team 12's), strict zod result schema, deterministic fake provider (flags the literal word "nsfw-test") with normal/unavailable/error modes, `createFeedProvider` factory
+  - `src/feed-analysis/worker.ts` — `runFeedWorkerOnce`/`startFeedWorkerLoop`: claims `analyze_feed_content` jobs FOR UPDATE SKIP LOCKED, per-call timeout, bounded retries with backoff, stale `content_revision` results discarded, malformed provider output → failed (never "safe")
+  - `test/group-ops.test.ts` (10 tests), `test/feed.test.ts` (9), `test/feed-analysis.test.ts` (8)
+- **Files modified (all inside `backend/` except LOGS.md):** `src/routes/groups.ts` (4 new endpoints; review queue + pending counts now require the author to still be a member), `src/routes/index.ts`, `src/worker/stubWorker.ts` (claims only `process_raw_message` jobs so it can never eat feed jobs), `src/config.ts`, `src/server.ts`, `src/app.ts` (opt-in `LOG_ERROR_STACKS=1` for 500 stack traces; still no bodies logged), `test/helpers.ts`, `.env.example` (+`FEED_PROVIDER`, `RUN_FEED_WORKER`), local `.env`, `README.md`, `scripts/demo-flow.sh`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `npm run migrate` (+ `-- --test-db`) -> applied 002 and 003 to both databases
+  - `npm test` -> **94 passed, 0 failed** (14 files)
+  - `npm run lint` -> pass (0 problems)
+  - `npm run build` (tsc) -> pass
+  - Live `bash scripts/demo-flow.sh` -> full slice-1 + slice-2 flow verified
+- **Docs updated:** `LOGS.md` (this entry + snapshot); `backend/README.md`. `API.md`/`DATA.md` untouched (client code is the contract).
+- **Assumptions / decisions:**
+  - Part A: controller announcements publish directly (`is_controller=true`, never anonymous, no raw message/job/review rows); delete is controller-only and idempotent-404; removed members' pending items leave the queue via an author-membership EXISTS filter (counts stay consistent with the queue) while their raw rows remain for audit; leaving is 403 for non-members and the exact message "Controllers must transfer ownership before leaving." for controllers — transfer itself is NOT implemented (per D4).
+  - Part B: `nsfw_flag`/`other_flags` serialize as false/`{}` unless `analysis_status='complete'` (the client model cannot represent pending/failed/unavailable; DB keeps the true status — code comment in 002 + `src/routes/feed.ts`); reaction/comment counts computed from rows (no stored counters); reactions are per-user idempotent with only `type:"like"` accepted (422 otherwise); feed list orderings: posts newest-first, comments oldest-first; post→group is author-only, agenda = post content, `source_post_id` = post id, second conversion 409.
+  - Part C: one outbox table, two job kinds, two independent claim queries/loops; provider requests carry only request_id, content type/id/revision, and the post/comment text (no group data, no sender identity, no credentials); `outcome:'unavailable'` records analysis_status 'unavailable' and finishes the job (no retry); `outcome:'error'`/timeouts retry up to 3 attempts with linear backoff, then job+content 'failed'; stale revision = result discarded with the job marked done; malformed output fails fast.
+  - `FEED_PROVIDER` default `fake`, unknown names fail server startup loudly; `RUN_FEED_WORKER` default false, `.env.example` documents `true` for dev.
+  - Dev note: an orphaned pre-slice-2 node process held port 3000 during the first live check (served 404s for new routes); killed it, restarted, and re-verified. If `/posts` ever 404s on a "running" server, check for a stale listener (`netstat -ano | grep :3000`).
+- **Issues / blockers / known bugs:** Real NLP rewrite pipeline still stubbed (D17); feed moderation provider is the fake (flagging only the literal "nsfw-test"); no content editing yet (the `content_revision` machinery is ready for it); Flutter app NOT verified against the backend (login-screen override still a frontend fix; untested claims are never made).
+- **Hard-rules check:**
+  - [x] Group-facing responses still contain only `PublishedMessage` fields (controller announcements and deletions included; tests re-run)
+  - [x] Review endpoints still 403 non-controllers; queue hides removed members' pending items
+  - [x] `messages/mine` unchanged (status only)
+  - [x] No rejection reasons, no auto-approve, no relevance-based hiding, no invented controller transfer (leave returns the exact 409 message)
+  - [x] No logging of raw text, passwords, tokens, or sender identity — feed worker logs job ids/outcomes only; enforced by `test/privacy.logs.test.ts` and `test/feed-analysis.test.ts`
+  - [x] Backend only: no Flutter file touched; only `LOGS.md` edited outside `backend/`
+- **Next steps:** Fix the Flutter login screen override and integrate with `USE_MOCK=false`; decide D16/D17; swap the fake feed provider for the real Team 12 adapter behind the same internal contract.
+
+### Run 039: Groups pipeline integration contract + internal worker API
+- **Date/time:** 2026-10-24 13:10 (IST)
+- **Agent/tool:** ZCode (GLM), backend agent under `backend/AGENTS.md`
+- **Phase:** 15 — Groups pipeline integration contract
+- **Prompt / task:** Define and implement the backend side of a versioned contract so a separate Python worker can process groups submissions with no change to the Flutter API or the database schema. No NLP/rewriting/scoring logic; the stub worker's behavior is untouched.
+- **Result:** Completed
+- **Summary:** Wrote `backend/docs/groups-pipeline-contract.md` (contract_version 1: claim/result/fail over HTTP, never direct DB access; payload/limit/lease/retry/idempotency/failure semantics; X-Pipeline-Key auth; privacy rules; JSON examples; a Python worker sketch) and implemented `POST /internal/pipeline/{claim,result,fail}` in `src/internal/pipeline.ts`, mounted only at `/internal/pipeline` (never under the Flutter paths). Claims use FOR UPDATE SKIP LOCKED with leases implemented by reusing `jobs.run_after` (running + past run_after = claimable again) — zero schema change. Results are strictly zod-validated, applied in one transaction only while the message is still pending, idempotent on duplicates, and discarded for decided messages; invalid results count as failed attempts with backoff until `PIPELINE_MAX_ATTEMPTS`, after which `pipeline_status='failed'` while the message stays controller-reviewable (accept still 409 without a rewrite). `PIPELINE_MODE=external` suppresses the stub worker at startup so the two consumers can never compete. Verified live: wrong key 401, accept-before-rewrite 409, `scripts/fake-external-worker.sh` claimed and applied, accept 200, chat shows the external rewrite with `display_sender: null`.
+- **Files created (all inside `backend/`):** `docs/groups-pipeline-contract.md`, `src/internal/pipeline.ts`, `test/pipeline-internal.test.ts` (14 tests), `scripts/fake-external-worker.sh` (test tool, NOT a pipeline)
+- **Files modified (all inside `backend/` except LOGS.md):** `src/config.ts` (+pipelineMode/pipelineApiKey/pipelineMaxInputChars/pipelineMaxOutputChars/pipelineLeaseSeconds/pipelineMaxAttempts, +`stubWorkerShouldRun`), `src/app.ts` (internal router mount), `src/server.ts` (stub suppressed in external mode), `src/routes/groups.ts` + `src/routes/index.ts` (submission rejects text over `PIPELINE_MAX_INPUT_CHARS` with 422), `test/helpers.ts` (per-test config overrides), `.env.example` (+6 PIPELINE_* vars), local `.env` (generated `PIPELINE_API_KEY`), `README.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `npm test` -> **108 passed, 0 failed** (15 files; 14 new)
+  - `npm run lint` -> pass (0 problems) · `npm run build` (tsc) -> pass
+  - Live external-mode run (server started `PIPELINE_MODE=external PIPELINE_API_KEY=…`): submit → wrong key 401 → accept-before-rewrite 409 → `fake-external-worker.sh` claim+result `{"applied":true}` → accept 200 → chat shows the external rewrite anonymously → mine accepted
+- **Docs updated:** `LOGS.md`; `backend/docs/groups-pipeline-contract.md` and `backend/README.md` created/updated. `API.md`/`DATA.md` unchanged (no public API change).
+- **Assumptions / decisions:**
+  - Leases reuse `jobs.run_after` (pending+past = due; running+past = lease expired) so the database schema is untouched, per the goal. Documented in code and contract.
+  - `claim` first marks not-yet-decided stale jobs done (jobs whose message was accepted/rejected are never handed to the worker).
+  - `result` with `outcome:"error"` is equivalent to `/fail`; `/fail` only applies to a `running` job (one decision per claim); attempts are counted per claim, so crash-looping claimants eventually fail the job. Backoff is 2s × attempts.
+  - Malformed results return the standard 422 envelope AND count as a failed attempt when the job id is identifiable; a `raw_message_id`/`job_id` mismatch is 422.
+  - `X-Pipeline-Key` compared via SHA-256 + `timingSafeEqual` (constant time, no length leak); unset key disables the routes with 503 `internal_api_disabled`.
+  - Claim payload keys are exactly job_id/raw_message_id/text/group_agenda/contract_version (test asserts exact keys; no sender id, no `is_anonymous`, no names; text never logged on either side).
+  - Internal routes are mounted only at `/internal/pipeline`, outside the `/` and `/api/v1` mounts.
+  - `stubWorkerShouldRun` lives in config.ts so the stub/external mutual exclusion is unit-testable without booting the server.
+- **Issues / blockers / known bugs:** The **real groups pipeline is not implemented** (stub unchanged; fake external worker is a labeled test tool). No per-job server-side timeout — the lease is the timeout (documented). `run_after` doubling as lease is a v1 simplification; if real leases need separate accounting later, add a nullable `lease_expires_at` via a new migration.
+- **Hard-rules check:**
+  - [x] No NLP/rewriting/scoring/classification logic added — results are stored as received after validation
+  - [x] Stub worker behavior untouched (kind filter from slice 2 only) and auto-suppressed in external mode
+  - [x] Worker never receives sender identity, `is_anonymous`, other members' data, or credentials; no raw text in logs on either side (tests assert)
+  - [x] Public API and database schema unchanged; relevance stays advisory (no hiding/rejecting)
+  - [x] Backend only: no Flutter file touched; only `LOGS.md` edited outside `backend/`
+- **Next steps:** Hand `docs/groups-pipeline-contract.md` to the Python pipeline teammate; when their worker is ready, run the backend with `PIPELINE_MODE=external` + a generated `PIPELINE_API_KEY` and re-run `scripts/fake-external-worker.sh` as the smoke test pattern. Flutter login-screen fix and `USE_MOCK=false` integration remain the frontend next step.
+
+### Run 040: Backend release hardening
+- **Date/time:** 2026-10-24 15:40 (IST)
+- **Agent/tool:** ZCode (GLM), backend agent under `backend/AGENTS.md`
+- **Phase:** 16 — Backend release hardening
+- **Prompt / task:** Harden the backend for release: security headers, request limits, rate limiting, auth hardening, per-account login throttling, input-validation sweep, error handling + graceful shutdown, DB pool config + missing indexes (new migration) with EXPLAIN verification, /ready, dependency/secret hygiene, production checklist. No public response shape or path changes; all existing tests must keep passing. No NLP logic.
+- **Result:** Completed
+- **Summary:** All 11 items plus the AMENDMENT implemented. Public API shapes and paths unchanged; the pre-existing 108 tests still pass and 27 new tests bring the suite to **135/135**, with eslint and `tsc` clean. Live checks: `/health` cheap and public, `/ready` 200 (503 envelope when pointed at a dead DB), helmet headers on every response, and startup refuses weak/placeholder secrets with a clear message.
+- **Files created (all inside `backend/`):** `src/shutdown.ts` (graceful SIGINT/SIGTERM with 10s deadline), `migrations/004_performance_indexes.sql`, `test/hardening.test.ts` (11), `test/auth-hardening.test.ts` (9), `test/validation-sweep.test.ts` (7)
+- **Files modified (all inside `backend/` except LOGS.md):** `src/app.ts` (helmet, JSON_BODY_LIMIT, 413 envelope, three rate limiters with Retry-After, trust proxy, /internal excluded from the global limiter), `src/config.ts` (all new env vars + `validateSecrets`: JWT_SECRET required ≥32 chars and not starting with `<`; same for PIPELINE_API_KEY when set; skipped under NODE_ENV=test), `src/middleware/auth.ts` (HS256 pinned, exp required, deleted users rejected), `src/routes/auth.ts` (JWT_EXPIRES_IN, dummy argon2 verify for unknown emails, per-account login throttle: 5 consecutive failures per email per 15 min → 429 regardless of IP, reset on success, in-memory), `src/routes/index.ts` (auth limiter on login+register, /ready), `src/db.ts` (pool options), `src/server.ts` (pool envs, graceful shutdown), `test/helpers.ts` (resetDb also clears the login throttle; testApp config overrides existed), `.env.example` (placeholders only + all new vars), `README.md` (Production checklist)
+- **Files deleted:** none
+- **Dependencies added:** `helmet`, `express-rate-limit` (both runtime, for items 1 and 3)
+- **Commands run and results:**
+  - `npm test` -> **135 passed, 0 failed** (18 files; 27 new)
+  - `npm run lint` -> pass (0 problems) · `npm run build` (tsc) -> pass (after fixing an import path and the jsonwebtoken `StringValue` typing for `expiresIn`)
+  - `npm run migrate` (+ `-- --test-db`) -> applied 004 cleanly on top of 001–003
+  - Live: `/health` 200 `{"status":"ok"}`, `/ready` 200, `x-content-type-options: nosniff`, no `x-powered-by`; startup with a 9-char `JWT_SECRET` fails with "JWT_SECRET must be at least 32 characters."
+  - `npm audit` -> see below
+- **EXPLAIN findings (seeded ~500 raw messages / 200 published / 300 notifications / 100+ jobs in the test DB, then truncated):**
+  - Review queue uses `raw_messages_group_status_created_idx` (index scan) and published chat uses `published_messages_group_time_idx` at default planner settings — both from earlier migrations.
+  - At this small scale the planner preferred seq scans for the three NEW indexes (jobs claim, unread notifications, member→groups); with `enable_seqscan=off` all three plans use them: Bitmap Index Scan on `jobs_kind_status_run_after_idx`, Bitmap Index Scan on `notifications_unread_idx`, Index Only Scan on `group_members_user_idx`. On production-sized tables these paths are the ones the planner grows into; no missing index remains from the query audit (posts/comments/post_likes were already covered by 001–002 indexes).
+- **npm audit:** 4 findings — tinypool ≤2.1.1 (critical; RCE gadget in worker options) and @vitest/mocker (moderate) are vitest dev-only chains; zod <4.6.6 (high; memory exhaustion validating oversized constrained collections) has only a major-version fix (zod 4, breaking). Per instructions no majors were force-upgraded. Mitigations: zod never sees unbounded input (all user bodies are capped by JSON_BODY_LIMIT=100kb and schemas are bounded objects without unbounded array/record parsing of user input), and vitest runs only in trusted dev/CI contexts. Revisit when zod 4 / vitest 5 can be adopted deliberately.
+- **Docs updated:** `backend/README.md` (Production checklist: secrets, HTTPS via reverse proxy + TRUST_PROXY, CORS, single-instance caveats for in-memory limits/workers, backups, migration procedure, probes); `.env.example`. New env vars: `JWT_EXPIRES_IN`, `JSON_BODY_LIMIT`, `RATE_LIMIT_GLOBAL`, `RATE_LIMIT_AUTH`, `RATE_LIMIT_INTERNAL`, `TRUST_PROXY`, `PG_POOL_MAX`, `PG_IDLE_TIMEOUT_MS`, `PG_STATEMENT_TIMEOUT_MS`, `PG_CONNECT_TIMEOUT_MS`.
+- **Assumptions / decisions:**
+  - Rate limit windows fixed in code (60s global/internal, 15min auth); env vars configure only the maxima. All stores in-memory per process with a code comment that Redis (or similar) is required for multi-instance; TRUST_PROXY defaults off ('true' = 1 hop, or a number of hops).
+  - The global limiter explicitly skips `/internal/*`; the internal limiter is generous (600/min) so a legitimate claim/result worker (~80/min) is never throttled.
+  - Per-account login throttle is in-memory: per-process, resets on restart, unbounded Map pruned lazily by window expiry — documented limitation in code and README.
+  - Login for unknown emails verifies against a module-level dummy argon2 hash so response timing does not reveal account existence.
+  - JWT: HS256 pinned on sign and verify, `exp` mandatory, `JWT_EXPIRES_IN` default 7d; the old dev fallback secret is gone — outside tests, a missing JWT_SECRET now fails startup.
+  - 413 uses code `body_too_large`; 429 uses `rate_limited` with a `Retry-After` header (both via the standard envelope).
+  - `/ready` runs `SELECT 1` only and reports no internals; `/health` never touches the DB.
+  - Graceful shutdown: stop workers → closeIdleConnections → server.close → pool.end → exit 0, with a 10s force-exit deadline; testable via injected server/pool/exit doubles.
+- **Issues / blockers / known bugs:** None new. Not done (out of task scope): real NLP pipeline, real feed moderation provider, shared Redis rate-limit store, multi-instance worker extraction. The zod/vitest audit majors remain open deliberately (see above).
+- **Hard-rules check:**
+  - [x] No public response shape or path changed; all 108 pre-existing tests pass unchanged
+  - [x] No NLP/rewriting/scoring logic added
+  - [x] No request bodies, passwords, tokens, or message text logged anywhere (500 path logs method/path/error name+message only; tests re-verify)
+  - [x] Group-facing privacy unchanged (all privacy tests still green)
+  - [x] Backend only: no Flutter file touched; only `LOGS.md` edited outside `backend/`
+- **Next steps:** Adopt zod 4 / vitest 5 deliberately in a dedicated run (breaking changes); move to a shared rate-limit store only when the API runs multi-instance; then the Flutter login-screen fix and `USE_MOCK=false` integration.
+
+### Run 041: Backend CI and containerization
+- **Date/time:** 2026-10-24 17:30 (IST)
+- **Agent/tool:** ZCode (GLM), backend agent under `backend/AGENTS.md`
+- **Phase:** 17 — Backend CI and containerization
+- **Prompt / task:** Dockerfile (multi-stage, non-root, prod deps, healthcheck), a container migration command (never auto-run), docker-compose.prod.example.yml, a GitHub Actions workflow (tests + docker smoke job + non-blocking audit), CI-clean npm scripts and env-independent tests, README Deployment/CI sections. No public API changes; all 135 tests must keep passing.
+- **Result:** Completed (the GitHub workflow itself is untested on GitHub — YAML validated only)
+- **Summary:** Built and locally verified the container: multi-stage `node:22-slim` image, **347 MB**, runs as `node` (uid 1000), `dist/` + `migrations/` + production deps only, NODE_ENV=production, Docker HEALTHCHECK on `/health` (reported `healthy`). Migrations run explicitly via `node dist/migrate-cli.js` (or `npm run migrate:dist`). Verified live against the dev Postgres on 5433 via `host.docker.internal`: migration command, `/health`, `/ready` all green. Simulated the CI test run with `.env` moved away and env vars only — this exposed one ambient-env dependency (a CORS test that implicitly relied on the developer `.env`'s `CORS_ORIGINS`); fixed by giving that test explicit `corsOrigins` overrides. Clean-env run now passes 135/135.
+- **Files created:** `backend/Dockerfile`, `backend/.dockerignore`, `backend/docker-compose.prod.example.yml`, `.github/workflows/backend-ci.yml`
+- **Files modified:** `backend/package.json` (+`migrate:dist` script), `backend/test/health.errors.test.ts` (CORS tests now pass explicit origins instead of depending on ambient env), `backend/README.md` (Deployment + CI sections)
+- **Files deleted:** none
+- **Dependencies added:** none (argon2 verified to install and run on `node:22-slim` via prebuilt glibc binaries — slim chosen deliberately over alpine to avoid the musl risk)
+- **Commands run and results:**
+  - `docker build -t talkitout-backend:ci .` -> pass (after fixing .dockerignore, which had excluded the tsconfig.json the build stage copies)
+  - `docker run --rm <img> node dist/migrate-cli.js` against dev Postgres -> "No pending migrations." (idempotent on the already-migrated db)
+  - `docker run -d -p 3001:3000 ...` -> `/health` `{"status":"ok"}`, `/ready` `{"status":"ready"}`, `docker inspect` health `healthy`, `id` -> uid 1000(node); image 347 MB
+  - `POSTGRES_PASSWORD=dummy docker compose -f docker-compose.prod.example.yml config --quiet` (with a temp env file) -> valid
+  - `npx --yes js-yaml .github/workflows/backend-ci.yml` -> valid
+  - Clean-env simulation (`.env` moved away, `DATABASE_URL`/`TEST_DATABASE_URL`/`JWT_SECRET` env only) -> first run 134/135, CORS test fixed, re-run **135/135**
+  - `npm test` -> **135 passed, 0 failed** · `npm run lint` -> pass · `npm run build` -> pass
+- **Docs updated:** `backend/README.md`. `API.md`/`DATA.md` unchanged (no API change).
+- **Assumptions / decisions:**
+  - `node:22-slim` (glibc) instead of alpine: argon2's prebuilt binaries are guaranteed on glibc; alpine's musl path was not worth the risk for the size saving.
+  - Docker HEALTHCHECK uses `node -e "fetch(...)"` because slim ships neither curl nor wget.
+  - CI creates `talkitout_test` with `docker exec psql` in a step (the dev `docker/init.sql` runs only under docker-compose); the docker smoke job uses a private docker network (`ci-net`) so the API container reaches Postgres by name — no host-IP guessing.
+  - CI JWT_SECRET is a fixed CI-only literal (≥32 chars, not a production secret); secrets validation runs only outside NODE_ENV=test.
+  - `npm audit --omit=dev --audit-level=high` is `continue-on-error` with an in-file comment documenting the known zod finding and its mitigation (JSON_BODY_LIMIT), per Run 040.
+  - Compose example keeps zero secrets inline: db password via required interpolation from the operator's env file; the API reads `backend.prod.env` (uncommitted); port bound to 127.0.0.1 with a TLS-reverse-proxy comment.
+  - Action versions pinned by major tag (`actions/checkout@v5`, `actions/setup-node@v4`); workflow permissions `contents: read`; paths filter on `backend/**` + the workflow file.
+- **Issues / blockers / known bugs:** The GitHub Actions workflow has NOT been executed on GitHub (no runner available locally) — YAML syntax is validated and every step mirrors commands verified locally (npm ci/lint/build/migrate/test, docker build + network smoke). First real push will confirm.
+- **Hard-rules check:**
+  - [x] No public API behavior changed; all 135 tests pass (one test made env-independent, no production code change)
+  - [x] No NLP logic added
+  - [x] No secrets committed (.env dockerignored + gitignored; .env.example placeholders only)
+  - [x] Dev `docker-compose.yml` untouched
+  - [x] Scope respected: only `backend/`, `.github/workflows/backend-ci.yml`, and `LOGS.md`
+- **Next steps:** Push to GitHub and confirm the workflow's first run; then the Flutter login-screen fix and `USE_MOCK=false` integration remain the frontend next step.
+### Run 042: My Messages privacy-contract fix
 - **Date/time:** 2026-10-21 00:00 (IST)
 - **Agent/tool:** Codex (GPT-5)
 - **Phase:** Fix

@@ -12,7 +12,7 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-10-24 17:30 (IST)
+**Last updated:** 2026-10-24 20:45 (IST)
 **Current phase:** Phases 0–12 complete (frontend). Backend v1 + slice 2 + pipeline contract + release hardening + CI/containerization built on branch `backendv1` under `backend/`.
 **Overall status:** 
 1. Transformed `README.md` into an open-source, production-grade documentation portal featuring technology badges, architecture flowcharts, dual-shielded collaboration mechanics, exhaustive 18-feature catalog, comprehensive documentation suite map, quickstart guides (mock vs live), quality gate commands, directory tree, privacy hard rules, and tech stack references.
@@ -1608,3 +1608,37 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] No out-of-scope feature added
   - [x] Frontend only: no backend/NLP/DB code added
 - **Next steps:** Await user product feedback or backend integration testing.
+
+### Run 043: Full repo analysis (no code change)
+- **Date/time:** 2026-10-24 20:45 (IST)
+- **Agent/tool:** ZCode (GLM-5.3)
+- **Phase:** Analysis
+- **Prompt / task:** "Analyze the current repo"
+- **Result:** Completed
+- **Summary:** Read-only audit of the merged monorepo (Flutter frontend + `backend/` from PR #1). Verified structure, dependencies, test inventory, docs suite, and git state (`main` clean at fa7797b). Confirmed the login-screen blocker is still present: `lib/features/auth/login_screen.dart:27-28` pre-fills the email/password controllers with `alex@contributor.internal` / `secret123`, and the role chips (lines 76-81) overwrite `_email.text`/`_password.text`, discarding typed input. Also noted `alex@contributor.internal` is not the documented mock account (`priya@example.com` per API.md). No Flutter or backend code was changed.
+- **Files created:** none
+- **Files modified:** LOGS.md only (this entry + Last updated)
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `git log` / `git branch -a` / `git status --short` -> main clean, backendv1 merged via PR #1
+  - File listings + line counts of `lib/`, `test/`, `backend/` -> ~19.3k lines hand-written Dart (30 generated files), backend ~2.8k src + ~3.5k test TypeScript
+  - Targeted greps (login screen controllers) -> blocker confirmed as above
+  - `dart format .` -> not run (no code changed)
+  - `flutter analyze` -> not run (no code changed)
+  - `flutter test` -> not run (no code changed)
+- **Docs updated:** LOGS.md only
+- **Assumptions / decisions:** none
+- **Issues / blockers / known bugs:**
+  - Login-screen override confirmed (see Summary); blocks `USE_MOCK=false` integration as the snapshot already records.
+  - Root `AGENTS.md` is stale relative to LOGS.md: it still says "never write backend code" / "Flutter frontend only", but phases 13-17 built `backend/` and it is now merged into main (AGENTS.md itself says trust LOGS.md for status).
+  - LOGS.md chronological anomaly: Run 042 is dated 2026-10-21 but appended after Run 041 (2026-10-24), and Status Snapshot item 6 credits "Run 039" for the My Messages fix that Run 042 actually describes.
+  - NLP rewrite pipeline and feed moderation provider remain stubs/fakes (D17).
+- **Hard-rules check:**
+  - [x] Group-facing code uses only PublishedMessage (no RawMessage import) — no code change; isolation test unchanged
+  - [x] No "show original" UI anywhere — no code change
+  - [x] Anonymity disclosure shown next to the checkbox (if composer touched) — composer not touched
+  - [x] No logging of message text or sender identity
+  - [x] No out-of-scope feature added
+  - [x] Frontend only: no backend/NLP/DB code added
+- **Next steps:** Per snapshot: fix the login screen (remove the prefilled/overwriting controllers, restore the documented mock autofill), then integrate with `USE_MOCK=false` against the backend.

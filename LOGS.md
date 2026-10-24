@@ -12,8 +12,8 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-10-24 15:40 (IST)
-**Current phase:** Phases 0–12 complete (frontend). Backend v1 + slice 2 + pipeline contract + release hardening built on branch `backendv1` under `backend/`.
+**Last updated:** 2026-10-24 17:30 (IST)
+**Current phase:** Phases 0–12 complete (frontend). Backend v1 + slice 2 + pipeline contract + release hardening + CI/containerization built on branch `backendv1` under `backend/`.
 **Overall status:** 
 1. Transformed `README.md` into an open-source, production-grade documentation portal featuring technology badges, architecture flowcharts, dual-shielded collaboration mechanics, exhaustive 18-feature catalog, comprehensive documentation suite map, quickstart guides (mock vs live), quality gate commands, directory tree, privacy hard rules, and tech stack references.
 2. Added standard MIT `LICENSE` file.
@@ -42,6 +42,7 @@ Rules for this file:
 | 14 | Backend slice 2: group ops, feed, feed-analysis adapter | Done | 038 |
 | 15 | Groups pipeline integration contract + internal worker API | Done | 039 |
 | 16 | Backend release hardening | Done | 040 |
+| 17 | Backend CI and containerization | Done | 041 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -1542,3 +1543,40 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] Group-facing privacy unchanged (all privacy tests still green)
   - [x] Backend only: no Flutter file touched; only `LOGS.md` edited outside `backend/`
 - **Next steps:** Adopt zod 4 / vitest 5 deliberately in a dedicated run (breaking changes); move to a shared rate-limit store only when the API runs multi-instance; then the Flutter login-screen fix and `USE_MOCK=false` integration.
+
+### Run 041: Backend CI and containerization
+- **Date/time:** 2026-10-24 17:30 (IST)
+- **Agent/tool:** ZCode (GLM), backend agent under `backend/AGENTS.md`
+- **Phase:** 17 — Backend CI and containerization
+- **Prompt / task:** Dockerfile (multi-stage, non-root, prod deps, healthcheck), a container migration command (never auto-run), docker-compose.prod.example.yml, a GitHub Actions workflow (tests + docker smoke job + non-blocking audit), CI-clean npm scripts and env-independent tests, README Deployment/CI sections. No public API changes; all 135 tests must keep passing.
+- **Result:** Completed (the GitHub workflow itself is untested on GitHub — YAML validated only)
+- **Summary:** Built and locally verified the container: multi-stage `node:22-slim` image, **347 MB**, runs as `node` (uid 1000), `dist/` + `migrations/` + production deps only, NODE_ENV=production, Docker HEALTHCHECK on `/health` (reported `healthy`). Migrations run explicitly via `node dist/migrate-cli.js` (or `npm run migrate:dist`). Verified live against the dev Postgres on 5433 via `host.docker.internal`: migration command, `/health`, `/ready` all green. Simulated the CI test run with `.env` moved away and env vars only — this exposed one ambient-env dependency (a CORS test that implicitly relied on the developer `.env`'s `CORS_ORIGINS`); fixed by giving that test explicit `corsOrigins` overrides. Clean-env run now passes 135/135.
+- **Files created:** `backend/Dockerfile`, `backend/.dockerignore`, `backend/docker-compose.prod.example.yml`, `.github/workflows/backend-ci.yml`
+- **Files modified:** `backend/package.json` (+`migrate:dist` script), `backend/test/health.errors.test.ts` (CORS tests now pass explicit origins instead of depending on ambient env), `backend/README.md` (Deployment + CI sections)
+- **Files deleted:** none
+- **Dependencies added:** none (argon2 verified to install and run on `node:22-slim` via prebuilt glibc binaries — slim chosen deliberately over alpine to avoid the musl risk)
+- **Commands run and results:**
+  - `docker build -t talkitout-backend:ci .` -> pass (after fixing .dockerignore, which had excluded the tsconfig.json the build stage copies)
+  - `docker run --rm <img> node dist/migrate-cli.js` against dev Postgres -> "No pending migrations." (idempotent on the already-migrated db)
+  - `docker run -d -p 3001:3000 ...` -> `/health` `{"status":"ok"}`, `/ready` `{"status":"ready"}`, `docker inspect` health `healthy`, `id` -> uid 1000(node); image 347 MB
+  - `POSTGRES_PASSWORD=dummy docker compose -f docker-compose.prod.example.yml config --quiet` (with a temp env file) -> valid
+  - `npx --yes js-yaml .github/workflows/backend-ci.yml` -> valid
+  - Clean-env simulation (`.env` moved away, `DATABASE_URL`/`TEST_DATABASE_URL`/`JWT_SECRET` env only) -> first run 134/135, CORS test fixed, re-run **135/135**
+  - `npm test` -> **135 passed, 0 failed** · `npm run lint` -> pass · `npm run build` -> pass
+- **Docs updated:** `backend/README.md`. `API.md`/`DATA.md` unchanged (no API change).
+- **Assumptions / decisions:**
+  - `node:22-slim` (glibc) instead of alpine: argon2's prebuilt binaries are guaranteed on glibc; alpine's musl path was not worth the risk for the size saving.
+  - Docker HEALTHCHECK uses `node -e "fetch(...)"` because slim ships neither curl nor wget.
+  - CI creates `talkitout_test` with `docker exec psql` in a step (the dev `docker/init.sql` runs only under docker-compose); the docker smoke job uses a private docker network (`ci-net`) so the API container reaches Postgres by name — no host-IP guessing.
+  - CI JWT_SECRET is a fixed CI-only literal (≥32 chars, not a production secret); secrets validation runs only outside NODE_ENV=test.
+  - `npm audit --omit=dev --audit-level=high` is `continue-on-error` with an in-file comment documenting the known zod finding and its mitigation (JSON_BODY_LIMIT), per Run 040.
+  - Compose example keeps zero secrets inline: db password via required interpolation from the operator's env file; the API reads `backend.prod.env` (uncommitted); port bound to 127.0.0.1 with a TLS-reverse-proxy comment.
+  - Action versions pinned by major tag (`actions/checkout@v5`, `actions/setup-node@v4`); workflow permissions `contents: read`; paths filter on `backend/**` + the workflow file.
+- **Issues / blockers / known bugs:** The GitHub Actions workflow has NOT been executed on GitHub (no runner available locally) — YAML syntax is validated and every step mirrors commands verified locally (npm ci/lint/build/migrate/test, docker build + network smoke). First real push will confirm.
+- **Hard-rules check:**
+  - [x] No public API behavior changed; all 135 tests pass (one test made env-independent, no production code change)
+  - [x] No NLP logic added
+  - [x] No secrets committed (.env dockerignored + gitignored; .env.example placeholders only)
+  - [x] Dev `docker-compose.yml` untouched
+  - [x] Scope respected: only `backend/`, `.github/workflows/backend-ci.yml`, and `LOGS.md`
+- **Next steps:** Push to GitHub and confirm the workflow's first run; then the Flutter login-screen fix and `USE_MOCK=false` integration remain the frontend next step.

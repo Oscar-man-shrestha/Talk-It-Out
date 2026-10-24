@@ -1,0 +1,104 @@
+name: backend-ci
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: talkitout
+          POSTGRES_PASSWORD: talkitout
+          POSTGRES_DB: talkitout
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U talkitout -d talkitout"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://talkitout:talkitout@localhost:5433/talkitout
+      TEST_DATABASE_URL: postgres://talkitout:talkitout@localhost:5433/talkitout_test
+      # CI-only value, not a production secret; must pass the >=32 char check.
+      JWT_SECRET: ci-only-jwt-secret-0123456789abcdef0123456789abcdef
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      # docker/init.sql creates the test database only under docker-compose;
+      # the service container starts with just POSTGRES_DB, so create it here.
+      - name: Create the test database
+        run: |
+          PG_CID="$(docker ps --filter 'ancestor=postgres:16' --format '{{.ID}}' | head -1)"
+          docker exec "$PG_CID" psql -U talkitout -d talkitout -c 'CREATE DATABASE talkitout_test;'
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run migrate
+      - run: npm test
+      # Non-blocking: the only known runtime finding is zod <4.6.6
+      # (GHSA-mrhx-c7xc-m3w5, memory exhaustion on oversized constrained
+      # collections). It has no non-breaking fix on zod 3, and exposure is
+      # mitigated by JSON_BODY_LIMIT capping every request body before zod
+      # sees it (see LOGS.md Run 040). Tracked for a deliberate zod 4 upgrade.
+      - name: npm audit (runtime dependencies only)
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build the image (no push)
+        run: docker build -t talkitout-backend:ci .
+        working-directory: backend
+      - name: Smoke test against a throwaway Postgres
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          docker network create ci-net
+          docker run -d --name ci-pg --network ci-net \
+            -e POSTGRES_USER=talkitout -e POSTGRES_PASSWORD=talkitout -e POSTGRES_DB=talkitout \
+            postgres:16
+          for i in $(seq 1 30); do
+            docker exec ci-pg pg_isready -U talkitout -d talkitout >/dev/null 2>&1 && break
+            sleep 1
+          done
+          # Migrations run explicitly, never automatically on container start.
+          docker run --rm --network ci-net \
+            -e DATABASE_URL=postgres://talkitout:talkitout@ci-pg:5432/talkitout \
+            -e JWT_SECRET=ci-only-jwt-secret-0123456789abcdef0123456789abcdef \
+            talkitout-backend:ci node dist/migrate-cli.js
+          docker run -d --name ci-api --network ci-net -p 3000:3000 \
+            -e DATABASE_URL=postgres://talkitout:talkitout@ci-pg:5432/talkitout \
+            -e JWT_SECRET=ci-only-jwt-secret-0123456789abcdef0123456789abcdef \
+            talkitout-backend:ci
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:3000/health >/dev/null 2>&1 && break
+            sleep 1
+          done
+          echo "health: $(curl -fsS http://localhost:3000/health)"
+          echo "ready:  $(curl -fsS http://localhost:3000/ready)"
+          docker rm -f ci-api ci-pg
+          docker network rm ci-net

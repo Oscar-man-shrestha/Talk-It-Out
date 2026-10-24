@@ -1,0 +1,20 @@
+# Not needed inside the image (build context slimming).
+node_modules
+dist
+coverage
+.env
+.env.*
+!.env.example
+test
+docs
+scripts
+*.log
+*.md
+.git
+.gitignore
+.dockerignore
+docker-compose.yml
+docker-compose.prod.example.yml
+Dockerfile
+eslint.config.mjs
+vitest.config.ts

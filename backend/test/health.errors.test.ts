@@ -52,7 +52,9 @@ describe('health, mounting, CORS, and the error envelope', () => {
 
   it('allows the Flutter web origin through CORS preflight', async () => {
     const origin = 'http://127.0.0.1:52000';
-    const res = await supertest(testApp())
+    const res = await supertest(
+      testApp({ corsOrigins: [origin, 'http://localhost:52000'] }),
+    )
       .options('/auth/login')
       .set('Origin', origin)
       .set('Access-Control-Request-Method', 'POST')
@@ -63,7 +65,9 @@ describe('health, mounting, CORS, and the error envelope', () => {
   });
 
   it('does not allow an unknown origin', async () => {
-    const res = await supertest(testApp())
+    const res = await supertest(
+      testApp({ corsOrigins: ['http://127.0.0.1:52000', 'http://localhost:52000'] }),
+    )
       .options('/auth/login')
       .set('Origin', 'http://evil.example')
       .set('Access-Control-Request-Method', 'POST');

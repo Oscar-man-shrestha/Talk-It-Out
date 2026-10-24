@@ -16,14 +16,22 @@ export function createAuthMiddleware(pool: Pool, jwtSecret: string) {
     const token = header.slice('Bearer '.length).trim();
     let userId: string;
     try {
-      const payload = jwt.verify(token, jwtSecret);
-      if (typeof payload === 'string' || typeof payload.sub !== 'string') {
+      // Algorithm pinned to HS256: tokens signed any other way (including
+      // alg:none confusion) are rejected outright.
+      const payload = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] });
+      if (
+        typeof payload === 'string' ||
+        typeof payload.sub !== 'string' ||
+        // Tokens must carry an expiry.
+        typeof payload.exp !== 'number'
+      ) {
         throw unauthorized();
       }
       userId = payload.sub;
     } catch {
       throw unauthorized();
     }
+    // Tokens for users that no longer exist are rejected.
     const { rows } = await pool.query(
       'SELECT id, name, email, username FROM users WHERE id = $1',
       [userId],

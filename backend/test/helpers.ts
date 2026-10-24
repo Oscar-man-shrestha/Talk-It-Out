@@ -5,6 +5,7 @@ import { loadConfig, Config } from '../src/config';
 import { createPool } from '../src/db';
 import { migrate } from '../src/migrate';
 import { buildApp } from '../src/app';
+import { resetLoginThrottle } from '../src/routes/auth';
 
 export const config: Config = loadConfig();
 
@@ -24,6 +25,7 @@ export async function ensureSchema(): Promise<void> {
 }
 
 export async function resetDb(): Promise<void> {
+  resetLoginThrottle();
   await testPool().query(
     'TRUNCATE notifications, jobs, published_messages, raw_messages, group_members, groups, posts, comments, post_likes, users CASCADE',
   );

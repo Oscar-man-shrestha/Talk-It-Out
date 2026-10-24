@@ -12,8 +12,8 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-10-24 13:10 (IST)
-**Current phase:** Phases 0–12 complete (frontend). Backend v1 + slice 2 + groups-pipeline integration contract (for the external Python worker) built on branch `backendv1` under `backend/`.
+**Last updated:** 2026-10-24 15:40 (IST)
+**Current phase:** Phases 0–12 complete (frontend). Backend v1 + slice 2 + pipeline contract + release hardening built on branch `backendv1` under `backend/`.
 **Overall status:** 
 1. Transformed `README.md` into an open-source, production-grade documentation portal featuring technology badges, architecture flowcharts, dual-shielded collaboration mechanics, exhaustive 18-feature catalog, comprehensive documentation suite map, quickstart guides (mock vs live), quality gate commands, directory tree, privacy hard rules, and tech stack references.
 2. Added standard MIT `LICENSE` file.
@@ -21,7 +21,7 @@ Rules for this file:
 4. Authored `SECURITY.md` establishing supported versions, zero-knowledge architectural commitments, hardware-backed token storage policies, and coordinated vulnerability disclosure procedures.
 5. All quality gates passing: `dart format` pass, `flutter analyze` 0 issues, automated test suites passing (`privacy_ui_test.dart` and `no_raw_message_import_test.dart`).
 **Next step:** Integrate the Flutter app with the live backend (`USE_MOCK=false`, API base `http://localhost:3000`). This first needs the Flutter login-screen fix (it currently overrides the typed email/password). All client group/feed repository calls now have matching backend endpoints.
-**Blockers:** None for frontend (preview `http://127.0.0.1:52000`). Backend slices 1–3 are green (108/108 tests, lint and build clean); the NLP rewrite pipeline (external Python worker now has a versioned contract to plug into: `backend/docs/groups-pipeline-contract.md`) and the feed moderation provider remain stubs/fakes.
+**Blockers:** None for frontend (preview `http://127.0.0.1:52000`). Backend is release-hardened and green (135/135 tests, lint and build clean); the NLP rewrite pipeline (external Python worker has a versioned contract: `backend/docs/groups-pipeline-contract.md`) and the feed moderation provider remain stubs/fakes.
 
 | Phase | Name | Status | Last run # |
 |---|---|---|---|
@@ -41,6 +41,7 @@ Rules for this file:
 | 13 | Backend v1 slice (branch `backendv1`, `backend/`) | Done | 037 |
 | 14 | Backend slice 2: group ops, feed, feed-analysis adapter | Done | 038 |
 | 15 | Groups pipeline integration contract + internal worker API | Done | 039 |
+| 16 | Backend release hardening | Done | 040 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -1501,3 +1502,43 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] Public API and database schema unchanged; relevance stays advisory (no hiding/rejecting)
   - [x] Backend only: no Flutter file touched; only `LOGS.md` edited outside `backend/`
 - **Next steps:** Hand `docs/groups-pipeline-contract.md` to the Python pipeline teammate; when their worker is ready, run the backend with `PIPELINE_MODE=external` + a generated `PIPELINE_API_KEY` and re-run `scripts/fake-external-worker.sh` as the smoke test pattern. Flutter login-screen fix and `USE_MOCK=false` integration remain the frontend next step.
+
+### Run 040: Backend release hardening
+- **Date/time:** 2026-10-24 15:40 (IST)
+- **Agent/tool:** ZCode (GLM), backend agent under `backend/AGENTS.md`
+- **Phase:** 16 — Backend release hardening
+- **Prompt / task:** Harden the backend for release: security headers, request limits, rate limiting, auth hardening, per-account login throttling, input-validation sweep, error handling + graceful shutdown, DB pool config + missing indexes (new migration) with EXPLAIN verification, /ready, dependency/secret hygiene, production checklist. No public response shape or path changes; all existing tests must keep passing. No NLP logic.
+- **Result:** Completed
+- **Summary:** All 11 items plus the AMENDMENT implemented. Public API shapes and paths unchanged; the pre-existing 108 tests still pass and 27 new tests bring the suite to **135/135**, with eslint and `tsc` clean. Live checks: `/health` cheap and public, `/ready` 200 (503 envelope when pointed at a dead DB), helmet headers on every response, and startup refuses weak/placeholder secrets with a clear message.
+- **Files created (all inside `backend/`):** `src/shutdown.ts` (graceful SIGINT/SIGTERM with 10s deadline), `migrations/004_performance_indexes.sql`, `test/hardening.test.ts` (11), `test/auth-hardening.test.ts` (9), `test/validation-sweep.test.ts` (7)
+- **Files modified (all inside `backend/` except LOGS.md):** `src/app.ts` (helmet, JSON_BODY_LIMIT, 413 envelope, three rate limiters with Retry-After, trust proxy, /internal excluded from the global limiter), `src/config.ts` (all new env vars + `validateSecrets`: JWT_SECRET required ≥32 chars and not starting with `<`; same for PIPELINE_API_KEY when set; skipped under NODE_ENV=test), `src/middleware/auth.ts` (HS256 pinned, exp required, deleted users rejected), `src/routes/auth.ts` (JWT_EXPIRES_IN, dummy argon2 verify for unknown emails, per-account login throttle: 5 consecutive failures per email per 15 min → 429 regardless of IP, reset on success, in-memory), `src/routes/index.ts` (auth limiter on login+register, /ready), `src/db.ts` (pool options), `src/server.ts` (pool envs, graceful shutdown), `test/helpers.ts` (resetDb also clears the login throttle; testApp config overrides existed), `.env.example` (placeholders only + all new vars), `README.md` (Production checklist)
+- **Files deleted:** none
+- **Dependencies added:** `helmet`, `express-rate-limit` (both runtime, for items 1 and 3)
+- **Commands run and results:**
+  - `npm test` -> **135 passed, 0 failed** (18 files; 27 new)
+  - `npm run lint` -> pass (0 problems) · `npm run build` (tsc) -> pass (after fixing an import path and the jsonwebtoken `StringValue` typing for `expiresIn`)
+  - `npm run migrate` (+ `-- --test-db`) -> applied 004 cleanly on top of 001–003
+  - Live: `/health` 200 `{"status":"ok"}`, `/ready` 200, `x-content-type-options: nosniff`, no `x-powered-by`; startup with a 9-char `JWT_SECRET` fails with "JWT_SECRET must be at least 32 characters."
+  - `npm audit` -> see below
+- **EXPLAIN findings (seeded ~500 raw messages / 200 published / 300 notifications / 100+ jobs in the test DB, then truncated):**
+  - Review queue uses `raw_messages_group_status_created_idx` (index scan) and published chat uses `published_messages_group_time_idx` at default planner settings — both from earlier migrations.
+  - At this small scale the planner preferred seq scans for the three NEW indexes (jobs claim, unread notifications, member→groups); with `enable_seqscan=off` all three plans use them: Bitmap Index Scan on `jobs_kind_status_run_after_idx`, Bitmap Index Scan on `notifications_unread_idx`, Index Only Scan on `group_members_user_idx`. On production-sized tables these paths are the ones the planner grows into; no missing index remains from the query audit (posts/comments/post_likes were already covered by 001–002 indexes).
+- **npm audit:** 4 findings — tinypool ≤2.1.1 (critical; RCE gadget in worker options) and @vitest/mocker (moderate) are vitest dev-only chains; zod <4.6.6 (high; memory exhaustion validating oversized constrained collections) has only a major-version fix (zod 4, breaking). Per instructions no majors were force-upgraded. Mitigations: zod never sees unbounded input (all user bodies are capped by JSON_BODY_LIMIT=100kb and schemas are bounded objects without unbounded array/record parsing of user input), and vitest runs only in trusted dev/CI contexts. Revisit when zod 4 / vitest 5 can be adopted deliberately.
+- **Docs updated:** `backend/README.md` (Production checklist: secrets, HTTPS via reverse proxy + TRUST_PROXY, CORS, single-instance caveats for in-memory limits/workers, backups, migration procedure, probes); `.env.example`. New env vars: `JWT_EXPIRES_IN`, `JSON_BODY_LIMIT`, `RATE_LIMIT_GLOBAL`, `RATE_LIMIT_AUTH`, `RATE_LIMIT_INTERNAL`, `TRUST_PROXY`, `PG_POOL_MAX`, `PG_IDLE_TIMEOUT_MS`, `PG_STATEMENT_TIMEOUT_MS`, `PG_CONNECT_TIMEOUT_MS`.
+- **Assumptions / decisions:**
+  - Rate limit windows fixed in code (60s global/internal, 15min auth); env vars configure only the maxima. All stores in-memory per process with a code comment that Redis (or similar) is required for multi-instance; TRUST_PROXY defaults off ('true' = 1 hop, or a number of hops).
+  - The global limiter explicitly skips `/internal/*`; the internal limiter is generous (600/min) so a legitimate claim/result worker (~80/min) is never throttled.
+  - Per-account login throttle is in-memory: per-process, resets on restart, unbounded Map pruned lazily by window expiry — documented limitation in code and README.
+  - Login for unknown emails verifies against a module-level dummy argon2 hash so response timing does not reveal account existence.
+  - JWT: HS256 pinned on sign and verify, `exp` mandatory, `JWT_EXPIRES_IN` default 7d; the old dev fallback secret is gone — outside tests, a missing JWT_SECRET now fails startup.
+  - 413 uses code `body_too_large`; 429 uses `rate_limited` with a `Retry-After` header (both via the standard envelope).
+  - `/ready` runs `SELECT 1` only and reports no internals; `/health` never touches the DB.
+  - Graceful shutdown: stop workers → closeIdleConnections → server.close → pool.end → exit 0, with a 10s force-exit deadline; testable via injected server/pool/exit doubles.
+- **Issues / blockers / known bugs:** None new. Not done (out of task scope): real NLP pipeline, real feed moderation provider, shared Redis rate-limit store, multi-instance worker extraction. The zod/vitest audit majors remain open deliberately (see above).
+- **Hard-rules check:**
+  - [x] No public response shape or path changed; all 108 pre-existing tests pass unchanged
+  - [x] No NLP/rewriting/scoring logic added
+  - [x] No request bodies, passwords, tokens, or message text logged anywhere (500 path logs method/path/error name+message only; tests re-verify)
+  - [x] Group-facing privacy unchanged (all privacy tests still green)
+  - [x] Backend only: no Flutter file touched; only `LOGS.md` edited outside `backend/`
+- **Next steps:** Adopt zod 4 / vitest 5 deliberately in a dedicated run (breaking changes); move to a shared rate-limit store only when the API runs multi-instance; then the Flutter login-screen fix and `USE_MOCK=false` integration.

@@ -4,7 +4,8 @@ import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
 import { Pool } from 'pg';
 import { z } from 'zod';
-import { conflict, parseWith, unauthorized } from '../errors';
+import { ApiError, conflict, parseWith, unauthorized } from '../errors';
+import { Config } from '../config';
 import { uniqueConstraint } from '../db';
 import { RequireAuth } from '../middleware/auth';
 
@@ -22,12 +23,12 @@ const registerSchema = z.object({
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters.')
-    .max(128, 'Password is too long.'),
+    .max(128, 'Password must be at most 128 characters.'),
 });
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email('Enter a valid email address.'),
-  password: z.string().min(1, 'Enter your password.'),
+  password: z.string().min(1, 'Enter your password.').max(128),
 });
 
 /**
@@ -49,7 +50,56 @@ function sessionJson(token: string, user: { id: string; name: string; email: str
   };
 }
 
-export function createAuthRouter(pool: Pool, jwtSecret: string, requireAuth: RequireAuth): Router {
+// Comparable timing for unknown emails: verify the submitted password
+// against this dummy hash so a missing account costs an argon2 pass too.
+const DUMMY_HASH =
+  '$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ' +
+  '$RdescudvJCsgt3ub+b+dWRWJTmaaJObG';
+
+/**
+ * Per-account login throttling: 5 consecutive failed logins for one email
+ * within 15 minutes locks that email (429) regardless of source IP; a
+ * successful login resets it. In-memory and per-process: with multiple API
+ * instances the counter is not shared and resets on restart — a production
+ * multi-instance deployment needs a shared store.
+ */
+const LOGIN_FAILURE_WINDOW_MS = 15 * 60_000;
+const LOGIN_FAILURE_LIMIT = 5;
+
+const loginFailures = new Map<string, { count: number; windowStartedAt: number }>();
+
+export function resetLoginThrottle(): void {
+  loginFailures.clear();
+}
+
+function loginThrottleRemainingMs(email: string): number {
+  const entry = loginFailures.get(email);
+  if (!entry) return 0;
+  const elapsed = Date.now() - entry.windowStartedAt;
+  if (entry.count < LOGIN_FAILURE_LIMIT || elapsed >= LOGIN_FAILURE_WINDOW_MS) return 0;
+  return LOGIN_FAILURE_WINDOW_MS - elapsed;
+}
+
+function recordLoginFailure(email: string): void {
+  const now = Date.now();
+  const entry = loginFailures.get(email);
+  if (!entry || now - entry.windowStartedAt >= LOGIN_FAILURE_WINDOW_MS) {
+    loginFailures.set(email, { count: 1, windowStartedAt: now });
+    return;
+  }
+  entry.count += 1;
+}
+
+function clearLoginFailures(email: string): void {
+  loginFailures.delete(email);
+}
+
+export function createAuthRouter(
+  pool: Pool,
+  jwtSecret: string,
+  requireAuth: RequireAuth,
+  appConfig: Config,
+): Router {
   const router = Router();
 
   router.post('/register', async (req, res) => {
@@ -83,21 +133,45 @@ export function createAuthRouter(pool: Pool, jwtSecret: string, requireAuth: Req
     if (!inserted) {
       throw conflict('username_taken', 'Could not derive a username. Please contact support.');
     }
-    const token = jwt.sign({}, jwtSecret, { subject: inserted.id, expiresIn: '7d' });
+    const token = jwt.sign({}, jwtSecret, {
+      subject: inserted.id,
+      // StringValue-typed in @types/jsonwebtoken; config keeps it a string.
+      expiresIn: appConfig.jwtExpiresIn as jwt.SignOptions['expiresIn'],
+      algorithm: 'HS256',
+    });
     res.status(201).json(sessionJson(token, inserted));
   });
 
   router.post('/login', async (req, res) => {
     const body = parseWith(loginSchema, req.body);
+
+    const remainingMs = loginThrottleRemainingMs(body.email);
+    if (remainingMs > 0) {
+      res.set('Retry-After', String(Math.ceil(remainingMs / 1000)));
+      throw new ApiError(429, 'rate_limited', 'Too many failed logins. Please try again later.');
+    }
+
     const { rows } = await pool.query(
       'SELECT id, name, email, password_hash FROM users WHERE email = $1',
       [body.email],
     );
     const user = rows[0];
-    if (!user || !(await argon2.verify(user.password_hash, body.password))) {
+    const passwordOk = user
+      ? await argon2.verify(user.password_hash, body.password)
+      : // Unknown email: burn the same argon2 work so timing does not
+        // reveal whether the account exists.
+        (await argon2.verify(DUMMY_HASH, body.password), false);
+
+    if (!user || !passwordOk) {
+      recordLoginFailure(body.email);
       throw unauthorized('Email or password is incorrect.');
     }
-    const token = jwt.sign({}, jwtSecret, { subject: user.id, expiresIn: '7d' });
+    clearLoginFailures(body.email);
+    const token = jwt.sign({}, jwtSecret, {
+      subject: user.id,
+      expiresIn: appConfig.jwtExpiresIn as jwt.SignOptions['expiresIn'],
+      algorithm: 'HS256',
+    });
     res.json(sessionJson(token, user));
   });
 

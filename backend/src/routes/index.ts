@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, RequestHandler } from 'express';
 import { Pool } from 'pg';
 import { Config } from '../config';
 import { createAuthMiddleware } from '../middleware/auth';
@@ -14,15 +14,38 @@ import '../types';
  * app works with the default base URL http://localhost:3000 and with the
  * documented http://localhost:3000/api/v1.
  */
-export function createApiRouter(pool: Pool, appConfig: Config): Router {
+export function createApiRouter(
+  pool: Pool,
+  appConfig: Config,
+  opts: { authLimiter?: RequestHandler } = {},
+): Router {
   const router = Router();
   const requireAuth = createAuthMiddleware(pool, appConfig.jwtSecret);
 
+  // Strict per-IP limit on credential endpoints (15-minute window).
+  if (opts.authLimiter) {
+    router.use(['/auth/login', '/auth/register'], opts.authLimiter);
+  }
+
+  // Cheap and public; never touches the database.
   router.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
 
-  router.use('/auth', createAuthRouter(pool, appConfig.jwtSecret, requireAuth));
+  // Readiness: one trivial query; 503 envelope when the database is down.
+  // Reports no internals beyond up/down.
+  router.get('/ready', async (_req, res) => {
+    try {
+      await pool.query('SELECT 1');
+      res.json({ status: 'ready' });
+    } catch {
+      res.status(503).json({
+        error: { code: 'not_ready', message: 'The service is not ready.' },
+      });
+    }
+  });
+
+  router.use('/auth', createAuthRouter(pool, appConfig.jwtSecret, requireAuth, appConfig));
   router.get('/me', requireAuth, createMeHandler());
   router.use(
     '/groups',

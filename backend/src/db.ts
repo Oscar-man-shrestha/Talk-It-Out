@@ -1,7 +1,21 @@
 import { Pool, PoolClient } from 'pg';
 
-export function createPool(connectionString: string): Pool {
-  return new Pool({ connectionString, max: 10 });
+export interface PoolOptions {
+  max?: number;
+  idleTimeoutMillis?: number;
+  statementTimeoutMillis?: number;
+  connectionTimeoutMillis?: number;
+}
+
+export function createPool(connectionString: string, options: PoolOptions = {}): Pool {
+  return new Pool({
+    connectionString,
+    max: options.max ?? 10,
+    idleTimeoutMillis: options.idleTimeoutMillis ?? 30000,
+    connectionTimeoutMillis: options.connectionTimeoutMillis ?? 5000,
+    // Per-connection guard against runaway statements.
+    statement_timeout: options.statementTimeoutMillis ?? 15000,
+  });
 }
 
 /** Runs fn inside a transaction, rolling back on any error. */

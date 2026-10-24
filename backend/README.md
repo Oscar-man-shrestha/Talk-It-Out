@@ -84,6 +84,55 @@ Numbered `.sql` files in `migrations/`, applied in order by
 `npm run migrate` and recorded in `schema_migrations`. Never edit an applied
 migration — add a new numbered file instead.
 
+## Production checklist
+
+**Environment & secrets**
+
+- Copy `.env.example` to `.env` and fill every secret. `JWT_SECRET` is
+  required: at least 32 characters, never the placeholder (startup fails
+  otherwise outside tests). Same rule for `PIPELINE_API_KEY` when set.
+  Generate with
+  `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`.
+- Set `CORS_ORIGINS` to the exact origins the Flutter web build is served
+  from; never `*` in production.
+- Set `JWT_EXPIRES_IN` deliberately (default 7d; there are no refresh tokens).
+
+**Network**
+
+- Terminate HTTPS at a reverse proxy (nginx/Caddy/ALB); the app itself
+  speaks HTTP. Forward `X-Forwarded-For` and set `TRUST_PROXY` to the
+  number of trusted proxy hops, or per-IP rate limits see the proxy's IP.
+- Keep `/internal/pipeline/*` bound to localhost or a private network; it is
+  authenticated by `PIPELINE_API_KEY` but not meant to be public.
+
+**Single-instance caveats (in-memory state)**
+
+- Rate limits (global/auth/internal) and per-account login throttling use
+  in-memory stores, and both workers run in-process. Running more than one
+  API instance requires a shared rate-limit store such as Redis, moving the
+  workers out-of-process (one claimant per job kind), and making login
+  throttling shared — otherwise limits and locks are per instance.
+
+**Database**
+
+- Back up Postgres on a schedule (`pg_dump` or volume snapshots); test a
+  restore. Apply migrations with `npm run migrate` during deploys — the
+  runner is idempotent and records applied files in `schema_migrations`.
+  Never edit an applied migration; add a new numbered one.
+- Pool and timeouts are tunable: `PG_POOL_MAX`, `PG_IDLE_TIMEOUT_MS`,
+  `PG_STATEMENT_TIMEOUT_MS`, `PG_CONNECT_TIMEOUT_MS`.
+
+**Operations**
+
+- `GET /health` is a cheap liveness probe (never touches the DB);
+  `GET /ready` returns 503 when the database is down — use it for
+  readiness checks.
+- SIGTERM/SIGINT drain gracefully: workers stop, the pool closes, exit
+  within 10s.
+- `JSON_BODY_LIMIT` caps request bodies (default 100kb). `npm audit`
+  regularly; see the Run 040 LOGS entry for the current findings and why
+  the available fixes (vitest 5 / zod 4) were not applied blindly.
+
 ## Not in this slice
 
 Real NLP rewrite pipeline (stub only), a real feed moderation provider

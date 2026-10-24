@@ -202,6 +202,24 @@ class PrivacyLoggingTests(unittest.TestCase):
         self.assertNotIn(sentinel, printed)
         self.assertIn("worker_crash", printed)
 
+    def test_unchanged_flag_is_logged_without_text(self):
+        # Observability for the echo failure mode: the worker logs that
+        # the output was unchanged (job id + flag only, never text).
+        backend = FakeBackend()
+        outcome = RewriteOutcome(
+            rewritten_text="sentinel-free-text",
+            intent_preservation_score=1.0,
+            relevance_score=0.5,
+            relevance_label="borderline",
+            unchanged=True,
+        )
+        worker = make_worker(StubService([outcome]), backend)
+        with self.assertLogs(level=logging.INFO) as captured:
+            worker.run_once()
+        printed = "\n".join(captured.output)
+        self.assertIn("unchanged=True", printed)
+        self.assertNotIn("sentinel-free-text", printed)
+
 
 if __name__ == "__main__":
     unittest.main()

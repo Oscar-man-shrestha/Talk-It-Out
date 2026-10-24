@@ -50,6 +50,33 @@ class OpenAICompatibleAdapterTests(unittest.TestCase):
         adapter.complete([{"role": "user", "content": "hi"}], temperature=0.1, max_tokens=8)
         self.assertNotIn("Authorization", calls[0]["headers"])
 
+    def test_extra_body_is_merged_into_the_payload(self):
+        queue = list([(200, completion("x"))])
+        calls = []
+
+        def poster(url, headers, payload, timeout):
+            calls.append(payload)
+            item = queue.pop(0)
+            return item[0], json.dumps(item[1])
+
+        adapter = OpenAICompatibleAdapter(
+            endpoint="http://inference:8080/v1/chat/completions",
+            model_id="our-model",
+            timeout=5.0,
+            extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+            poster=poster,
+        )
+        adapter.complete([{"role": "user", "content": "hi"}], temperature=0.1, max_tokens=8)
+        self.assertEqual(
+            calls[0]["chat_template_kwargs"], {"enable_thinking": False}
+        )
+        self.assertEqual(calls[0]["model"], "our-model")  # base fields survive
+
+    def test_no_extra_body_by_default(self):
+        adapter, calls = self.make_adapter([(200, completion("x"))])
+        adapter.complete([{"role": "user", "content": "hi"}], temperature=0.1, max_tokens=8)
+        self.assertNotIn("chat_template_kwargs", calls[0]["payload"])
+
     def test_authorization_header_with_api_key(self):
         adapter, calls = self.make_adapter([(200, completion("x"))], api_key="selfhosted-key")
         adapter.complete([{"role": "user", "content": "hi"}], temperature=0.1, max_tokens=8)

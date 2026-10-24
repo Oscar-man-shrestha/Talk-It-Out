@@ -31,6 +31,7 @@ def build_worker(config: Config) -> Worker:
         model_id=config.model_id,
         api_key=config.model_api_key,
         timeout=config.model_request_timeout_seconds,
+        extra_body=config.model_extra_body,
     )
     service = RewriteService(adapter=adapter, config=config)
     return Worker(client=client, service=service, config=config, sleep=time.sleep)

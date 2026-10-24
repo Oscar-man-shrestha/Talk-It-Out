@@ -117,6 +117,44 @@ class LoadConfigTests(unittest.TestCase):
         with self.assertRaises(ConfigError):
             load_config({**base, "MODEL_TEMPERATURE": "3.0"})
 
+    def test_extra_body_default_is_empty(self):
+        config = load_config(
+            {
+                "PIPELINE_BACKEND_BASE_URL": "http://x",
+                "PIPELINE_API_KEY": "k",
+                "MODEL_ENDPOINT": "http://m",
+                "MODEL_ID": "m",
+            }
+        )
+        self.assertEqual(config.model_extra_body, {})
+
+    def test_extra_body_parses_json_object(self):
+        config = load_config(
+            {
+                "PIPELINE_BACKEND_BASE_URL": "http://x",
+                "PIPELINE_API_KEY": "k",
+                "MODEL_ENDPOINT": "http://m",
+                "MODEL_ID": "m",
+                "MODEL_EXTRA_BODY": '{"chat_template_kwargs":{"enable_thinking":false}}',
+            }
+        )
+        self.assertEqual(
+            config.model_extra_body,
+            {"chat_template_kwargs": {"enable_thinking": False}},
+        )
+
+    def test_extra_body_rejects_non_object_and_bad_json(self):
+        base = {
+            "PIPELINE_BACKEND_BASE_URL": "http://x",
+            "PIPELINE_API_KEY": "k",
+            "MODEL_ENDPOINT": "http://m",
+            "MODEL_ID": "m",
+        }
+        with self.assertRaises(ConfigError):
+            load_config({**base, "MODEL_EXTRA_BODY": "[1,2]"})
+        with self.assertRaises(ConfigError):
+            load_config({**base, "MODEL_EXTRA_BODY": "{not json"})
+
 
 class LoadEnvFileTests(unittest.TestCase):
     def test_parses_and_never_overrides_environment(self):

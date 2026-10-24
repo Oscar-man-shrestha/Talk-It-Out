@@ -9,9 +9,11 @@ chars) and are pending confirmation — see README.md "Limits status".
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from .errors import ConfigError
 
@@ -91,6 +93,11 @@ class Config:
     model_temperature: float
     model_max_tokens: int
     model_request_timeout_seconds: float
+    # Extra JSON object merged into every model request payload. This is
+    # how server-specific request fields (e.g. vLLM's
+    # chat_template_kwargs for Qwen3 thinking mode) are configured
+    # without hard-coding one server in the adapter.
+    model_extra_body: dict[str, Any]
 
     # Reported verbatim in every successful result (contract §3).
     pipeline_version: str
@@ -123,6 +130,17 @@ def load_config(env: dict[str, str] | None = None) -> Config:
     if temperature > 2.0:
         raise ConfigError("MODEL_TEMPERATURE must be at most 2.0.")
 
+    raw_extra = env.get("MODEL_EXTRA_BODY", "").strip()
+    if raw_extra:
+        try:
+            extra_body = json.loads(raw_extra)
+        except ValueError as exc:
+            raise ConfigError("MODEL_EXTRA_BODY must be valid JSON.") from exc
+        if not isinstance(extra_body, dict):
+            raise ConfigError("MODEL_EXTRA_BODY must be a JSON object.")
+    else:
+        extra_body = {}
+
     return Config(
         backend_base_url=base_url,
         pipeline_api_key=api_key,
@@ -139,6 +157,7 @@ def load_config(env: dict[str, str] | None = None) -> Config:
         model_temperature=temperature,
         model_max_tokens=_positive_int(env, "MODEL_MAX_TOKENS", 1024),
         model_request_timeout_seconds=timeout,
+        model_extra_body=extra_body,
         pipeline_version=env.get("PIPELINE_VERSION", "").strip() or "talkitout-pipeline 0.1.0",
         log_level=env.get("PIPELINE_LOG_LEVEL", "INFO").strip().upper(),
     )

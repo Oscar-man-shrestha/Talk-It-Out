@@ -20,6 +20,7 @@ def make_config(**overrides) -> Config:
         model_temperature=0.2,
         model_max_tokens=1024,
         model_request_timeout_seconds=120.0,
+        model_extra_body={},
         pipeline_version="test-worker 1.0.0",
         log_level="INFO",
     )

@@ -121,7 +121,8 @@ class Worker:
                 relevance_label=outcome.relevance_label,
                 pipeline_version=self._config.pipeline_version,
             )
-            logger.info("job %s result submitted", job.job_id)
+            logger.info("job %s result submitted (unchanged=%s)",
+                        job.job_id, outcome.unchanged)
             _log_applied(job.job_id, body)
         except (BackendTransient, BackendRejected) as exc:
             # Could not deliver the outcome; the lease expiry handles it.

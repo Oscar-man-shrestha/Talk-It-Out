@@ -40,12 +40,16 @@ class OpenAICompatibleAdapter:
         model_id: str,
         api_key: str = "",
         timeout: float = 120.0,
+        extra_body: dict | None = None,
         poster=None,
     ) -> None:
         self._endpoint = endpoint
         self._model_id = model_id
         self._api_key = api_key
         self._timeout = timeout
+        # Server-specific request fields (e.g. vLLM's chat_template_kwargs
+        # to disable Qwen3 thinking mode), merged at the payload top level.
+        self._extra_body = dict(extra_body or {})
         self._poster = poster or default_poster
 
     def complete(
@@ -57,6 +61,7 @@ class OpenAICompatibleAdapter:
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+        payload.update(self._extra_body)
         headers: dict[str, str] = {}
         if self._api_key:
             # Authorization for the self-hosted server only; the value is

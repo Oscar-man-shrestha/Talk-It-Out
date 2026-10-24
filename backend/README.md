@@ -84,6 +84,54 @@ Numbered `.sql` files in `migrations/`, applied in order by
 `npm run migrate` and recorded in `schema_migrations`. Never edit an applied
 migration — add a new numbered file instead.
 
+## Deployment
+
+**Build and run the container**
+
+```bash
+docker build -t talkitout-backend .
+# Migrations run EXPLICITLY, never automatically on container start:
+docker run --rm \
+  -e DATABASE_URL=postgres://user:pass@db-host:5432/talkitout \
+  -e JWT_SECRET=<64+ random hex chars> \
+  talkitout-backend node dist/migrate-cli.js
+# (equivalently: docker run --rm -e ... <image> npm run migrate:dist)
+docker run -d -p 3000:3000 \
+  -e DATABASE_URL=... -e JWT_SECRET=... [-e RUN_STUB_WORKER=true | -e PIPELINE_MODE=external -e PIPELINE_API_KEY=...] \
+  talkitout-backend
+```
+
+- Multi-stage build; the runtime image carries production deps, `dist/`, and
+  `migrations/` only, and runs as the unprivileged `node` user
+  (NODE_ENV=production). `GET /health` (liveness, never touches the DB) and
+  `GET /ready` (readiness, 503 when the DB is down) are the probes; the
+  Docker `HEALTHCHECK` uses `/health`.
+- Config comes from real environment variables — no `.env` inside the image
+  (`backend/.dockerignore` excludes it). All variables are in
+  `.env.example`.
+- Pipeline modes in containers: `RUN_STUB_WORKER=true` for the in-process
+  stub, or `PIPELINE_MODE=external` plus a 32+ char `PIPELINE_API_KEY` and
+  let the external Python worker claim via `http://<api-host>:3000/internal/pipeline/*`.
+- `docker-compose.prod.example.yml` shows a full stack (Postgres 16 with a
+  named volume, the API behind a healthy-db gate, secrets from an uncommitted
+  env file, port bound to loopback behind your TLS reverse proxy).
+- Single-instance caveat: rate limits, login throttling, and both workers are
+  in-memory/in-process; multiple API replicas need a shared rate-limit store
+  and out-of-process workers.
+
+## CI
+
+`.github/workflows/backend-ci.yml` runs on pushes/PRs touching `backend/**`:
+
+- **test** job: Node 22 with npm cache + a postgres:16 service (the test
+  database is created in a CI step because `docker/init.sql` only runs under
+  docker-compose), then `npm ci`, lint, build, migrate, test, and a
+  non-blocking `npm audit --omit=dev --audit-level=high` (the known zod
+  finding has no non-breaking fix — see the comment in the workflow).
+- **docker** job: builds the image (no push) and smoke-tests it against a
+  throwaway Postgres on a private docker network — explicit migrations,
+  then `/health` and `/ready`.
+
 ## Production checklist
 
 **Environment & secrets**

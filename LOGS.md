@@ -12,15 +12,15 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-10-24 20:45 (IST)
-**Current phase:** Phases 0–12 complete (frontend). Backend v1 + slice 2 + pipeline contract + release hardening + CI/containerization built on branch `backendv1` under `backend/`.
+**Last updated:** 2026-10-24 23:31 (IST)
+**Current phase:** Phases 0–12 complete (frontend). Backend v1 + slice 2 + pipeline contract + release hardening + CI/containerization built on branch `backendv1` under `backend/` (merged). Phase 18: Python NLP worker foundation under `pipeline/` (Run 046).
 **Overall status:** 
 1. Transformed `README.md` into an open-source, production-grade documentation portal featuring technology badges, architecture flowcharts, dual-shielded collaboration mechanics, exhaustive 18-feature catalog, comprehensive documentation suite map, quickstart guides (mock vs live), quality gate commands, directory tree, privacy hard rules, and tech stack references.
 2. Added standard MIT `LICENSE` file.
 3. Authored `CONTRIBUTING.md` outlining non-negotiable privacy golden rules (zero-knowledge decoupling, RawMessage isolation), Riverpod development workflows, code style conventions, and PR checklists.
 4. Authored `SECURITY.md` establishing supported versions, zero-knowledge architectural commitments, hardware-backed token storage policies, and coordinated vulnerability disclosure procedures.
 5. All quality gates passing: `dart format` pass, `flutter analyze` 0 issues, automated test suites passing (`privacy_ui_test.dart` and `no_raw_message_import_test.dart`).
-**Next step:** Integrate the Flutter app with the live backend (`USE_MOCK=false`, API base `http://localhost:3000`). This first needs the Flutter login-screen fix (it currently overrides the typed email/password). All client group/feed repository calls now have matching backend endpoints.
+**Next step:** Connect a real self-hosted model endpoint to the pipeline worker (`MODEL_ENDPOINT`/`MODEL_ID`), run its prompt-injection evaluation, and decide D18/D19. This first needs the Flutter login-screen fix (it currently overrides the typed email/password). All client group/feed repository calls now have matching backend endpoints.
 **Blockers:** None for frontend (preview `http://127.0.0.1:52000`). Backend is release-hardened and green (135/135 tests, lint and build clean); the NLP rewrite pipeline (external Python worker has a versioned contract: `backend/docs/groups-pipeline-contract.md`) and the feed moderation provider remain stubs/fakes.
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 
@@ -73,7 +73,9 @@ Items the user should confirm. Agents add rows here when they make an assumption
 | D14 | Groups have no unread field in the API | Unread is the count of published messages newer than the last time that chat was opened, kept in memory for the session | Open | |
 | D15 | Custom image URL text inputs removed in favor of image file uploads | File uploads (`pickImageFile()`) & presets only; backend requires CDN/S3 upload endpoints | Resolved | Image URL inputs removed per user prompt. Backend will accept multipart uploads to `/users/me/avatar` and `/users/me/cover` storing to S3/R2. |
 | D16 | Backend list orderings and small response defaults not pinned by the client contract | Backend orders: groups & notifications newest-first, `/messages/mine` newest-first, members / chat / review-queue oldest-first; `POST /notifications/:id/read` returns 204 with no body; a notification not owned by the caller is 404 (no existence leak); invalid `limit`/`cursor` → 400 envelope; `limit` clamped to 100 | Open | |
-| D17 | How the real NLP pipeline replaces the stub worker | `backend/src/worker/stubWorker.ts` is a labeled placeholder (prefix "rewrite", constant scores) behind the `jobs` outbox; swap the `processJob` body, keep the pending-only guards | Open | |
+| D17 | How the real NLP pipeline replaces the stub worker | `backend/src/worker/stubWorker.ts` is a labeled placeholder (prefix "rewrite", constant scores) behind the `jobs` outbox; swap the `processJob` body, keep the pending-only guards | Resolved | External Python worker under `pipeline/` claims via the internal HTTP API with `PIPELINE_MODE=external`; foundation implemented in Run 046 |
+| D18 | Pipeline scoring method (contract requires scores; no calibrated confidence exists) | Deterministic heuristics in `pipeline/talkitout_pipeline/scoring.py` (length/digit-loss penalties; agenda-word overlap for relevance); thresholds provisional and advisory only | Open | |
+| D19 | Prompt-injection defense for the model layer | Delimiters + system-prompt data rule + deterministic validation tested; a real-model injection evaluation is still required | Open | |
 
 ---
 
@@ -1642,3 +1644,148 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] No out-of-scope feature added
   - [x] Frontend only: no backend/NLP/DB code added
 - **Next steps:** Per snapshot: fix the login screen (remove the prefilled/overwriting controllers, restore the documented mock autofill), then integrate with `USE_MOCK=false` against the backend.
+
+### Run 044: Python NLP pipeline setup milestone (docs/config scaffolding only)
+- **Date/time:** 2026-10-24 21:10 (IST)
+- **Agent/tool:** ZCode (GLM-5.3)
+- **Phase:** Setup — `pipeline/` component scaffolding
+- **Prompt / task:** Set up the Python NLP worker component at `pipeline/` (rules file, .gitignore, .env.example, root AGENTS.md pointer) per the teammate's brief. No worker implementation.
+- **Result:** Completed
+- **Summary:** Created `pipeline/AGENTS.md` (architecture/contract rules, privacy and secrets rules, rewrite-quality and prompt-injection rules, English-only policy, versioning/scoring rules, placeholder-limits caveat, operational behavior as future-implementation instructions). Created `pipeline/.gitignore` (Python caches, venvs, `.env` excluded; `.env.example` not ignored). Created `pipeline/.env.example` using contract/backend-confirmed names (`X-Pipeline-Key` secret, backend limits) and `# TODO: confirm` marks for unconfirmed worker-side names (backend base URL env name, LLM provider/model). Added one bullet to root `AGENTS.md` "Where to look" pointing to `pipeline/AGENTS.md`; no other rule text changed. Read `backend/docs/groups-pipeline-contract.md` (incl. §11 sketch) and `backend/.env.example` for exact names. No worker code, no dependencies, no LLM calls, no backend/Flutter changes.
+- **Files created:** `pipeline/AGENTS.md`, `pipeline/.gitignore`, `pipeline/.env.example`
+- **Files modified:** `AGENTS.md` (one bullet), `LOGS.md` (this entry + Last updated)
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `git status --short` / `git branch --show-current` -> clean tree before start, branch `main` (stayed on it)
+  - `git diff --check` -> pass (no whitespace errors)
+  - `git status --short` after changes -> only the 5 intended files
+  - Secret scan of new files -> placeholders only, no real credentials
+  - `dart format` / `flutter analyze` / `flutter test` -> not run (no Dart changed); backend/Flutter test suites not run (out of scope)
+- **Docs updated:** `pipeline/AGENTS.md` created; root `AGENTS.md` gained one pointer bullet; `LOGS.md` updated
+- **Assumptions / decisions:**
+  - Decision 1 (hosted vs local LLM): **unresolved** — no Claude recommendation available in this conversation; worker-side `.env.example` keeps provider/model names as `# TODO: confirm` proposals without deciding the question.
+  - Decision 2 (languages): **English-only processing** recorded as decided in `pipeline/AGENTS.md`; unsupported languages must fail safely without leaking text.
+  - Decision 3 (input/output limits): backend defaults 5000/8000 treated as **placeholders, pending confirmation after consultation with Claude**; recorded in `pipeline/AGENTS.md` and annotated in `pipeline/.env.example`. Backend defaults unchanged.
+- **Issues / blockers / known bugs:** none new. Blocked decisions: hosted-vs-local model; final character limits (both await Claude's input per the brief).
+- **Hard-rules check:**
+  - [x] Group-facing code uses only PublishedMessage (no RawMessage import) — no Flutter code touched
+  - [x] No "show original" UI anywhere — not touched
+  - [x] Anonymity disclosure shown next to the checkbox — composer not touched
+  - [x] No logging of message text or sender identity — codified in `pipeline/AGENTS.md`; no code written
+  - [x] No out-of-scope feature added — setup docs/config only, no worker implemented
+  - [x] No secrets committed — `.env` gitignored in `pipeline/`; `.env.example` placeholders only
+- **Next steps:** Get Claude's input on Decision 1 (hosted vs local model) and Decision 3 (final input/output limits); then a future run implements the worker against `backend/docs/groups-pipeline-contract.md`.
+
+### Run 045: Scope-rule correction in root AGENTS.md (docs only)
+- **Date/time:** 2026-10-24 21:30 (IST)
+- **Agent/tool:** ZCode (GLM-5.3)
+- **Phase:** Docs
+- **Prompt / task:** Resolve the conflict between root `AGENTS.md` ("never write NLP pipeline code") and the newly established Python worker in `pipeline/`.
+- **Result:** Completed
+- **Summary:** Narrowly scoped documentation correction to root `AGENTS.md` section 1 (Mission and scope). The scope bullet now explicitly permits implementing and maintaining the separate Python HTTP worker under `pipeline/`, governed by `pipeline/AGENTS.md`, communicating with the backend only through the documented HTTP contract and never accessing the database directly. Prohibitions retained: backend implementation, database access/schema/migrations, infrastructure, and Flutter frontend code unless separately authorized. All privacy, anonymity, security, and quality rules untouched. No code, env vars, backend defaults, or model/limit decisions changed.
+- **Files created:** none
+- **Files modified:** `AGENTS.md` (section 1 scope bullets), `LOGS.md` (this entry + Last updated)
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `git diff --check` -> pass (no whitespace errors)
+  - `git status --short` / diff review -> only `AGENTS.md` and `LOGS.md` modified (plus pre-existing `pipeline/` files from Run 044)
+  - Test suites -> not run (documentation-only change)
+- **Docs updated:** `AGENTS.md`, `LOGS.md`
+- **Assumptions / decisions:** none beyond the prompt's instructions
+- **Issues / blockers / known bugs:** none
+- **Hard-rules check:**
+  - [x] Group-facing code uses only PublishedMessage (no RawMessage import) — no code change
+  - [x] No "show original" UI anywhere — no code change
+  - [x] Anonymity disclosure shown next to the checkbox — not touched
+  - [x] No logging of message text or sender identity — rules preserved
+  - [x] No out-of-scope feature added — docs correction only
+  - [x] No backend/infra/DB/Flutter code modified — AGENTS.md wording change only
+- **Next steps:** Await Claude's input on Decision 1 (hosted vs local model) and Decision 3 (final input/output limits); then implement the worker per `pipeline/AGENTS.md`.
+
+### Run 046: Python NLP worker foundation under `pipeline/`
+- **Date/time:** 2026-10-24 22:50 (IST)
+- **Agent/tool:** ZCode (GLM-5.3)
+- **Phase:** 18 — Pipeline worker foundation
+- **Prompt / task:** Implement the Python NLP worker foundation under `pipeline/` per the backend contract: config, HTTP client, self-hosted model adapter, rewrite orchestration with validation and scores, polling loop, tests, and docs. No real inference connected.
+- **Result:** Completed (foundation; model layer tested with mocks only — not production)
+- **Summary:** Implemented a stdlib-only Python package (`talkitout_pipeline`) and an 89-test unittest suite (all passing): environment config with validation (timeout must fit inside the lease); `BackendClient` for the exact claim/result/fail endpoints with `X-Pipeline-Key` auth, backend envelope error mapping (401/503 fatal → stop; 429/5xx/network → skip, lease handles re-queue; 422 → never repost), and contract-version drift detection; `ModelAdapter` protocol + `OpenAICompatibleAdapter` for a self-hosted inference server (no third-party provider, optional server auth only); rewrite orchestration with delimiter-based prompt-injection defense and deterministic output validation (blank/oversized/scaffold-echo/lost digits/negation/URL hard rejects); documented deterministic scoring (explicitly not model confidence, advisory relevance); English-only gate; UTF-16 length parity with the backend's zod counting (emoji = 2 units); one-job-at-a-time loop with graceful shutdown and sentinel-tested privacy logging. Updated `pipeline/.env.example` (worker-defined names confirmed, provisional 5000/8000 limits documented), wrote `pipeline/README.md`, and added one clarifying sentence to `pipeline/AGENTS.md` (unchanged output acceptable only after genuine successful inference — resolves the conflict with "avoid unnecessary rewriting when already professional").
+- **Files created:** `pipeline/README.md`, `pipeline/talkitout_pipeline/{__init__,__main__,config,errors,text_utils,language,http_client,model_adapter,scoring,rewrite,worker}.py`, `pipeline/tests/{__init__,helpers,test_text_utils,test_config,test_language,test_http_client,test_model_adapter,test_rewrite,test_worker}.py`
+- **Files modified:** `pipeline/.env.example`, `pipeline/AGENTS.md` (one sentence), `LOGS.md` (snapshot, D17 resolved/D18–D19 added, this entry)
+- **Files deleted:** none
+- **Dependencies added:** none (Python stdlib only)
+- **Commands run and results:**
+  - `python -m unittest discover -p "test_*.py"` -> **89 passed, 0 failed** (mocked inference; no network)
+  - `python -m compileall talkitout_pipeline tests` -> pass
+  - `python -m pyflakes` -> not installed, skipped
+  - `git diff --check` -> pass; `git status` -> only `AGENTS.md`, `LOGS.md` modified + `pipeline/` new
+  - Secret scan mindset: `.env.example` placeholders only; no keys in code
+  - Flutter/backend gates -> not run (no Flutter/backend files changed)
+- **Docs updated:** `pipeline/README.md` (architecture, config table, endpoints, scoring method, limits status, privacy); `pipeline/AGENTS.md` (+1 sentence); `LOGS.md`
+- **Assumptions / decisions:** Backend source of truth verified against `src/internal/pipeline.ts` and tests; backend counts chars as UTF-16 units so the worker does too; backend limits verified as 5000/8000 (the floated 2000/3000 do not exist in the backend and were not adopted); unchanged model output accepted only on genuine successful inference; unexpected crashes report fixed code `worker_crash` (never exception text); transient backend errors never post `/fail` (attempts are counted per claim — double-counting avoided). D18 (scoring method) and D19 (real-model injection eval) added as open decisions; D17 resolved as external-mode Python worker.
+- **Issues / blockers / known bugs:** No real model endpoint connected — worker fails honestly (`model_unavailable`/`model_timeout` error outcomes) until one exists; deterministic detail checks guarantee presence, not meaning; English gate is a heuristic, not a language identifier; pyflakes unavailable on this machine.
+- **Hard-rules check:**
+  - [x] Worker talks to the backend only via the HTTP contract; no DB access
+  - [x] No message text, rewrite text, sender identity, or secrets in logs (sentinel-tested)
+  - [x] Message text treated as untrusted data; injection defenses layered
+  - [x] English-only processing; unsupported languages fail safely without echoing text
+  - [x] Relevance advisory only; low scores never hide/reject
+  - [x] Honest failures: original text never fabricated as a rewrite
+  - [x] No backend/DB/Flutter changes; no branch/commit/push
+- **Next steps:** Point `MODEL_ENDPOINT`/`MODEL_ID` at a real self-hosted server, run a live smoke test + prompt-injection evaluation, decide D18/D19 and the final character limits (pending Claude).
+
+### Run 047: English-gate false-rejection fix in the pipeline worker
+- **Date/time:** 2026-10-24 23:17 (IST)
+- **Agent/tool:** ZCode (GLM-5.3)
+- **Phase:** 18 — Pipeline worker fix
+- **Prompt / task:** Fix the English detector rejecting valid English with few recognized stopwords ("Meeting starts tomorrow" was rejected).
+- **Result:** Completed
+- **Summary:** `pipeline/talkitout_pipeline/language.py`: the any-stopword match was replaced by a coverage rule — Latin-script text passes when at least one third of its words are in an expanded vocabulary (function words plus a curated ~300-word common-content list: workplace/student nouns, verbs, days, months, politeness and temporal words). One-third coverage keeps mixed messages working while refusing foreign text that shares stray short words ("a", "me") — the old any-match would have passed "quiero saber cuando vamos a empezar" via "a". Unchanged: the non-Latin script refusal, and the documented short-input policy (fewer than three words gets the benefit of the doubt; blank input passes with no signal since blanks are the caller's concern). Added 11 regression tests covering the 8 required cases plus mixed-language and zero-signal long-text guards. Privacy behavior unchanged (no text logging anywhere in the gate).
+- **Files created:** none
+- **Files modified:** `pipeline/talkitout_pipeline/language.py`, `pipeline/tests/test_language.py`, `LOGS.md` (this entry + Last updated)
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `python -m unittest tests.test_language` -> 19 passed
+  - `python -m unittest discover -p "test_*.py"` -> **100 passed, 0 failed**
+  - `git diff --check` -> pass; `git status` -> only `AGENTS.md`, `LOGS.md` modified + `pipeline/` new; branch `main`
+- **Docs updated:** `language.py` module docstring (policy for short/ambiguous input and the coverage rule); `LOGS.md`. README unchanged (behavior is documented in the module; no operator-facing setup change).
+- **Assumptions / decisions:** Ambiguous short input (<3 words, e.g. "ok", "hola") passes by documented policy — the gate refuses clearly unsupported languages, and the model + controller layers handle the rest; the vocabulary is deliberately weighted to unambiguous English spellings.
+- **Issues / blockers / known bugs:** Heuristic limits remain (rare English words outside the vocabulary in a 3+ word sentence with no function words would be refused); a real-model language evaluation can revisit this.
+- **Hard-rules check:**
+  - [x] Worker talks to the backend only via the HTTP contract; no DB access — not touched
+  - [x] No message text or identity in logs — gate never logs; unchanged
+  - [x] English-only policy retained; clearly non-English still refused (tests)
+  - [x] Relevance advisory / honest failures — not touched
+  - [x] No backend/Flutter/contract changes; no branch/commit/push
+- **Next steps:** Unchanged from Run 046: connect a real self-hosted model endpoint, run the prompt-injection evaluation, decide D18/D19 and final character limits.
+
+### Run 048: Real-model integration preparation (smoke test + docs; no endpoint connected)
+- **Date/time:** 2026-10-24 23:31 (IST)
+- **Agent/tool:** ZCode (GLM-5.3)
+- **Phase:** 18 — Real-model integration preparation
+- **Prompt / task:** Prepare and validate real-model integration: document server requirements, build a backend-free model smoke test using synthetic text, recommend free-compute benchmarking for Qwen3-4B. No weights downloaded, no live inference claimed.
+- **Result:** Completed (preparation only — no model endpoint is configured, so live inference is NOT verified)
+- **Summary:** Documented the exact self-hosted server requirements in `pipeline/README.md` (OpenAI-compatible non-streaming `POST /v1/chat/completions` with `{model, messages, temperature, max_tokens}`; response must carry `choices[0].message.content`; per-failure mapping to fixed model error codes; `MODEL_ID` semantics for vLLM/llama.cpp/Ollama; optional Bearer auth for the self-hosted server only; startup validation that the model timeout fits inside the lease). Added `pipeline/scripts/smoke_model.py`: three probes (raw adapter connectivity, full rewrite path with scores, informational prompt-injection probe) over synthetic text only, default output limited to PASS/FAIL/latency/scores with `--show-output` opt-in, exit codes 0/1/2. Verified its failure modes live: unreachable endpoint -> honest `model_unavailable` FAIL exit 1; no config -> exit 2 with clear guidance. Documented a Qwen3-4B free-compute benchmarking recommendation (Colab free T4 + vLLM `--dtype half` with commands; Kaggle alternative; CPU route via llama.cpp GGUF Q4_K_M or Ollama), benchmark metrics (p50/p95 rewrite latency, tokens/sec, injection-probe rate) and the lease-budget rule, with explicit non-persistence caveats.
+- **Files created:** `pipeline/scripts/smoke_model.py`
+- **Files modified:** `pipeline/README.md` (three new sections), `LOGS.md` (this entry + Last updated)
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `python scripts/smoke_model.py` (no config) -> exit 2, clean guidance
+  - `python scripts/smoke_model.py --endpoint http://127.0.0.1:9999/... --model smoke-fake --timeout 3` -> probes FAIL honestly with `model_unavailable`, exit 1 (no endpoint exists; live inference NOT claimed)
+  - `python -m compileall -q talkitout_pipeline scripts` -> pass
+  - `python -m unittest discover -p "test_*.py"` -> **100 passed, 0 failed**
+  - `git diff --check` -> pass; branch `main`; no commit/push
+- **Docs updated:** `pipeline/README.md` (Connecting a self-hosted inference server / Smoke test / Benchmarking Qwen3-4B on free temporary compute); `LOGS.md`
+- **Assumptions / decisions:** Smoke script prints model responses only behind `--show-output` and only for synthetic prompts, honoring the no-text-logging rule; injection probe is informational because neither the validator nor the model layer can be judged from one synthetic case.
+- **Issues / blockers / known bugs:** Blocker: no self-hosted endpoint is available, so the smoke test cannot pass and live inference remains unverified. Free notebook runtimes are ephemeral and must not host the persistent worker.
+- **Hard-rules check:**
+  - [x] No third-party LLM API introduced; adapter remains self-hosted OpenAI-compatible
+  - [x] No model weights downloaded; no paid infrastructure; no real user data sent anywhere
+  - [x] Backend contract unchanged; no backend/Flutter files touched
+  - [x] No live-inference success claimed without evidence
+  - [x] Synthetic text only in the smoke tool; no message text logging
+  - [x] No branch/commit/push
+- **Next steps:** Serve Qwen3-4B on chosen compute (README commands), run `python scripts/smoke_model.py --endpoint <url> --model <id> --show-output`, then on PASS configure `pipeline/.env`, run the backend with `PIPELINE_MODE=external`, and end-to-end test `python -m talkitout_pipeline`; decide D18/D19 and final limits (pending Claude).

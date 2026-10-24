@@ -35,6 +35,7 @@ Then open `http://127.0.0.1:52000/#/login`. `ERR_CONNECTION_REFUSED` (error -102
 - Screens: `lib/features/{auth,groups,review,feed,notifications,profile}`.
 - `RawMessage` stays inside `lib/features/review`. `test/no_raw_message_import_test.dart` enforces that.
 - Product copy and acceptance: `CURSOR_FRONTEND_BRIEF.md`. HTTP contract: `API.md`. Models and seed: `DATA.md`.
+- Python NLP rewrite worker: `pipeline/` (a separate Python component at the repo root, not part of the Flutter app). Its rules live in `pipeline/AGENTS.md`; it talks to the backend only through the HTTP contract in `backend/docs/groups-pipeline-contract.md`.
 
 **Layout constraints from the UI overhaul**
 - Do not wrap a `ListView` in a `ResponsiveContainer` or `ConstrainedBox`. That clips the test viewport and breaks `test/privacy_ui_test.dart`. Widen screens with inline `hPad` from `MediaQuery`: `screenWidth > 860 ? (screenWidth - 800) / 2 : 16.0`, applied as padding.
@@ -56,8 +57,9 @@ Last known quality gates (Run 010): `dart format` pass, `flutter analyze` 0 issu
 
 ## 1. Mission and scope
 
-- This repo is the **Flutter frontend only** of a collaboration platform (groups, public feed, per-message anonymity). Product details: `CURSOR_FRONTEND_BRIEF.md`.
-- **Never** write or add backend code (Express, BullMQ, Redis, SQL migrations), NLP pipeline code, or infrastructure. The backend is another team's job. The app talks to it only through the HTTP API in `API.md`.
+- This repo is the **Flutter frontend** of a collaboration platform (groups, public feed, per-message anonymity). Product details: `CURSOR_FRONTEND_BRIEF.md`.
+- **Never** write or add backend code (Express, BullMQ, Redis, SQL migrations), or infrastructure, and never touch database access, schema, or migrations. The backend under `backend/` is another team's job. The app talks to it only through the HTTP API in `API.md`.
+- **Exception — the Python NLP worker:** implementing and maintaining the separate Python HTTP worker under `pipeline/` is permitted. It is governed by `pipeline/AGENTS.md` and must communicate with the backend **only** through the documented HTTP contract (`backend/docs/groups-pipeline-contract.md`); it must never access the database directly. Do not modify Flutter frontend code (`lib/`, `test/`), backend implementation, or infrastructure unless separately authorized.
 - Never modify files outside this repo.
 
 ## 2. Start-of-run checklist

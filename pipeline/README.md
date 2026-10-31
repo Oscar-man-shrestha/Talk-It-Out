@@ -8,10 +8,7 @@ component from `backend/`; see `AGENTS.md` in this directory for the
 governing rules and `backend/docs/groups-pipeline-contract.md`
 (contract_version 1) for the HTTP contract — the source of truth.
 
-**Status: foundation, not production.** No real model endpoint has been
-connected; the model layer is tested with mocked HTTP only. The worker
-fails honestly (contract `error` outcomes) when inference is unavailable
-and never fabricates a rewrite.
+**Status: Verified.** Real-model evaluation completed on Kaggle with Qwen2.5-3B-Instruct (vLLM, 0 hijacks on adversarial probes), and live backend claim/result integration verified via `scripts/verify_e2e_flow.py`. The worker fails honestly (contract `error` outcomes) when inference is unavailable and never fabricates a rewrite.
 
 ## Architecture
 
@@ -82,16 +79,42 @@ can be dropped in without touching orchestration.
 
 ## Running
 
+### 1. Offline Verification & Unit Tests
+Requires Python 3.10+. No third-party dependencies (stdlib `urllib` only), so there is nothing to install for tests or development:
 ```bash
 cd pipeline
-python -m talkitout_pipeline          # requires the backend running with
-                                      # PIPELINE_MODE=external and a matching key
-python -m unittest discover -p "test_*.py"   # test suite (no network needed)
-python -m compileall talkitout_pipeline      # syntax check
+python -m unittest discover -s tests -t .    # full 148-test deterministic test suite
+python -m compileall talkitout_pipeline       # syntax verification
 ```
 
-Requires Python 3.10+. No third-party dependencies (stdlib `urllib`),
-so there is nothing to install for tests or development.
+### 2. Running the Linked System (Backend + Worker)
+
+To run the complete system with the live backend and the Python NLP worker linked together:
+
+#### Terminal 1: Start the Backend (External Pipeline Mode)
+Start the PostgreSQL container and run the API with the internal stub worker suppressed:
+```bash
+cd backend
+docker compose up -d                        # start PostgreSQL container on host port 5433
+npm run migrate                             # apply schema migrations
+PIPELINE_MODE=external npm run dev          # starts backend on http://localhost:3000
+```
+*(On Windows PowerShell, use `npm.cmd run dev`)*
+
+#### Terminal 2: Start the Python NLP Worker
+Configure `pipeline/.env` with matching `PIPELINE_API_KEY` and start the worker polling loop:
+```bash
+cd pipeline
+python -m talkitout_pipeline
+```
+The worker will poll `http://localhost:3000/internal/pipeline/claim` every 2 seconds, claim newly submitted anonymous messages, rewrite them with the configured model adapter, and deliver results to `POST /internal/pipeline/result`.
+
+### 3. Automated End-to-End Integration Test
+To verify the entire 11-step lifecycle against a running backend (registration → group creation → anonymous message submission → worker claim → rewrite result → controller review queue → accept → group chat publication):
+```bash
+cd pipeline
+python scripts/verify_e2e_flow.py
+```
 
 ## Connecting a self-hosted inference server
 

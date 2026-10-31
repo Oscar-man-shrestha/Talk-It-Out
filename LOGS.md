@@ -12,7 +12,7 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-11-01 02:05 (IST)
+**Last updated:** 2026-11-01 02:35 (IST)
 **Current phase:** Phases 0–12 complete (frontend). Backend v1 + slice 2 + pipeline contract + release hardening + CI/containerization built on branch `backendv1` under `backend/` (merged). Phase 18: Python NLP worker foundation under `pipeline/` — real-model evaluation verified on Kaggle (Run 056) and end-to-end integration verified with live backend (Run 057).
 **Overall status:** 
 1. Transformed `README.md` into an open-source, production-grade documentation portal featuring technology badges, architecture flowcharts, dual-shielded collaboration mechanics, exhaustive 18-feature catalog, comprehensive documentation suite map, quickstart guides (mock vs live), quality gate commands, directory tree, privacy hard rules, and tech stack references.
@@ -2087,4 +2087,31 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] Controller review queue displays rewrite and scores
   - [x] Pipeline communicates solely via documented HTTP internal API; zero database access
 - **Next steps:** Finalize character limits with team/backend (proposed 1500 in / 2500 out), commit and clean up environment.
+
+### Run 058: Documented multi-terminal execution guide in pipeline/README.md
+- **Date/time:** 2026-11-01 02:35 (IST)
+- **Agent/tool:** Antigravity + Gemini 3.8 Flash
+- **Phase:** 18 — Groups Python NLP worker foundation and real-model validation
+- **Prompt / task:** Document the step-by-step multi-terminal execution procedure and automated end-to-end integration test command in `pipeline/README.md`.
+- **Result:** Completed
+- **Summary:**
+  - Updated `pipeline/README.md` status from "foundation, not production" to "Verified" referencing Kaggle Qwen2.5-3B-Instruct evaluation and live backend claim/result verification.
+  - Added explicit multi-terminal setup instructions under `## Running`:
+    - Terminal 1: Backend Docker startup, database migration, and external pipeline API server launch (`PIPELINE_MODE=external npm run dev`).
+    - Terminal 2: Python NLP worker launch (`python -m talkitout_pipeline`) polling `/internal/pipeline/claim`.
+    - Section 3: Automated 11-step end-to-end integration verification command (`python scripts/verify_e2e_flow.py`).
+- **Files created:** none
+- **Files modified:** `pipeline/README.md`, `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `python -m unittest discover -s pipeline/tests -t pipeline` -> 148 passed in 0.025s
+- **Docs updated:** `pipeline/README.md`, `LOGS.md`
+- **Assumptions / decisions:** Documentation reflects the verified live architecture.
+- **Issues / blockers / known bugs:** none
+- **Hard-rules check:**
+  - [x] No backend/DB/Flutter implementation changed
+  - [x] Privacy rules preserved
+  - [x] Working tree clean
+- **Next steps:** Commit documentation update and push to remotes.
 

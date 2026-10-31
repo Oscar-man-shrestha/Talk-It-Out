@@ -242,6 +242,12 @@ with the rewriter's) — deliberately not implemented in this change.
 
 ## Benchmarking Qwen3-4B on free temporary compute (recommendation)
 
+For a copyable notebook handoff with setup, server startup, evaluation,
+exit-code interpretation, and the report checklist, see
+[`COLAB_EVALUATION.md`](COLAB_EVALUATION.md). Although named for Colab,
+it applies to Kaggle or another notebook runtime that can run this code and
+serve an OpenAI-compatible model endpoint.
+
 Qwen3-4B is small: ~8 GB in fp16, ~2.6 GB as a Q4 GGUF. Practical
 options, all **temporary** — free notebooks sleep and lose their
 runtime, so none of them is a persistent worker host; the real

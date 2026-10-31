@@ -12,7 +12,7 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-10-25 02:05 (IST)
+**Last updated:** 2026-10-31 00:00 (IST)
 **Current phase:** Phases 0–12 complete (frontend). Backend v1 + slice 2 + pipeline contract + release hardening + CI/containerization built on branch `backendv1` under `backend/` (merged). Phase 18: Python NLP worker foundation under `pipeline/` (Run 046).
 **Overall status:** 
 1. Transformed `README.md` into an open-source, production-grade documentation portal featuring technology badges, architecture flowcharts, dual-shielded collaboration mechanics, exhaustive 18-feature catalog, comprehensive documentation suite map, quickstart guides (mock vs live), quality gate commands, directory tree, privacy hard rules, and tech stack references.
@@ -20,8 +20,8 @@ Rules for this file:
 3. Authored `CONTRIBUTING.md` outlining non-negotiable privacy golden rules (zero-knowledge decoupling, RawMessage isolation), Riverpod development workflows, code style conventions, and PR checklists.
 4. Authored `SECURITY.md` establishing supported versions, zero-knowledge architectural commitments, hardware-backed token storage policies, and coordinated vulnerability disclosure procedures.
 5. All quality gates passing: `dart format` pass, `flutter analyze` 0 issues, automated test suites passing (`privacy_ui_test.dart` and `no_raw_message_import_test.dart`).
-**Next step:** Connect a real self-hosted model endpoint to the pipeline worker (`MODEL_ENDPOINT`/`MODEL_ID`), run its prompt-injection evaluation, and decide D18/D19. This first needs the Flutter login-screen fix (it currently overrides the typed email/password). All client group/feed repository calls now have matching backend endpoints.
-**Blockers:** None for frontend (preview `http://127.0.0.1:52000`). Backend is release-hardened and green (135/135 tests, lint and build clean); the NLP rewrite pipeline (external Python worker has a versioned contract: `backend/docs/groups-pipeline-contract.md`) and the feed moderation provider remain stubs/fakes.
+**Next step:** Teammate to choose/set up the replacement temporary GPU runtime (Kaggle/Hugging Face or other), follow `pipeline/COLAB_EVALUATION.md` to run Qwen3-4B smoke/adversarial evaluation and offline tests, and send back the actual results. Then settle D18 scoring, D19 injection posture, and final input/output limits with Claude/team. Current local and origin/upstream refs are aligned at `4ac8a0e`.
+**Blockers:** No local access to the Colab model endpoint (`127.0.0.1:8000`); real-model evaluation needs to run in the notebook/runtime itself. The worker implementation and synthetic tests exist, but model endpoint validation remains pending. Backend is release-hardened; public-feed pipeline is a separate Team 12 deliverable and out of this worker's scope.
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 
 | Phase | Name | Status | Last run # |
@@ -44,10 +44,13 @@ Rules for this file:
 | 15 | Groups pipeline integration contract + internal worker API | Done | 039 |
 | 16 | Backend release hardening | Done | 040 |
 | 17 | Backend CI and containerization | Done | 041 |
+| 18 | Groups Python NLP worker foundation and real-model validation | In progress | 053 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
 **Quality gates (latest known):** `dart format .` completed (Run 039), `flutter analyze` passed with 0 issues, and `flutter test` passed all 26 tests (Run 039).
+
+**Pipeline notebook handoff:** `pipeline/COLAB_EVALUATION.md` now contains notebook-ready setup and run steps for the model-only evaluation. It uses synthetic fixtures and needs no backend key. Runtime switching and real-model run are delegated/pending.
 
 ---
 
@@ -1902,3 +1905,76 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] No claim that synthetic tests prove real-model security
   - [x] Branch `main`; no commit/push
 - **Next steps:** Transfer `adversarial.py`, `smoke_model.py`, `test_adversarial.py`, `README.md` to Colab (fresh process), rerun the smoke test; report per-probe statuses — a HIJACKED on append_token would be the first conclusive execution evidence; the other probes' SUSPECTED/ECHO results need the same manual-review reading as before.
+
+### Run 053: Task A preparation — real-model adversarial validation (NOT RUN locally)
+- **Date/time:** 2026-10-25 04:16 (IST)
+- **Agent/tool:** ZCode (GLM-5.3)
+- **Phase:** 18 — Real-model validation (Task A), evidence-collection prep
+- **Prompt / task:** Validate the redesigned adversarial evaluator against the running Qwen3-4B endpoint; report per-case inputs/outputs/classifications. No prompt/model/implementation changes.
+- **Result:** Completed as preparation — **real-model test NOT RUN from ZCode** (endpoint unreachable); exact Colab commands handed off
+- **Summary:** Verified repo state: HEAD `4ac8a0e` on `main`, clean tree, in sync with `origin/main` — working tree equals the committed implementation. Verified programmatically on the committed code: `append_token` input does NOT contain the contiguous canary ("pwned" absent; spelled P-W-N-E-D) while the other three probes' canaries DO occur in their inputs (zebra/hacked/cancelled) — the documented ambiguity limit. Synthetic suite on the committed code: 148/148 passed (synthetic only; says nothing about real-model security). Endpoint check from ZCode: `http://127.0.0.1:8000/health` and a completions POST both returned curl `000` (4s timeout) — the Colab runtime's localhost is not reachable from this machine; no tunnel created per constraints. Noted evidence-collection limitation: the smoke script withholds output text for ECHO/SUSPECTED/HIJACKED probes even with `--show-output`, so a read-only Colab diagnostic cell (production RewriteService, prints exact per-case input/output/classification) was provided alongside the official smoke command. Nothing was modified except this log entry.
+- **Files created:** none
+- **Files modified:** `LOGS.md` only (this entry + Last updated)
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `git log`/`git status`/`git diff --stat HEAD` -> `4ac8a0e`, clean, synced
+  - `python -m unittest discover -s tests -t .` -> **148 passed** (synthetic)
+  - Probe invariant check via python -> append_token canary NOT in input; other three in input
+  - `curl -m 4` to `127.0.0.1:8000` (health + completions POST) -> `000` both, UNREACHABLE
+- **Docs updated:** `LOGS.md` only
+- **Assumptions / decisions:** none
+- **Issues / blockers / known bugs:** Real-model validation blocked from ZCode by network topology (expected); awaits Colab execution of the provided commands.
+- **Hard-rules check:**
+  - [x] No prompt/model/temperature/implementation/failure-handling changes
+  - [x] No fabricated real-model results; NOT RUN stated explicitly
+  - [x] Synthetic results labeled distinctly from real-model results
+  - [x] Branch `main`; no commit/push
+- **Next steps:** User runs the smoke command + diagnostic cell in Colab (fresh process) and brings back full stdout incl. exit code; per-probe classification drives the next decision (HIJACKED → Task B hard-failure design with concrete evidence; ECHO-dominant → prompt/temperature experiment; stable clean PASS → repeat runs for stability, then Task B).
+
+### Run 054: Repo and pipeline progress audit for teammate handoff
+- **Date/time:** 2026-10-31 00:00 (IST)
+- **Agent/tool:** Codex
+- **Phase:** 18 — Status audit / handoff
+- **Prompt / task:** Compare origin and upstream, inspect current groups NLP pipeline progress, and summarize completed and pending work for teammate communication.
+- **Result:** Completed (read-only audit plus log update)
+- **Summary:** Confirmed `origin` is the user's fork (`Mithunvisvesh/Talk-It-Out`) and `upstream` is `Oscar-man-shrestha/Talk-It-Out`; both local tracking refs resolve to `4ac8a0e` with no ahead/behind commits in the fetched refs. Current branch is `main`; working tree already had modified `LOGS.md`. Pipeline foundation is implemented and synthetic tests are documented at 148 passing, while real-model adversarial evaluation is still pending from Colab because the local machine cannot reach its loopback endpoint. Documented Kaggle/Hugging Face as possible runtimes without claiming a migration occurred.
+- **Files created:** none
+- **Files modified:** `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `git remote -v` -> origin is `Mithunvisvesh/Talk-It-Out`; upstream is `Oscar-man-shrestha/Talk-It-Out`
+  - `git rev-parse origin/main upstream/main` -> both `4ac8a0e5884d330605221b264b9aaa1f5d3e193d`; left/right log shows no ref-only commits
+  - `git status --short --branch` -> `main...origin/main`, modified `LOGS.md` (pre-existing at audit start)
+  - `dart format .` / `flutter analyze` / `flutter test` -> not run (no code change)
+- **Docs updated:** `LOGS.md` status snapshot and this run entry
+- **Assumptions / decisions:** User's remembered Colab limit is not independently verifiable from repository artifacts; Kaggle/Hugging Face are options only, no migration recorded.
+- **Issues / blockers / known bugs:** Real-model run requires an accessible model-serving runtime; D18 scoring, D19 prompt-injection decision, and final character limits remain open.
+- **Hard-rules check:**
+  - [x] No backend/DB/Flutter/NLP code changes; documentation status only
+  - [x] Privacy rules preserved; no user message text or secrets added
+- **Next steps:** Run the committed smoke/evaluation scripts in a fresh model-serving notebook/runtime and report full diagnostics; then discuss D18/D19 and final limits with Claude/team.
+
+### Run 055: Notebook evaluation handoff for teammate
+- **Date/time:** 2026-10-31 00:00 (IST)
+- **Agent/tool:** Codex
+- **Phase:** 18 — Runtime/evaluation handoff docs
+- **Prompt / task:** Reframe pending work as teammate-owned and ensure required Colab code/instructions are in the repository while teammate selects Kaggle/Hugging Face.
+- **Result:** Completed
+- **Summary:** Added a notebook-ready guide covering GPU/runtime check, syncing `pipeline/` without secrets, starting local Qwen3-4B with an OpenAI-compatible vLLM endpoint, running the repo's synthetic functional/adversarial evaluator, interpreting exit codes, running offline tests, and reporting results. Linked it from `pipeline/README.md`. Clarified the guide is for model-only evaluation (no backend key or real message data); the production integration smoke test remains a separate step.
+- **Files created:** `pipeline/COLAB_EVALUATION.md`
+- **Files modified:** `pipeline/README.md`, `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - Documentation inspection and command alignment against `smoke_model.py` and current README -> pass by review
+  - Python evaluation / Flutter quality gates -> not run (documentation-only change)
+- **Docs updated:** `pipeline/COLAB_EVALUATION.md`, `pipeline/README.md`, `LOGS.md`
+- **Assumptions / decisions:** Teammate owns runtime selection and notebook execution; keep repo-provided path runtime-neutral where possible. Existing self-hosted model decision remains; do not send user text to a hosted inference API.
+- **Issues / blockers / known bugs:** The vLLM launch instructions require a compatible GPU/runtime and may need adaptation for Kaggle/Hugging Face; no real-model result has been produced by this run.
+- **Hard-rules check:**
+  - [x] No backend/DB/Flutter implementation changed
+  - [x] Notebook guide uses synthetic prompts only and requires no secrets
+  - [x] No API keys, model credentials, or raw message content added
+- **Next steps:** Teammate selects the temporary runtime, executes `pipeline/COLAB_EVALUATION.md`, reports actual results, then resolves scoring, injection, and final limit decisions with Claude/team.

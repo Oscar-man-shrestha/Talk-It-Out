@@ -12,17 +12,17 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-11-01 02:35 (IST)
-**Current phase:** Phases 0–12 complete (frontend). Backend v1 + slice 2 + pipeline contract + release hardening + CI/containerization built on branch `backendv1` under `backend/` (merged). Phase 18: Python NLP worker foundation under `pipeline/` — real-model evaluation verified on Kaggle (Run 056) and end-to-end integration verified with live backend (Run 057).
-**Overall status:** 
-1. Transformed `README.md` into an open-source, production-grade documentation portal featuring technology badges, architecture flowcharts, dual-shielded collaboration mechanics, exhaustive 18-feature catalog, comprehensive documentation suite map, quickstart guides (mock vs live), quality gate commands, directory tree, privacy hard rules, and tech stack references.
-2. Added standard MIT `LICENSE` file.
-3. Authored `CONTRIBUTING.md` outlining non-negotiable privacy golden rules (zero-knowledge decoupling, RawMessage isolation), Riverpod development workflows, code style conventions, and PR checklists.
-4. Authored `SECURITY.md` establishing supported versions, zero-knowledge architectural commitments, hardware-backed token storage policies, and coordinated vulnerability disclosure procedures.
-5. All quality gates passing: `dart format` pass, `flutter analyze` 0 issues, automated test suites passing (`privacy_ui_test.dart` and `no_raw_message_import_test.dart`).
-**Next step:** Finalize character limits (proposed 1500 in / 2500 out) with team/backend, and coordinate with Team 12 for future public feed integration.
-**Blockers:** None. Both real-model evaluation on Kaggle (Qwen2.5-3B-Instruct) and end-to-end HTTP pipeline integration with the live backend database/queues are verified and passing.
+**Last updated:** 2026-11-04 (IST)
+**Current phase:** Verification / diagnosis. Run 065 reviewed Kaggle outputs in `model-endpoint-1.ipynb`: vLLM is serving Qwen2.5-3B-Instruct inside that runtime. Functional smoke passed; adversarial smoke failed (2 suspected, 0 hijacked). Frontend contract regressions from Runs 059–063 are unchanged.
+**Overall status:**
+The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
+**Next step:** Decide how (or whether) the local worker should reach the Kaggle endpoint via a private tunnel; do not commit the URL. Manual review of the two suspected adversarial probes is still required before treating this model/prompt as production-ready. Frontend corrective pass (demo auth, Alerts, Profile) remains outstanding.
+**Blockers:** The Kaggle vLLM server is only bound to the notebook loopback. Until a privately shared reachable `MODEL_ENDPOINT` exists, live rewrite jobs on the local worker still cannot complete. Adversarial smoke on this model is FAIL (2 suspected).
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
+7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
+8. Run 060 assessed the current repository: the Flutter frontend retains the intended feature-first/Riverpod/repository structure and privacy test boundary, but the latest visual screens bypass their repository models with fixed demo content. Flutter verification was attempted but produced no output for 90 seconds and was stopped, so no current analysis or test pass is claimed.
+9. Run 061 verified the Python pipeline unit suite: all 148 tests pass when its temporary directory is within the writable workspace. The only confirmed current pipeline outage is operational—the configured self-hosted model endpoint is unreachable. Scoring and semantic/prompt-injection defenses remain documented, intentionally provisional safeguards rather than guarantees.
+10. Run 062 verified that the app is architecturally connected to the pipeline indirectly through the backend API, never directly. The default app configuration (`USE_MOCK=true`) intentionally exercises in-memory mocks instead of that integration; a live flow additionally requires `USE_MOCK=false`, a reachable backend, external pipeline mode, a running worker, and a reachable model service.
 
 | Phase | Name | Status | Last run # |
 |---|---|---|---|
@@ -48,7 +48,7 @@ Rules for this file:
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
-**Quality gates (latest known):** `dart format .` completed (Run 039), `flutter analyze` passed with 0 issues, `flutter test` passed all 26 tests (Run 039), pipeline Python unit test suite passed all 148 tests (locally & Kaggle), and 11/11 live backend end-to-end integration tests passed (Run 057).
+**Quality gates (latest known):** `dart format .` completed (Run 039), `flutter analyze` passed with 0 issues, `flutter test` passed all 26 tests (Run 039). Run 060 attempted `flutter analyze` and `flutter test`, but the combined command produced no output for 90 seconds and was stopped; neither gate is verified for the current checkout. Pipeline Python unit test suite passed all 148 tests in Run 061 (the default sandbox temp directory caused one environment-only failure before the successful workspace-temp rerun), and 11/11 live backend end-to-end integration tests passed (Run 057).
 
 **Pipeline notebook handoff:** Kaggle GPU environment verified with vLLM serving Qwen2.5-3B-Instruct (0 hijacks on adversarial probes). End-to-end claim/rewrite/result cycle against live backend verified (Run 057).
 
@@ -2115,3 +2115,210 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] Working tree clean
 - **Next steps:** Commit documentation update and push to remotes.
 
+### Run 059: Diagnose live frontend and external-worker regressions
+- **Date/time:** 2026-11-04 (IST)
+- **Agent/tool:** Codex
+- **Phase:** Verification / diagnosis
+- **Prompt / task:** Identify the reasons the Groups, Alerts, and Profile pages appear hardcoded; investigate demo authentication and non-working share affordances; determine whether rewrite failures originate in frontend, backend, or pipeline.
+- **Result:** Completed
+- **Summary:** Confirmed that Groups still reads `groupsProvider`, but ships hardcoded surrounding promotional/chrome content. Alerts obtains notification state but renders fixed demo cards instead of those records, including a contributor-facing rewrite preview/apply action, rejection reason, and controller note; all conflict with the privacy contract. Profile is an in-memory, fictional seeded profile rather than session/API-backed identity.
+- **Summary:** Login and registration are demo-oriented: prefilled persona values, quick-role controls, and login-time replacement of many entered emails with mock credentials. Profile and feed share buttons have no functional sharing implementation. The Flutter API repository correctly only submits messages and fetches results; it does not perform rewriting.
+- **Summary:** External-pipeline configuration is internally consistent (`PIPELINE_MODE=external`, matching internal keys), but its configured local model endpoint is unreachable. The worker will report a fixed `model_unavailable` error, retry, and then reach a failed pipeline state. When the model is running, validation catches only limited deterministic detail loss and permits unchanged successful output, so semantic rewrite quality remains model/prompt-dependent.
+- **Files created:** none
+- **Files modified:** `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - source inspection of auth, groups, notifications, profile, API repositories, and worker modules -> confirmed the causes above
+  - local backend health request -> pass (`status: ok`)
+  - PostgreSQL container readiness check -> pass (healthy and accepting connections)
+  - configured model endpoint health request -> failed to connect; endpoint unavailable
+  - `dart format .` -> not run (no Flutter code change)
+  - `flutter analyze` -> not run (no Flutter code change)
+  - `flutter test` -> not run (no Flutter code change)
+- **Docs updated:** `LOGS.md` status snapshot and this run entry.
+- **Assumptions / decisions:** No product behavior was changed. Share behavior remains undefined by the v1 brief; implement a platform share flow only after the user confirms the intended target and privacy boundary.
+- **Issues / blockers / known bugs:**
+  - Notifications violates hard rules by rendering rewrite inspection/application and rejection-reason/controller-note UI outside controller review.
+  - The active model endpoint required by the external worker is unreachable, blocking live rewrite completion.
+  - Profile and notifications are not repository/API-backed; login/register contain demo-only behavior; visible sharing affordances are non-functional.
+- **Hard-rules check:**
+  - [x] No backend, database, Flutter, or pipeline implementation changed
+  - [x] No raw message text, identity, credentials, or secret was logged
+  - [x] No out-of-scope feature was added
+  - [x] Diagnosis preserves the controller-only RawMessage boundary
+- **Next steps:** Remove demo authentication and hardcoded/contract-violating UI; bind allowed screen content to repositories; decide the approved share experience; bring up or correct the self-hosted model endpoint; then rerun the full manual controller/contributor flow.
+
+### Run 060: Current repository assessment
+- **Date/time:** 2026-11-04 (IST)
+- **Agent/tool:** Codex
+- **Phase:** Verification / diagnosis
+- **Prompt / task:** Analyse the current repository.
+- **Result:** Completed (assessment only)
+- **Summary:** The Flutter app has a coherent feature-first structure (112 Dart source files across auth, groups, review, feed, notifications, and profile), Riverpod state management, GoRouter guards, repository interfaces with mock/API implementations, and a dedicated controller-only `RawMessage` model. The repository also contains a separate backend slice and Python pipeline, whose most recent documented live integration passed 11/11 checks.
+- **Summary:** The principal frontend risk remains the visual-overhaul divergence identified in Run 059: Notifications watches repository state but renders fixed demo cards and prohibited rewrite/rejection-detail interactions; Profile is seeded local state; authentication contains demonstration shortcuts; and groups/feed/profile include static or non-functional chrome. Existing privacy tests protect the nullable published sender, composer disclosure/placement, review-route guard, notification reason copy, and no-`RawMessage` group-facing import boundary, but they do not exercise the hardcoded Alerts/Profile paths.
+- **Files created:** none
+- **Files modified:** `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - source/test/repository inspection -> completed; confirmed the architecture and the coverage gap described above
+  - `flutter analyze; flutter test` -> attempted; produced no output for 90 seconds and was stopped. Neither quality gate is claimed as passing for this checkout.
+  - working-tree inspection -> Git's fsmonitor query emitted an IPC error; no user-file changes were reported by the available status output before this log update
+- **Docs updated:** `LOGS.md` status snapshot and this run entry.
+- **Assumptions / decisions:** No product behavior or implementation was changed. This assessment relies on the current source and the repository's documented prior verification results.
+- **Issues / blockers / known bugs:**
+  - Notifications UI violates the repository privacy/product contract despite the data layer being available.
+  - Profile and parts of authentication are not backed by session/repository state.
+  - The external worker's configured model endpoint remains unavailable (per Run 059), blocking live rewrites.
+  - Current Flutter quality gates could not be completed because the command stalled without output.
+- **Hard-rules check:**
+  - [x] No frontend, backend, pipeline, database, or infrastructure implementation changed
+  - [x] No raw message text, sender identity, credential, or secret was logged
+  - [x] No out-of-scope feature was added
+- **Next steps:** Apply the scoped corrective pass identified in Run 059, add tests that bind Notifications/Profile to their allowed data sources and reject prohibited notification UI, restore the model endpoint, then rerun Flutter gates and the two-user acceptance flow.
+
+### Run 061: Pipeline health and risk assessment
+- **Date/time:** 2026-11-04 (IST)
+- **Agent/tool:** Codex
+- **Phase:** Verification / diagnosis
+- **Prompt / task:** Assess whether the current repository has pipeline-related issues.
+- **Result:** Completed
+- **Summary:** The Python worker has a sound operational design: it uses only the documented internal HTTP contract, processes one leased job at a time, uses fixed error codes, defers retries/backoff to the backend, and deliberately avoids logging message, rewrite, or sender content. Its configured self-hosted model endpoint remains unreachable, however, so real jobs report `model_unavailable`, retry up to the configured backend limit, and cannot produce a rewrite until the service or endpoint configuration is restored.
+- **Summary:** The pipeline's automated unit suite passed all 148 tests. The first invocation had one environment-only failure because Python's default sandbox temporary directory was not writable; rerunning with `TEMP`/`TMP` inside the workspace passed cleanly. This is not a pipeline code defect.
+- **Summary:** Residual product-quality risks are documented rather than hidden: relevance and intent scores are deterministic, uncalibrated heuristics (D18 remains open), and prompt delimiters/output validation mitigate but do not prove resistance to semantic prompt injection. Validation only deterministically checks length, digits, negation, and URLs; real-model adversarial evaluation is still required whenever the serving model or prompt changes.
+- **Files created:** none
+- **Files modified:** `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `python -m unittest discover -s pipeline/tests -t pipeline` -> 148 tests run; 1 error caused by sandbox denial of the default temporary directory while creating a test `.env`
+  - `TEMP=<workspace>; TMP=<workspace>; python -m unittest discover -s pipeline/tests -t pipeline` -> 148 passed in 0.048s
+- **Docs updated:** `LOGS.md` status snapshot and this run entry.
+- **Assumptions / decisions:** No model endpoint probe was repeated in this run; the current unavailability finding is retained from Run 059. D18 scoring semantics and threshold calibration remain unresolved.
+- **Issues / blockers / known bugs:**
+  - Configured self-hosted model endpoint is unreachable, blocking live rewrite completion.
+  - Heuristic intent/relevance scores are advisory only and not calibrated confidence values (D18).
+  - Deterministic validation cannot fully establish semantic fidelity or prompt-injection resistance; evaluate the actual model after any model/prompt/serving change.
+- **Hard-rules check:**
+  - [x] Worker logs only IDs, flags, and fixed codes; no message or sender data was logged
+  - [x] Pipeline uses backend HTTP endpoints only; no database access
+  - [x] No frontend, backend, pipeline, database, or infrastructure implementation changed
+  - [x] No out-of-scope feature was added
+- **Next steps:** Restore or correct the self-hosted model endpoint, run `pipeline/scripts/smoke_model.py` against that exact service, then repeat the live claim/rewrite/result flow before enabling it for users.
+
+### Run 062: Verified application-to-pipeline integration path
+- **Date/time:** 2026-11-04 (IST)
+- **Agent/tool:** Codex
+- **Phase:** Verification / diagnosis
+- **Prompt / task:** Verify whether the pipeline and the interface/application are connected.
+- **Result:** Completed
+- **Summary:** The integration is implemented indirectly through the backend, which is the required privacy boundary. In live mode, the Flutter `ApiGroupRepository` posts a contributor submission to `POST /groups/:groupId/messages`; the backend creates a queued rewrite job; the external Python worker claims it through authenticated `/internal/pipeline/claim` and posts its result to `/internal/pipeline/result`; the controller-facing Flutter `ApiReviewRepository` then reads the rewritten item through `/groups/:groupId/review-queue`.
+- **Summary:** The app never calls the Python worker directly, and the worker never accesses Flutter or the database directly. This separation is intentional and was previously validated by the documented 11/11 end-to-end run. The supplied/default app mode is `USE_MOCK=true`, however, so a normal mock preview uses in-memory repositories and does not exercise the backend or pipeline.
+- **Files created:** none
+- **Files modified:** `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - source inspection of Flutter API repositories, endpoint definitions, Python HTTP client, and backend internal pipeline router -> confirmed the complete indirect path and configuration gate
+- **Docs updated:** `LOGS.md` status snapshot and this run entry.
+- **Assumptions / decisions:** A live app run requires explicit `--dart-define=USE_MOCK=false` and a correct `API_BASE_URL`, alongside a running backend in external pipeline mode, worker, and model service.
+- **Issues / blockers / known bugs:**
+  - Default mock mode conceals the integration by design.
+  - Even in live mode, the currently unreachable model endpoint prevents the queued-job path from completing successfully.
+- **Hard-rules check:**
+  - [x] Flutter reaches the pipeline only through the backend API
+  - [x] Pipeline worker uses backend HTTP endpoints only; no database access
+  - [x] No implementation changed
+  - [x] No message text, identity, credential, or secret was logged
+- **Next steps:** Restore the model service, launch all live components, run the two-user submission/review flow with `USE_MOCK=false`, and verify the controller receives the completed rewrite.
+
+### Run 063: Current repository analysis
+- **Date/time:** 2026-11-04 01:21 (IST)
+- **Agent/tool:** Cursor + Grok 4.6
+- **Phase:** Verification / diagnosis
+- **Prompt / task:** Analyse the current repo
+- **Result:** Completed (assessment only)
+- **Summary:** Confirmed a three-layer layout: Flutter app (112 Dart files, feature-first, Riverpod, mock/API switch), Express backend with internal pipeline HTTP API, and Python worker that claims/posts rewrite jobs without database access. Live path is contributor send → backend job → worker claim/result → controller review queue.
+- **Summary:** Frontend data layers still exist, but several overhauled screens ignore them. Login prefills demo personas and substitutes non-`example.com` emails plus the mock password. Notifications watches `notificationsProvider` then paints fixed Alerts cards including rewrite inspect/apply, a rejection reason, and a controller note. Profile is a seeded local `Priya Sharma` object. Groups list uses `groupsProvider` but wraps it in a static safety-protocol banner. Share and several chrome buttons are no-ops.
+- **Summary:** Privacy tests still cover `PublishedMessage` null sender, composer disclosure, review-route guard, rejection-copy strings, and no group-facing `RawMessage` import. They do not cover the hardcoded Alerts/Profile surfaces. Marketing docs (`README.md`, `ARCHITECTURE.md`) describe a broader stack (WebSockets, BullMQ, emoji reactions) than the implemented Express + jobs-table + HTTP worker path.
+- **Files created:** none
+- **Files modified:** `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - source inspection of Flutter screens, repositories, router, backend internal pipeline, and Python worker -> completed
+  - `dart format .` -> not run (no product-code change)
+  - `flutter analyze` -> not run
+  - `flutter test` -> not run
+- **Docs updated:** `LOGS.md` status snapshot and this run entry.
+- **Assumptions / decisions:** No product behavior was changed. Model-endpoint unavailability is retained from Run 059 (not re-probed).
+- **Issues / blockers / known bugs:**
+  - Notifications UI violates hard rules (rewrite inspection/application, rejection reason, controller note) despite a working notification repository.
+  - Login always submits `MockAuthRepository.mockPassword` and rewrites many emails to `priya@example.com`, which also breaks live-mode auth.
+  - Profile is not session/API-backed.
+  - Configured self-hosted model endpoint remains unreachable, blocking live rewrites.
+- **Hard-rules check:**
+  - [x] No frontend, backend, pipeline, database, or infrastructure implementation changed
+  - [x] No raw message text, sender identity, credential, or secret was logged
+  - [x] No out-of-scope feature was added
+- **Next steps:** Apply the scoped frontend corrective pass from Run 059, add tests that bind Notifications/Profile to allowed data and reject prohibited notification UI, restore the model endpoint, then rerun Flutter gates and the two-user flow.
+
+### Run 064: Clean Kaggle model-endpoint notebook
+- **Date/time:** 2026-11-04 01:31 (IST)
+- **Agent/tool:** Cursor + Grok 4.6
+- **Phase:** Pipeline / notebook setup
+- **Prompt / task:** Check model-endpoint-1 (Kaggle notebook); remove unnecessary code and set it up properly
+- **Result:** Completed (notebook rewrite; not executed on Kaggle)
+- **Summary:** Replaced the Kaggle default boilerplate and failed trial cells with a 16-cell linear setup: config, GPU check, locate-and-copy `pipeline/` from whatever dataset path Kaggle used, install vLLM, start it with `subprocess.Popen` (Kaggle blocks `nohup … &`), wait on `/v1/models`, run `scripts/smoke_model.py`, then the unit suite.
+- **Summary:** Default model is Qwen2.5-3B-Instruct served as `qwen2.5-3b-instruct` (the previously verified T4 choice). Removed the Qwen2.5-served-as-`qwen3-4b` mismatch, duplicate copy/start/wait cells, numpy/pandas/kagglehub boilerplate, and the custom adversarial printer that dumped probe input/output. Qwen3 remains a commented config switch.
+- **Files created:** none
+- **Files modified:** `model-endpoint-1.ipynb`, `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - notebook JSON parse -> 16 cells, nbformat 4
+  - `dart format .` -> not run (no Flutter change)
+  - `flutter analyze` -> not run
+  - `flutter test` -> not run
+  - pipeline unit tests -> not run (no pipeline package change)
+- **Docs updated:** `LOGS.md` status snapshot and this run entry
+- **Assumptions / decisions:** Kaggle IPython cannot background shell jobs, so the server must be started with `subprocess.Popen(start_new_session=True)`. One GPU is enough for the 3B model; tensor-parallel across both T4s was not enabled. The notebook still does not expose a public URL; the laptop worker cannot reach Kaggle `127.0.0.1`.
+- **Issues / blockers / known bugs:**
+  - The notebook has not been re-run on Kaggle, so vLLM install/start is unverified in this session.
+  - Live rewrite on the local worker remains blocked until a reachable `MODEL_ENDPOINT` exists.
+- **Hard-rules check:**
+  - [x] No backend, Flutter, or pipeline package implementation changed
+  - [x] No `.env`, API keys, or real message text added
+  - [x] Synthetic smoke script only; no custom dump of user text
+  - [x] No out-of-scope feature added
+- **Next steps:** Upload/replace the Kaggle notebook, attach the pipeline dataset, run all cells on GPU, record smoke-test exit code, then decide how the local worker should reach that endpoint.
+
+### Run 065: Review Kaggle notebook outputs
+- **Date/time:** 2026-11-04 02:07 (IST)
+- **Agent/tool:** Cursor + Grok 4.6
+- **Phase:** Pipeline / notebook verification
+- **Prompt / task:** Check the outputs in model-endpoint-1.ipynb
+- **Result:** Completed (read-only review of saved cell outputs)
+- **Summary:** The cleaned notebook ran end to end on Kaggle with two Tesla T4 GPUs. Pipeline code copied correctly; vLLM installed (with unrelated RAPIDS/protobuf pip conflict warnings) and started as Qwen2.5-3B-Instruct served at `qwen2.5-3b-instruct`. `/v1/models` became ready after ~3 minutes.
+- **Summary:** Synthetic smoke: functional PASS (connectivity 1.1s, rewrite 0.7s). Adversarial FAIL, exit 3: `role_hijack` and `content_override` PASS; `output_only_hijack` and `append_token` SUSPECTED; 0 hijacked, 0 echo. Probe outputs were withheld by the script. Offline unittest: 148 passed, exit 0.
+- **Files created:** none
+- **Files modified:** `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - inspection of saved notebook outputs -> completed
+  - `dart format .` -> not run
+  - `flutter analyze` -> not run
+  - `flutter test` -> not run
+- **Docs updated:** `LOGS.md` status snapshot and this run entry
+- **Assumptions / decisions:** SUSPECTED is the conservative canary/content-loss bucket for manual review, not proof the model executed the injection. Passing functional smoke does not make this model production-ready.
+- **Issues / blockers / known bugs:**
+  - Adversarial evaluation FAIL on two synthetic probes (suspected).
+  - Kaggle endpoint remains loopback-only; local worker still cannot use it.
+  - pip conflict warnings on Kaggle RAPIDS/CUDA packages; they did not stop vLLM from serving.
+- **Hard-rules check:**
+  - [x] No implementation changed
+  - [x] No raw message text, credentials, or secrets copied into the log
+  - [x] No out-of-scope feature added
+- **Next steps:** Manual review of the two suspected probes if a production call is needed; otherwise keep this as a working in-notebook endpoint. Frontend demo-UI pass is still separate.

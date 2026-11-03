@@ -12,17 +12,18 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-11-01 02:35 (IST)
-**Current phase:** Phases 0–12 complete (frontend). Backend v1 + slice 2 + pipeline contract + release hardening + CI/containerization built on branch `backendv1` under `backend/` (merged). Phase 18: Python NLP worker foundation under `pipeline/` — real-model evaluation verified on Kaggle (Run 056) and end-to-end integration verified with live backend (Run 057).
+**Last updated:** 2026-11-04 (IST)
+**Current phase:** Verification / diagnosis. Run 059 identified frontend contract regressions and an unavailable model endpoint; no corrective implementation has been applied yet.
 **Overall status:** 
 1. Transformed `README.md` into an open-source, production-grade documentation portal featuring technology badges, architecture flowcharts, dual-shielded collaboration mechanics, exhaustive 18-feature catalog, comprehensive documentation suite map, quickstart guides (mock vs live), quality gate commands, directory tree, privacy hard rules, and tech stack references.
 2. Added standard MIT `LICENSE` file.
 3. Authored `CONTRIBUTING.md` outlining non-negotiable privacy golden rules (zero-knowledge decoupling, RawMessage isolation), Riverpod development workflows, code style conventions, and PR checklists.
 4. Authored `SECURITY.md` establishing supported versions, zero-knowledge architectural commitments, hardware-backed token storage policies, and coordinated vulnerability disclosure procedures.
 5. All quality gates passing: `dart format` pass, `flutter analyze` 0 issues, automated test suites passing (`privacy_ui_test.dart` and `no_raw_message_import_test.dart`).
-**Next step:** Finalize character limits (proposed 1500 in / 2500 out) with team/backend, and coordinate with Team 12 for future public feed integration.
-**Blockers:** None. Both real-model evaluation on Kaggle (Qwen2.5-3B-Instruct) and end-to-end HTTP pipeline integration with the live backend database/queues are verified and passing.
+**Next step:** Plan and implement the frontend corrective pass: remove demo authentication, replace hardcoded Notifications with repository-backed records, simplify Profile to session identity, remove static Groups chrome and inactive sharing controls. Then restore the model endpoint and run the two-user acceptance flow.
+**Blockers:** The local external worker's configured self-hosted model endpoint is currently unreachable, so live rewrite jobs will report `model_unavailable` and cannot complete. The backend health endpoint and PostgreSQL container are available; backend/worker pipeline keys match.
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
+7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
 
 | Phase | Name | Status | Last run # |
 |---|---|---|---|
@@ -2115,3 +2116,36 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] Working tree clean
 - **Next steps:** Commit documentation update and push to remotes.
 
+### Run 059: Diagnose live frontend and external-worker regressions
+- **Date/time:** 2026-11-04 (IST)
+- **Agent/tool:** Codex
+- **Phase:** Verification / diagnosis
+- **Prompt / task:** Identify the reasons the Groups, Alerts, and Profile pages appear hardcoded; investigate demo authentication and non-working share affordances; determine whether rewrite failures originate in frontend, backend, or pipeline.
+- **Result:** Completed
+- **Summary:** Confirmed that Groups still reads `groupsProvider`, but ships hardcoded surrounding promotional/chrome content. Alerts obtains notification state but renders fixed demo cards instead of those records, including a contributor-facing rewrite preview/apply action, rejection reason, and controller note; all conflict with the privacy contract. Profile is an in-memory, fictional seeded profile rather than session/API-backed identity.
+- **Summary:** Login and registration are demo-oriented: prefilled persona values, quick-role controls, and login-time replacement of many entered emails with mock credentials. Profile and feed share buttons have no functional sharing implementation. The Flutter API repository correctly only submits messages and fetches results; it does not perform rewriting.
+- **Summary:** External-pipeline configuration is internally consistent (`PIPELINE_MODE=external`, matching internal keys), but its configured local model endpoint is unreachable. The worker will report a fixed `model_unavailable` error, retry, and then reach a failed pipeline state. When the model is running, validation catches only limited deterministic detail loss and permits unchanged successful output, so semantic rewrite quality remains model/prompt-dependent.
+- **Files created:** none
+- **Files modified:** `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - source inspection of auth, groups, notifications, profile, API repositories, and worker modules -> confirmed the causes above
+  - local backend health request -> pass (`status: ok`)
+  - PostgreSQL container readiness check -> pass (healthy and accepting connections)
+  - configured model endpoint health request -> failed to connect; endpoint unavailable
+  - `dart format .` -> not run (no Flutter code change)
+  - `flutter analyze` -> not run (no Flutter code change)
+  - `flutter test` -> not run (no Flutter code change)
+- **Docs updated:** `LOGS.md` status snapshot and this run entry.
+- **Assumptions / decisions:** No product behavior was changed. Share behavior remains undefined by the v1 brief; implement a platform share flow only after the user confirms the intended target and privacy boundary.
+- **Issues / blockers / known bugs:**
+  - Notifications violates hard rules by rendering rewrite inspection/application and rejection-reason/controller-note UI outside controller review.
+  - The active model endpoint required by the external worker is unreachable, blocking live rewrite completion.
+  - Profile and notifications are not repository/API-backed; login/register contain demo-only behavior; visible sharing affordances are non-functional.
+- **Hard-rules check:**
+  - [x] No backend, database, Flutter, or pipeline implementation changed
+  - [x] No raw message text, identity, credentials, or secret was logged
+  - [x] No out-of-scope feature was added
+  - [x] Diagnosis preserves the controller-only RawMessage boundary
+- **Next steps:** Remove demo authentication and hardcoded/contract-violating UI; bind allowed screen content to repositories; decide the approved share experience; bring up or correct the self-hosted model endpoint; then rerun the full manual controller/contributor flow.

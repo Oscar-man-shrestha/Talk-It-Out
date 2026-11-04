@@ -2356,3 +2356,41 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] Seed data created through the public HTTP API; the only direct SQL was deleting one empty duplicate seed group this run created
   - [x] No raw message text from real users, credentials, or secrets written to this file
 - **Next steps:** Expose the Kaggle vLLM server through a private tunnel, set `PIPELINE_MODE=external` plus `MODEL_ENDPOINT`/`MODEL_ID` in `backend/.env` and `pipeline/.env`, run the worker, and repeat the live flow with real rewrites. Manual review of the two suspected adversarial probes (Run 065) is still pending.
+
+### Run 067: Backend completion: profiles, image upload, reactions, read-all, refresh tokens
+- **Date/time:** 2026-11-04 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Backend additions (branch `temp/local-stack-run066`)
+- **Prompt / task:** Complete the remaining project work on the temp branch without changing what is already finished. The frontend/UI stays untouched (user instruction).
+- **Result:** Completed (backend). Not done here: frontend wiring (off limits), real-time push, real-model hookup.
+- **Summary:** Added the backend side of the HANDOFF.md/PLAN.md features the server lacked: public profiles with experience and education CRUD (HANDOFF 13), avatar and cover upload served from Postgres (HANDOFF 14), emoji reactions on published group messages (HANDOFF 10), `POST /notifications/read-all` (HANDOFF 16), and rotating refresh tokens with family reuse detection (PLAN 1.2). All of it is additive: new migrations 005–007, three new route modules, and mounts placed after the existing routers so nothing is shadowed.
+- **Summary:** Existing contracts unchanged: login/register still return exactly `{token, user}` (refresh tokens are opt-in through separate endpoints), the chat message shape is unchanged (reactions have their own endpoint), and all 135 original tests still pass.
+- **Files created:** `backend/migrations/005_profiles.sql`, `backend/migrations/006_message_reactions.sql`, `backend/migrations/007_refresh_tokens.sql`, `backend/src/routes/profiles.ts`, `backend/src/routes/reactions.ts`, `backend/src/routes/refresh.ts`, `backend/test/profiles.test.ts`, `backend/test/reactions.test.ts`, `backend/test/refresh.test.ts`
+- **Files modified:** `backend/src/routes/index.ts` (mount the new routers; `/auth/refresh` shares the login rate limiter), `backend/src/app.ts` (CORS also allows `PUT`), `backend/test/validation-sweep.test.ts` (migration inventory gains 005–007), `backend/package.json` and `package-lock.json`, `API.md` (new section 10 only), `backend/README.md`, `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** `multer` ^2.0.2 (multipart parsing for the image upload contract in HANDOFF 14); `@types/multer` ^2.0.0 (dev)
+- **Commands run and results:**
+  - `npx tsc --noEmit` -> pass; `npm run lint` -> pass; `npm run build` -> pass
+  - `npm test` -> 21 files, 156 passed (135 existing + 21 new)
+  - `npm run migrate` on the dev database -> applied 005, 006, 007
+  - smoke test against the running dev server -> profile update 200, controller announce 201, reaction toggle 200 with counts only, read-all 200, refresh-token issue 201 and exchange 200
+- **Docs updated:** `API.md` §10 (endpoints 27–35), `backend/README.md` (additions section; "Not in this slice" no longer lists profiles)
+- **Assumptions / decisions:**
+  - snake_case JSON to match this API, not the camelCase examples in HANDOFF.md.
+  - Email appears only on your own profile; any signed-in user can view any profile.
+  - Images are stored in Postgres (`media` table, 2 MB cap, PNG/JPEG/WebP sniffed from bytes, latest per kind kept) because no S3/R2 credentials exist. Swapping in an object store later only changes `profiles.ts`.
+  - `GET /media/:id` is public (random UUIDs) so `<img>` works without headers.
+  - Reactions return counts plus the caller's own reactions, never reactor identities.
+  - Refresh tokens: 30 days, SHA-256 hashed, rotated on every use; reuse revokes the family.
+  - A bug found by the new tests was fixed before commit: pg `date` columns parsed into JS `Date` shifted a day under IST, so dates are returned as `::text`.
+- **Issues / blockers / known bugs:**
+  - The Flutter app does not call any of these endpoints yet (frontend off limits); its profile remains local demo state.
+  - Not built: WebSockets/real-time push (D10 open), controller transfer (D4 open).
+  - Live AI rewrites still need a reachable `MODEL_ENDPOINT`; the two suspected adversarial probes from Run 065 still need manual review.
+- **Hard-rules check:**
+  - [x] No frontend/UI file changed
+  - [x] Applied migrations untouched; only new numbered files added
+  - [x] Anonymous published messages still never expose an author; reactions expose no identities
+  - [x] No raw message text or sender identity logged
+  - [x] Secrets only in the gitignored `.env`
+- **Next steps:** When the frontend owners choose to, wire `ApiProfileRepository`, reactions, and read-all to API §10. Bring up the model endpoint via a private tunnel and run the worker in `PIPELINE_MODE=external`.

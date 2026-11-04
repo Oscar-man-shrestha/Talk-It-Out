@@ -7,6 +7,9 @@ import { createFeedRouter } from './feed';
 import { createGroupsRouter } from './groups';
 import { createMessagesRouter } from './messages';
 import { createNotificationsRouter } from './notifications';
+import { createMediaRouter, createProfilesRouter } from './profiles';
+import { createNotificationsReadAllRouter, createReactionsRouter } from './reactions';
+import { createRefreshRouter } from './refresh';
 import '../types';
 
 /**
@@ -24,7 +27,7 @@ export function createApiRouter(
 
   // Strict per-IP limit on credential endpoints (15-minute window).
   if (opts.authLimiter) {
-    router.use(['/auth/login', '/auth/register'], opts.authLimiter);
+    router.use(['/auth/login', '/auth/register', '/auth/refresh'], opts.authLimiter);
   }
 
   // Cheap and public; never touches the database.
@@ -54,6 +57,14 @@ export function createApiRouter(
   router.use('/messages', createMessagesRouter(pool, requireAuth));
   router.use('/posts', createFeedRouter(pool, requireAuth));
   router.use('/notifications', createNotificationsRouter(pool, requireAuth));
+
+  // Additions after the v1 client contract (not yet called by the Flutter
+  // app). Mounted after the routers above so they never shadow them.
+  router.use('/auth', createRefreshRouter(pool, appConfig.jwtSecret, requireAuth, appConfig));
+  router.use('/groups', createReactionsRouter(pool, requireAuth));
+  router.use('/notifications', createNotificationsReadAllRouter(pool, requireAuth));
+  router.use('/users', createProfilesRouter(pool, requireAuth));
+  router.use('/media', createMediaRouter(pool));
 
   return router;
 }

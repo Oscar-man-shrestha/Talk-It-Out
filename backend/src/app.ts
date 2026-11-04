@@ -79,7 +79,7 @@ export function buildApp(pool: Pool, appConfig: Config): Express {
   app.use(
     cors({
       origin: appConfig.corsOrigins === '*' ? true : appConfig.corsOrigins,
-      methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Authorization', 'Content-Type'],
     }),
   );

@@ -160,6 +160,9 @@ describe('migrations', () => {
       '002_feed.sql',
       '003_one_group_per_post.sql',
       '004_performance_indexes.sql',
+      '005_profiles.sql',
+      '006_message_reactions.sql',
+      '007_refresh_tokens.sql',
     ]);
   });
 });

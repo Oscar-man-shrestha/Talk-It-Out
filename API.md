@@ -377,3 +377,60 @@ Response `200`: `{ "count": 2 }`
 3. No endpoint returns another contributor's original text to a non-controller.
 4. Endpoint 11 returns only the caller's own messages, status only.
 5. Rejection notifications never include a reason.
+
+---
+
+## 10. Backend additions (not yet called by the Flutter app)
+
+These endpoints exist on the backend (migrations 005–007) and are covered by backend tests, but no `Api*Repository` calls them yet. Endpoints 1–26 above are unchanged; in particular, login/register still return exactly `{ token, user }`. Same conventions as section 1: snake_case JSON, `{ "error": { "code", "message" } }` envelope, everything except `GET /media/:mediaId` needs `Authorization: Bearer`.
+
+### 27. GET `/users/:userId/profile` (also `/users/me/profile`)
+Response `200`:
+```json
+{
+  "user": {
+    "id": "u1", "name": "Priya", "username": "priya",
+    "email": "priya@example.com",
+    "headline": "", "bio": "", "location": "", "website": "",
+    "github_handle": "", "twitter_handle": "", "linkedin_url": "",
+    "skills": [], "avatar_url": null, "cover_url": null
+  },
+  "experiences": [],
+  "educations": []
+}
+```
+`email` is only present on your own profile. A user who never edited a profile gets empty strings and lists. `404` for an unknown id.
+
+### 28. PUT `/users/me/profile`
+Body: any subset of `name`, `headline`, `bio`, `location`, `website`, `github_handle`, `twitter_handle`, `linkedin_url`, `skills` (array, max 50, de-duplicated case-insensitively). Unknown fields return `422`. Changing `name` also changes the name shown by `/me` and in published messages. Response `200`: the same shape as endpoint 27.
+
+### 29. Experience: POST `/users/me/experiences`, PUT and DELETE `/users/me/experiences/:id`
+Body: `title`, `company` (required), `location`, `start_date` (`YYYY-MM-DD`, required), `end_date` (nullable), `is_current`, `description`. A current role must have no `end_date`, and `end_date` must not be before `start_date` (`422` otherwise). POST returns `201` with the entry, PUT returns `200` (full replacement), DELETE returns `204`. Someone else's entry returns `404`. Max 50 entries.
+
+### 30. Education: POST `/users/me/educations`, PUT and DELETE `/users/me/educations/:id`
+Body: `school` (required), `degree`, `field_of_study`, `start_year`, `end_year` (integers or null; end not before start). Same status codes as endpoint 29.
+
+### 31. POST `/users/me/avatar` and POST `/users/me/cover`
+`multipart/form-data` with one field `file`. PNG, JPEG, or WebP, max 2 MB. The type is detected from the file bytes, not the header. Response `201`: `{ "url": "http://<host>[/api/v1]/media/<id>" }`. Only the latest image of each kind is kept. Errors: `413 file_too_large`, `415 unsupported_media_type`, `422` for a missing or wrong field. `DELETE /users/me/avatar` (or `/cover`) clears it with `204`.
+
+### 32. GET `/media/:mediaId`
+Public, no auth, so `<img>` tags work. Serves the stored bytes with their detected type, `Cross-Origin-Resource-Policy: cross-origin`, and a one-day immutable cache. Images live in Postgres for v1 (no object-store credentials yet).
+
+### 33. GET and POST `/groups/:groupId/messages/:messageId/reactions`
+POST body: `{ "emoji": "👍" }`, one of 👍 ❤️ 🔥 💡 👏 🎯. It toggles the caller's reaction. Both GET and POST return `200`:
+```json
+{ "message_id": "pm1", "reactions": { "👍": 2, "❤️": 1 }, "my_reactions": ["👍"] }
+```
+Members only (`403` otherwise). Responses carry counts only, never who reacted, so reacting reveals nothing about an anonymous author. Deleting a published message deletes its reactions. Endpoint 9's response shape is unchanged.
+
+### 34. POST `/notifications/read-all`
+Marks all of the caller's unread notifications as read. Response `200`: `{ "marked_count": 3 }`.
+
+### 35. Refresh tokens
+- `POST /auth/refresh-tokens` (Bearer) returns `201` `{ "refresh_token", "expires_at" }` (30-day lifetime).
+- `POST /auth/refresh` with `{ "refresh_token" }` (no Bearer) returns `200` `{ "token", "refresh_token", "expires_at" }`. Every use rotates the token. Reusing an already-rotated token revokes that whole token family and returns `401`. It shares the login rate limit.
+- `DELETE /auth/refresh-tokens` (Bearer) revokes all of the caller's refresh tokens with `204`.
+
+Only SHA-256 hashes of refresh tokens are stored. Access tokens stay stateless, exactly as before.
+
+**Still not built:** WebSockets or other real-time push (the app polls, see D10), and controller transfer (D4, a product decision).

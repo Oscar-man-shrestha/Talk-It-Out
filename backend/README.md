@@ -184,5 +184,16 @@ docker run -d -p 3000:3000 \
 ## Not in this slice
 
 Real NLP rewrite pipeline (stub only), a real feed moderation provider
-(fake only), profiles, WebSockets, controller transfer, editing posts or
+(fake only), WebSockets, controller transfer, editing posts or
 comments (the `content_revision` guard is already in place for it).
+
+## Additions after the v1 client contract
+
+Migrations 005–007 add profiles (with experience and education), profile
+image upload (`/users/me/avatar`, `/users/me/cover`, served at
+`/media/:id` from Postgres), emoji reactions on published group messages,
+`POST /notifications/read-all`, and rotating refresh tokens
+(`/auth/refresh-tokens`, `/auth/refresh`). The Flutter app does not call
+them yet, and the existing endpoints and response shapes are unchanged.
+See `API.md` section 10 for the full contract. New dependency: `multer`
+(multipart parsing for image uploads).

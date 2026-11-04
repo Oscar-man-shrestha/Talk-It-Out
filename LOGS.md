@@ -2394,3 +2394,23 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] No URL, key, or secret committed
   - [x] Smoke tests use synthetic prompts only
 - **Next steps:** User runs runbook steps 0–2 on Kaggle and pastes the tunnel URL; then run steps 3–4 locally and record the probe review verdict.
+
+### Run 069: Attempted Kaggle model hookup (blocked: account not phone-verified)
+- **Date/time:** 2026-11-04 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 21 Real-model connection
+- **Prompt / task:** Try the Kaggle steps directly.
+- **Result:** Blocked
+- **Summary:** Added `pipeline/scripts/kaggle_serve.py`, a one-cell launcher: it installs vLLM if missing, serves Qwen2.5-3B-Instruct with the validated T4 settings plus a random per-run `--api-key`, opens a Cloudflare quick tunnel, checks that unauthenticated requests are refused, and prints the endpoint and key once. It contains no secrets and was pushed to the temp branch so a notebook can fetch it by raw URL. `model-endpoint-1` is not in the user's Kaggle account, so a new draft notebook was created there (`oscarmanshrestha/notebook0b28e83418`, empty, unsaved, never run). The accelerator menu shows GPU T4 x2 disabled and the Internet switch disabled; Kaggle's notice reads "Access GPU/TPU at no cost or turn on an internet connection. Get phone verified". Phone verification is account-holder only.
+- **Files created:** `pipeline/scripts/kaggle_serve.py`
+- **Files modified:** `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:** `ast.parse(kaggle_serve.py)` -> OK. The script has not run yet (no GPU available).
+- **Docs updated:** `LOGS.md`
+- **Assumptions / decisions:** Fetching the launcher from the public temp branch avoids typing a long script into Kaggle's auto-indenting editor. The key is generated inside the session, so no secret is entered by hand.
+- **Issues / blockers / known bugs:** The Kaggle account needs phone verification (Settings → Phone verification) before GPU or Internet can be used.
+- **Hard-rules check:**
+  - [x] No frontend/backend code changed; `main` untouched
+  - [x] No secret committed or entered by the agent
+- **Next steps:** After phone verification, in that notebook: Accelerator GPU T4 x2, Internet on, one cell `import urllib.request; exec(urllib.request.urlopen("https://raw.githubusercontent.com/Oscar-man-shrestha/Talk-It-Out/temp/local-stack-run066/pipeline/scripts/kaggle_serve.py").read())`, then runbook steps 3–4.

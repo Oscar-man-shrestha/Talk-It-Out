@@ -2322,3 +2322,37 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] No raw message text, credentials, or secrets copied into the log
   - [x] No out-of-scope feature added
 - **Next steps:** Manual review of the two suspected probes if a production call is needed; otherwise keep this as a working in-notebook endpoint. Frontend demo-UI pass is still separate.
+
+### Run 066: Local full-stack bring-up and verification (no code change)
+- **Date/time:** 2026-11-04 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Verification
+- **Prompt / task:** Provide a localhost preview and continue remaining work without changing the frontend/UI or anything already done.
+- **Result:** Completed
+- **Summary:** Brought up the whole stack on a macOS laptop with no Docker: local Homebrew PostgreSQL 15 (new `talkitout` role plus `talkitout` and `talkitout_test` databases), backend migrations 001–004, backend on `:3000` with `PIPELINE_MODE=stub` and the in-process stub worker, a mock-mode web build on `:52000`, and a live-mode web build (`USE_MOCK=false`, `API_BASE_URL=http://localhost:3000`) on `:52001`.
+- **Summary:** `backend/scripts/demo-flow.sh` passed end to end against the live API: register, create group, add member, anonymous submit, stub rewrite, accept (published with `display_sender: null`), status-only My messages, notifications plus mark read, reject (never reaches chat), controller announcement, feed post/comment/like with fake analysis, and post-to-group. A second group, "Dashboard improvements", controlled by `priya@example.com`, holds one rewritten message waiting for review, so the live app's existing login path (which always signs in as Priya) has data.
+- **Summary:** An attempted frontend corrective pass earlier in this session was reverted in full at the user's request before this entry; no frontend/UI file differs from `a8efc3d`.
+- **Files created:** `backend/.env` (gitignored, local secrets generated with `openssl rand`). Build outputs `build/web-mock/` and `build/web-live/` (gitignored).
+- **Files modified:** `LOGS.md` (this entry only)
+- **Files deleted:** none
+- **Dependencies added:** none (`npm ci` from the existing lockfile)
+- **Commands run and results:**
+  - `npm ci` -> failed first: `argon2` native build could not find the C++ standard headers (`'functional' file not found`). Passed with `SDKROOT=$(xcrun --show-sdk-path) CXXFLAGS="-isystem $SDKROOT/usr/include/c++/v1" npm ci`. This is a Command Line Tools environment issue, not a repo defect.
+  - `npm run migrate` -> applied 001_init, 002_feed, 003_one_group_per_post, 004_performance_indexes
+  - `npm run lint` -> pass; `npx tsc --noEmit` -> pass
+  - `npm test` -> 18 files, 135 passed
+  - `python -m unittest discover -s pipeline/tests -t pipeline` (temp dir in a writable location) -> 148 passed
+  - `flutter test` on the untouched frontend -> 26 passed; `flutter analyze` -> 0 issues
+  - `bash backend/scripts/demo-flow.sh` -> completed all 13 steps
+  - `curl /health` -> ok; `curl /ready` -> ready
+  - `flutter run -d web-server` (debug) did not render in the embedded preview browser (the DWDS debug websocket failed); release builds served statically work instead
+- **Docs updated:** `LOGS.md` (this entry). Status Snapshot not rewritten, to avoid disturbing existing entries.
+- **Assumptions / decisions:** Used local Postgres on 5432 instead of the docker-compose service on 5433. Kept the stub pipeline because the self-hosted model endpoint is still unreachable from this laptop.
+- **Issues / blockers / known bugs:**
+  - Unchanged from Runs 059–065: login substitutes credentials, so live mode always signs in as `priya@example.com`; Alerts and Profile show demo content. Left untouched by user instruction.
+  - Live rewrites use the stub (`[stub rewrite] …`) until a reachable `MODEL_ENDPOINT` exists.
+- **Hard-rules check:**
+  - [x] No frontend, backend, pipeline, or schema code changed
+  - [x] Seed data created through the public HTTP API; the only direct SQL was deleting one empty duplicate seed group this run created
+  - [x] No raw message text from real users, credentials, or secrets written to this file
+- **Next steps:** Expose the Kaggle vLLM server through a private tunnel, set `PIPELINE_MODE=external` plus `MODEL_ENDPOINT`/`MODEL_ID` in `backend/.env` and `pipeline/.env`, run the worker, and repeat the live flow with real rewrites. Manual review of the two suspected adversarial probes (Run 065) is still pending.

@@ -13,11 +13,11 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-04 (IST)
-**Current phase:** Verification / diagnosis. Run 065 reviewed Kaggle outputs in `model-endpoint-1.ipynb`: vLLM is serving Qwen2.5-3B-Instruct inside that runtime. Functional smoke passed; adversarial smoke failed (2 suspected, 0 hijacked). Frontend contract regressions from Runs 059–063 are unchanged.
+**Current phase:** Real-model hookup (Run 068). Runs 066–067 brought the full stack up locally (Postgres 15, backend :3000, mock web :52000, live web :52001) and completed the backend additions (profiles, image upload, reactions, read-all, refresh tokens) on branch `temp/local-stack-run066`. The frontend is unchanged by user instruction.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
-**Next step:** Decide how (or whether) the local worker should reach the Kaggle endpoint via a private tunnel; do not commit the URL. Manual review of the two suspected adversarial probes is still required before treating this model/prompt as production-ready. Frontend corrective pass (demo auth, Alerts, Profile) remains outstanding.
-**Blockers:** The Kaggle vLLM server is only bound to the notebook loopback. Until a privately shared reachable `MODEL_ENDPOINT` exists, live rewrite jobs on the local worker still cannot complete. Adversarial smoke on this model is FAIL (2 suspected).
+**Next step:** Follow `pipeline/KAGGLE_ENDPOINT_RUNBOOK.md`: restart Kaggle vLLM with an API key, open a tunnel, paste the URL into `pipeline/.env`, run `scripts/smoke_model.py --show-output` to manually review the two suspected probes (Run 065), then set `PIPELINE_MODE=external` and run the worker for real rewrites.
+**Blockers:** Real rewrites need the Kaggle session (user action); the dev Mac cannot host a model (8 GB RAM, under 0.5 GB free disk). Open product decisions D4 (controller transfer) and D10 (push vs polling) block those features. The frontend does not call the new backend endpoints (API.md §10); wiring them is a frontend task that has not been authorized.
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
 8. Run 060 assessed the current repository: the Flutter frontend retains the intended feature-first/Riverpod/repository structure and privacy test boundary, but the latest visual screens bypass their repository models with fixed demo content. Flutter verification was attempted but produced no output for 90 seconds and was stopped, so no current analysis or test pass is claimed.
@@ -45,39 +45,15 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 | 16 | Backend release hardening | Done | 040 |
 | 17 | Backend CI and containerization | Done | 041 |
 | 18 | Groups Python NLP worker foundation and real-model validation | Done | 057 |
+| 19 | Local full-stack bring-up and verification | Done | 066 |
+| 20 | Backend additions: profiles, media, reactions, read-all, refresh tokens | Done | 067 |
+| 21 | Real-model connection (Kaggle tunnel + external worker) | Blocked (needs Kaggle session) | 068 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
-**Quality gates (latest known):** `dart format .` completed (Run 039), `flutter analyze` passed with 0 issues, `flutter test` passed all 26 tests (Run 039). Run 060 attempted `flutter analyze` and `flutter test`, but the combined command produced no output for 90 seconds and was stopped; neither gate is verified for the current checkout. Pipeline Python unit test suite passed all 148 tests in Run 061 (the default sandbox temp directory caused one environment-only failure before the successful workspace-temp rerun), and 11/11 live backend end-to-end integration tests passed (Run 057).
+**Quality gates (latest known):** Flutter: `flutter analyze` 0 issues and `flutter test` 26 passed (Run 066, unchanged frontend). Backend: lint, typecheck, and build pass; `npm test` 156 passed (Run 067). Pipeline: 148 passed (Run 066). `backend/scripts/demo-flow.sh` end to end against the live API: pass (Run 066).
 
 **Pipeline notebook handoff:** Kaggle GPU environment verified with vLLM serving Qwen2.5-3B-Instruct (0 hijacks on adversarial probes). End-to-end claim/rewrite/result cycle against live backend verified (Run 057).
-
----|---|---|---|
-| 0 | Setup | Done | 001 |
-| 1 | Models and repositories | Done | 004 |
-| 2 | Auth and shell | Done | 005 |
-| 3 | Groups | Done | 005 |
-| 4 | Composer and anonymity | Done | 005 |
-| 5 | Controller review | Done | 005 |
-| 6 | Notifications | Done | 005 |
-| 7 | Public feed | Done | 005 |
-| 8 | Polish and tests | Done | 005 |
-| 9 | Real API | Done | 005 |
-| 10 | UI/UX overhaul | Done | 034 |
-| 11 | Backend Handoff Docs & Profile Polish | Done | 035 |
-| 12 | Repository Professionalization | Done | 036 |
-| 13 | Backend v1 slice (branch `backendv1`, `backend/`) | Done | 037 |
-| 14 | Backend slice 2: group ops, feed, feed-analysis adapter | Done | 038 |
-| 15 | Groups pipeline integration contract + internal worker API | Done | 039 |
-| 16 | Backend release hardening | Done | 040 |
-| 17 | Backend CI and containerization | Done | 041 |
-| 18 | Groups Python NLP worker foundation and real-model validation | Done | 056 |
-
-Status values: `Not started` / `In progress` / `Done` / `Blocked`
-
-**Quality gates (latest known):** `dart format .` completed (Run 039), `flutter analyze` passed with 0 issues, `flutter test` passed all 26 tests (Run 039), and pipeline Python unit test suite passed all 148 tests both locally and on Kaggle (Run 056).
-
-**Pipeline notebook handoff:** Kaggle GPU environment verified with vLLM serving Qwen2.5-3B-Instruct. Real-model evaluation completed: Functional PASS, 0 Hijacked across 4 adversarial probes (Run 056).
 
 ---
 
@@ -2394,3 +2370,27 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] No raw message text or sender identity logged
   - [x] Secrets only in the gitignored `.env`
 - **Next steps:** When the frontend owners choose to, wire `ApiProfileRepository`, reactions, and read-all to API §10. Bring up the model endpoint via a private tunnel and run the worker in `PIPELINE_MODE=external`.
+
+### Run 068: Real-model hookup preparation (runbook + local worker config)
+- **Date/time:** 2026-11-04 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 21 Real-model connection
+- **Prompt / task:** Do what is left, on the temp branch, without changing finished work or the frontend.
+- **Result:** Partial. Everything up to the user-only step is prepared; the Kaggle session itself needs the user.
+- **Summary:** A local model is not possible on the dev Mac (8 GB M1, under 0.5 GB free disk; Qwen2.5-3B needs about 2 GB). The Kaggle notebook serves vLLM without auth, so a plain tunnel would publish an open model server. Added `pipeline/KAGGLE_ENDPOINT_RUNBOOK.md`: restart vLLM with `--api-key` read from Kaggle Secrets, open a Cloudflare quick tunnel, set `MODEL_ENDPOINT` locally, run `smoke_model.py --show-output` (which enables the pending manual review of the Run 065 SUSPECTED probes), then switch the backend to `PIPELINE_MODE=external` and run the worker. Prepared the gitignored `pipeline/.env` with the backend's pipeline key and a generated model key. `MODEL_ENDPOINT` is a placeholder, and the worker refuses to start until a real URL is set (verified: exit 2, placeholder detected).
+- **Summary:** Status Snapshot updated (current phase, next step, blockers, quality gates, phase rows 19–21). Removed a broken leftover copy of the phase table and an older quality-gates line that sat below the real table and contradicted it (row 18 "056" vs "057").
+- **Files created:** `pipeline/KAGGLE_ENDPOINT_RUNBOOK.md`; `pipeline/.env` (gitignored, not committed)
+- **Files modified:** `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - hardware/disk check -> 8 GB RAM, Apple M1, about 488 MiB free; no Ollama, llama.cpp, LM Studio, or mlx installed
+  - `python3 -m talkitout_pipeline` with the placeholder endpoint -> exit 2, "MODEL_ENDPOINT still looks like a .env.example placeholder" (expected guard)
+- **Docs updated:** `pipeline/KAGGLE_ENDPOINT_RUNBOOK.md` (new), `LOGS.md` Status Snapshot
+- **Assumptions / decisions:** A Cloudflare quick tunnel protected by a vLLM API key counts as the "private route" required by `COLAB_EVALUATION.md`; the URL and keys never enter Git. The runbook cells were not executed (no Kaggle access from this session).
+- **Issues / blockers / known bugs:** Needs the user's Kaggle session. The dev Mac's disk is nearly full (build outputs and node_modules from Runs 066–067 contribute).
+- **Hard-rules check:**
+  - [x] No frontend, backend, or pipeline code changed
+  - [x] No URL, key, or secret committed
+  - [x] Smoke tests use synthetic prompts only
+- **Next steps:** User runs runbook steps 0–2 on Kaggle and pastes the tunnel URL; then run steps 3–4 locally and record the probe review verdict.

@@ -167,6 +167,7 @@ describe('migrations', () => {
       '009_token_version.sql',
       '010_google_sign_in.sql',
       '011_realtime_notify.sql',
+      '012_post_title_topic.sql',
     ]);
   });
 });

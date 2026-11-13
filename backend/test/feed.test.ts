@@ -23,6 +23,8 @@ const POST_KEYS = [
   'nsfw_flag',
   'other_flags',
   'reaction_count',
+  'title',
+  'topic',
 ];
 
 async function createPost(

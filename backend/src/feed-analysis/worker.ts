@@ -119,8 +119,11 @@ async function processFeedJob(
   },
 ): Promise<FeedJobOutcome> {
   const table = CONTENT_TABLES[job.content_type];
+  // A post's title is user text too, so it is analyzed with the body.
+  const textColumn =
+    job.content_type === 'post' ? "concat_ws(E'\\n\\n', title, content)" : 'content';
   const { rows } = await pool.query(
-    `SELECT content, content_revision FROM ${table} WHERE id = $1`,
+    `SELECT ${textColumn} AS content, content_revision FROM ${table} WHERE id = $1`,
     [job.content_id],
   );
   const content = rows[0];

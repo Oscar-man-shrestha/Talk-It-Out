@@ -493,3 +493,7 @@ Events carry **ids only** (never text, never who sent an anonymous message); the
 | `resync` | `{}` | everyone, if the server's database listener reconnected: refetch everything |
 
 Signing out everywhere (endpoint 39) closes the user's streams. How it works: database triggers (migration 011) `NOTIFY` id-only signals after each commit, so every write path (API, rewrite worker, stub) is covered and data is always visible by the time the event arrives; each API instance `LISTEN`s on its own connection, so several instances need no Redis or sticky sessions. The app reconnects with backoff (1–30 s, fresh ticket each time), refetches everything after a gap, and keeps the 30 s unread-count poll as a fallback.
+
+### 42. Feed questions: `title` and `topic`
+`POST /posts` also accepts an optional `title` (1–150 characters, trimmed) and an optional `topic`, one of `workplace_policy`, `engineering`, `leadership`, `compensation`, `safety`, `culture`. Every post response (endpoints 16–18) now includes `"title"` and `"topic"`, `null` for posts made without them. Invalid values are `422`. A group created from a post (endpoint 23) uses the post's title as its agenda when there is one. The feed content check analyzes the title together with the body. Authors are always shown; there is still no anonymity in the feed.
+

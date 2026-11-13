@@ -8,12 +8,29 @@ import { uniqueConstraint, withTransaction } from '../db';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+export const POST_TOPICS = [
+  'workplace_policy',
+  'engineering',
+  'leadership',
+  'compensation',
+  'safety',
+  'culture',
+] as const;
+
 const postContentSchema = z.object({
   content: z
     .string()
     .trim()
     .min(1, 'Write a post first.')
     .max(5000, 'Post is too long.'),
+  // Optional so older clients keep working (API.md 42).
+  title: z
+    .string()
+    .trim()
+    .min(1, 'Add a title.')
+    .max(150, 'Titles can be at most 150 characters.')
+    .nullish(),
+  topic: z.enum(POST_TOPICS, { error: () => 'Choose one of the listed topics.' }).nullish(),
 });
 
 const commentContentSchema = z.object({
@@ -32,6 +49,8 @@ const reactionSchema = z.object({
 
 interface PostRow {
   id: string;
+  title: string | null;
+  topic: string | null;
   content: string;
   analysis_status: string;
   analysis_nsfw: boolean | null;
@@ -73,6 +92,8 @@ function postJson(row: PostRow) {
   return {
     id: row.id,
     author: { id: row.author_id, name: row.author_name },
+    title: row.title ?? null,
+    topic: row.topic ?? null,
     content: row.content,
     nsfw_flag: flags.nsfw_flag,
     other_flags: flags.other_flags,
@@ -97,7 +118,7 @@ function commentJson(row: CommentRow) {
 }
 
 const POST_SELECT = `
-  SELECT p.id, p.content, p.analysis_status, p.analysis_nsfw, p.analysis_flags,
+  SELECT p.id, p.title, p.topic, p.content, p.analysis_status, p.analysis_nsfw, p.analysis_flags,
          date_trunc('milliseconds', p.created_at) AS created_at,
          u.id AS author_id, u.name AS author_name,
          (SELECT count(*)::int FROM post_likes l WHERE l.post_id = p.id) AS reaction_count,
@@ -141,11 +162,11 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
     const body = parseWith(postContentSchema, req.body);
     const rows = await withTransaction(pool, async (client) => {
       const inserted = await client.query(
-        `INSERT INTO posts (author_id, content)
-         VALUES ($1, $2)
-         RETURNING id, content, analysis_status, analysis_nsfw, analysis_flags,
-                   content_revision, created_at`,
-        [req.user!.id, body.content],
+        `INSERT INTO posts (author_id, content, title, topic)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, title, topic, content, analysis_status, analysis_nsfw,
+                   analysis_flags, content_revision, created_at`,
+        [req.user!.id, body.content, body.title ?? null, body.topic ?? null],
       );
       const post = inserted.rows[0];
       await enqueueFeedAnalysisJob(client, 'post', post.id, post.content_revision);
@@ -289,7 +310,10 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
     const authorId = await postAuthor(pool, postId);
     if (authorId === null) throw notFound();
     if (authorId !== req.user!.id) throw forbidden();
-    const { rows: postRows } = await pool.query('SELECT content FROM posts WHERE id = $1', [
+    // A question's title makes a better group agenda than its whole body.
+    const { rows: postRows } = await pool.query(
+      "SELECT left(coalesce(title, content), 500) AS content FROM posts WHERE id = $1",
+      [
       postId,
     ]);
     try {

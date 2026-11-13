@@ -5,7 +5,10 @@ import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/mock/mock_controls.dart';
 import 'package:talk_it_out/core/mock/mock_ids.dart';
 import 'package:talk_it_out/core/models/enums.dart';
+import 'package:talk_it_out/features/auth/data/mock_auth_repository.dart';
 import 'package:talk_it_out/features/feed/saved_posts.dart';
+import 'package:talk_it_out/features/profile/data/mock_profile_repository.dart';
+import 'package:talk_it_out/features/profile/data/profile.dart';
 import 'package:talk_it_out/features/groups/group_chat_screen.dart';
 import 'package:talk_it_out/features/review/data/mock_review_repository.dart';
 
@@ -27,6 +30,22 @@ void main() {
         throwsA(isA<RepositoryException>()),
       );
     });
+  });
+
+  test('the rewrite tone is read from and saved to the profile', () async {
+    final fast = MockControls(delay: Duration.zero);
+    final repo = MockProfileRepository(fast, MockAuthRepository(fast));
+    final saved = await repo.updateRewriteTone('empathetic');
+    expect(saved.rewriteTone, 'empathetic');
+    expect((await repo.getMyProfile()).rewriteTone, 'empathetic');
+
+    Map<String, dynamic> json(Object? tone) => {
+      'user': {'id': 'u1', 'name': 'A', 'rewrite_tone': tone},
+    };
+    expect(Profile.fromJson(json('direct')).rewriteTone, 'direct');
+    // Missing or unknown values fall back to the default.
+    expect(Profile.fromJson(json(null)).rewriteTone, 'professional');
+    expect(Profile.fromJson(json('rude')).rewriteTone, 'professional');
   });
 
   test('saved questions toggle on and off', () async {

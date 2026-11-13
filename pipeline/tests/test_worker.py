@@ -19,7 +19,7 @@ class StubService:
     def __init__(self, outcomes):
         self.outcomes = list(outcomes)
 
-    def rewrite(self, text, agenda):
+    def rewrite(self, text, agenda, tone=None):
         item = self.outcomes.pop(0)
         if isinstance(item, Exception):
             raise item

@@ -31,6 +31,11 @@ class ApiProfileRepository implements ProfileRepository {
     return _put({'skills': skills});
   }
 
+  @override
+  Future<Profile> updateRewriteTone(String tone) {
+    return _put({'rewrite_tone': tone});
+  }
+
   Future<Profile> _put(Map<String, dynamic> body) {
     return guardApi(() async {
       final response = await _dio.put(Endpoints.myProfile, data: body);

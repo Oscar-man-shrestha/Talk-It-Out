@@ -21,6 +21,9 @@ export const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const MAX_SKILLS = 50;
 const MAX_ENTRIES = 50;
 
+/** Rewrite tones a contributor can pick (migration 013). */
+export const REWRITE_TONES = ['professional', 'direct', 'socratic', 'empathetic'] as const;
+
 const text = (max: number) => z.string().trim().max(max, `Must be at most ${max} characters.`);
 
 const profileUpdateSchema = z
@@ -33,6 +36,7 @@ const profileUpdateSchema = z
     github_handle: text(100),
     twitter_handle: text(100),
     linkedin_url: text(300),
+    rewrite_tone: z.enum(REWRITE_TONES, { error: () => 'Choose one of the listed tones.' }),
     skills: z
       .array(z.string().trim().min(1, 'Skills cannot be empty.').max(50, 'Skill is too long.'))
       .max(MAX_SKILLS, `At most ${MAX_SKILLS} skills.`),
@@ -154,7 +158,7 @@ async function loadProfile(pool: Pool, req: Request, userId: string, includeEmai
     `SELECT u.id, u.name, u.username, u.email,
             p.headline, p.bio, p.location, p.website, p.github_handle,
             p.twitter_handle, p.linkedin_url, p.skills,
-            p.avatar_media_id, p.cover_media_id
+            p.avatar_media_id, p.cover_media_id, p.rewrite_tone
      FROM users u
      LEFT JOIN user_profiles p ON p.user_id = u.id
      WHERE u.id = $1`,
@@ -179,7 +183,10 @@ async function loadProfile(pool: Pool, req: Request, userId: string, includeEmai
       id: row.id,
       name: row.name,
       username: row.username,
-      ...(includeEmail ? { email: row.email } : {}),
+      // Private settings only on your own profile.
+      ...(includeEmail
+        ? { email: row.email, rewrite_tone: row.rewrite_tone ?? 'professional' }
+        : {}),
       headline: row.headline ?? '',
       bio: row.bio ?? '',
       location: row.location ?? '',
@@ -275,6 +282,7 @@ export function createProfilesRouter(pool: Pool, requireAuth: RequireAuth): Rout
         'github_handle',
         'twitter_handle',
         'linkedin_url',
+        'rewrite_tone',
       ] as const;
       const sets: string[] = [];
       const values: unknown[] = [];

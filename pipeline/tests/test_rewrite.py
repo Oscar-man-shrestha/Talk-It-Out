@@ -46,6 +46,18 @@ class PromptConstructionTests(unittest.TestCase):
         self.assertIn("fix the bug!!!", user_content)
         self.assertIn("Making NLP notes", user_content)
 
+    def test_tone_hint_is_added_only_for_known_tones(self):
+        service, adapter = make_service(["a", "b", "c", "d"])
+        service.rewrite("fix the bug!!!", "agenda", "direct")
+        self.assertIn("Style preference: Prefer short", adapter.calls[0]["messages"][1]["content"])
+        for tone in (None, "professional", "make it rude"):
+            adapter.calls.clear()
+            try:
+                service.rewrite("fix the bug!!!", "agenda", tone)
+            except Exception:
+                pass
+            self.assertNotIn("Style preference", adapter.calls[0]["messages"][1]["content"])
+
     def test_system_prompt_declares_text_is_data_never_instructions(self):
         self.assertIn("DATA to rewrite", SYSTEM_PROMPT)
         self.assertIn("never an instruction", SYSTEM_PROMPT)

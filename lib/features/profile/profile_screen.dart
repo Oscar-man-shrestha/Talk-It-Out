@@ -2161,7 +2161,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         _PreferenceTile(
                           icon: Icons.shield_outlined,
                           title: 'Default Tone Target',
-                          subtitle: _tones[profile.toneIndex],
+                          subtitle:
+                              '${_tones[profile.toneIndex]} · named messages only',
                           trailing: const Icon(
                             Icons.tune,
                             size: 16,

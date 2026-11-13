@@ -174,10 +174,23 @@ class Profile {
     this.coverUrl,
     this.experiences = const [],
     this.educations = const [],
+    this.rewriteTone = 'professional',
   });
+
+  /// Tones the AI can rewrite named group messages in (API 44), in the
+  /// order the profile screen cycles through them.
+  static const rewriteTones = [
+    'professional',
+    'direct',
+    'socratic',
+    'empathetic',
+  ];
 
   final String id;
   final String name;
+
+  /// Private: how the AI should phrase this user's named group messages.
+  final String rewriteTone;
 
   /// Only present on the signed-in user's own profile.
   final String? email;
@@ -229,6 +242,9 @@ class Profile {
       coverUrl: _nullableString(user['cover_url']),
       experiences: _list(json['experiences'], ProfileExperience.fromJson),
       educations: _list(json['educations'], ProfileEducation.fromJson),
+      rewriteTone: rewriteTones.contains(user['rewrite_tone'])
+          ? user['rewrite_tone'] as String
+          : 'professional',
     );
   }
 
@@ -239,6 +255,7 @@ class Profile {
     String? Function()? coverUrl,
     List<ProfileExperience>? experiences,
     List<ProfileEducation>? educations,
+    String? rewriteTone,
   }) {
     final next = details ?? this.details;
     return Profile(
@@ -256,6 +273,7 @@ class Profile {
       coverUrl: coverUrl == null ? this.coverUrl : coverUrl(),
       experiences: experiences ?? this.experiences,
       educations: educations ?? this.educations,
+      rewriteTone: rewriteTone ?? this.rewriteTone,
     );
   }
 }

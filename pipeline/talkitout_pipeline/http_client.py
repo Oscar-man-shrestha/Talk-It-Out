@@ -34,6 +34,10 @@ class Job:
     text: str
     group_agenda: str
     contract_version: int
+    #: Optional style hint ("professional", "direct", "socratic",
+    #: "empathetic"); anonymous messages always get "professional".
+    #: None from older backends.
+    tone: str | None = None
 
 
 def default_poster(url: str, headers: dict[str, str], payload: dict, timeout: float):
@@ -109,6 +113,7 @@ class BackendClient:
                     text=item["text"],
                     group_agenda=item["group_agenda"],
                     contract_version=item["contract_version"],
+                    tone=item.get("tone") if isinstance(item.get("tone"), str) else None,
                 )
             except (KeyError, TypeError):
                 raise BackendTransient("claim response job is missing required keys") from None

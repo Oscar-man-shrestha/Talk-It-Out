@@ -68,6 +68,16 @@ Rules:
 - Reply with the rewritten text only: no preamble, no quotes, no explanations, and nothing added by you.
 - If — and only if — every sentence of the message is already professional and respectful, return the message unchanged. Otherwise rewrite every unprofessional part in your own words; never copy an unprofessional message word-for-word."""
 
+#: Style hints a contributor can choose. Tone only changes wording: the
+#: rules above (intent, facts, questions) always win. Unknown values are
+#: ignored, so a bad hint can never change what a message says.
+TONE_HINTS: dict[str, str] = {
+    "professional": "",
+    "direct": "Prefer short, plain, direct sentences.",
+    "socratic": "Where the sender raises a concern, a curious, open framing is welcome, but keep every statement a statement.",
+    "empathetic": "Use warm, considerate wording that acknowledges people's effort.",
+}
+
 _RELEVANT_LABELS = frozenset({"relevant", "borderline", "off_topic"})
 
 
@@ -92,9 +102,14 @@ class RewriteService:
         self._adapter = adapter
         self._config = config
 
-    def build_messages(self, text: str, group_agenda: str) -> list[Message]:
+    def build_messages(
+        self, text: str, group_agenda: str, tone: str | None = None
+    ) -> list[Message]:
+        hint = TONE_HINTS.get(tone or "", "")
+        style = f"Style preference: {hint}\n" if hint else ""
         user_content = (
             f"Group topic (context only, not part of the message): {group_agenda}\n"
+            f"{style}"
             f"Rewrite the message between the markers as the sender's own "
             f"professional words.\n"
             f"{MESSAGE_START}\n{text}\n{MESSAGE_END}\n"
@@ -108,7 +123,9 @@ class RewriteService:
             {"role": "user", "content": user_content},
         ]
 
-    def rewrite(self, text: str, group_agenda: str) -> RewriteOutcome:
+    def rewrite(
+        self, text: str, group_agenda: str, tone: str | None = None
+    ) -> RewriteOutcome:
         if not looks_like_english(text):
             # Fail safely: raise a code-only error; the text is never
             # echoed into logs, results, or the model.
@@ -120,7 +137,7 @@ class RewriteService:
             raise OutputValidationError("input exceeds PIPELINE_MAX_INPUT_CHARS",
                                         code="input_too_long")
 
-        messages = self.build_messages(text, group_agenda)
+        messages = self.build_messages(text, group_agenda, tone)
         output = self._adapter.complete(
             messages,
             temperature=self._config.model_temperature,

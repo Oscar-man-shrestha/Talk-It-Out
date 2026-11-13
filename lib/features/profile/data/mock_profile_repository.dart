@@ -63,6 +63,11 @@ class MockProfileRepository implements ProfileRepository {
   }
 
   @override
+  Future<Profile> updateRewriteTone(String tone) {
+    return _run(() => _save((current) => current.copyWith(rewriteTone: tone)));
+  }
+
+  @override
   Future<ProfileExperience> addExperience(ProfileExperience draft) {
     return _run(() async {
       final created = _withId(draft, 'exp-${_nextId++}');

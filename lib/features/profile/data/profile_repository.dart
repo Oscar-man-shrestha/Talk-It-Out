@@ -10,6 +10,9 @@ abstract class ProfileRepository {
 
   Future<Profile> updateSkills(List<String> skills);
 
+  /// One of [Profile.rewriteTones].
+  Future<Profile> updateRewriteTone(String tone);
+
   /// [draft.id] is ignored; the server assigns one.
   Future<ProfileExperience> addExperience(ProfileExperience draft);
 

@@ -92,7 +92,7 @@ class Worker:
         # reporting is handled by the lease expiring (see module docstring).
         try:
             try:
-                outcome = self._service.rewrite(job.text, job.group_agenda)
+                outcome = self._service.rewrite(job.text, job.group_agenda, job.tone)
             except (UnsupportedLanguage, OutputValidationError, ModelError) as exc:
                 body = self._client.report_error(
                     job_id=job.job_id,

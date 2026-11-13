@@ -331,8 +331,18 @@ class UserProfileNotifier extends Notifier<UserProfile> {
     state = state.copyWith(saltIndex: (state.saltIndex + 1) % 4);
   }
 
-  void cycleTone() {
-    state = state.copyWith(toneIndex: (state.toneIndex + 1) % 4);
+  /// Moves to the next rewrite tone and saves it (API 44). The AI uses it
+  /// for named group messages only; anonymous ones keep the default.
+  Future<void> cycleTone() {
+    final tones = api.Profile.rewriteTones;
+    final next = state.copyWith(
+      toneIndex: (state.toneIndex + 1) % tones.length,
+    );
+    return _optimistic(next, () async {
+      final saved = await _repo.updateRewriteTone(tones[next.toneIndex]);
+      if (!ref.mounted) return;
+      state = _fromApi(saved, keep: state);
+    });
   }
 
   // --- Experience ---
@@ -518,7 +528,9 @@ UserProfile _fromApi(api.Profile profile, {required UserProfile keep}) {
     websiteUrl: profile.website,
     coverStyle: keep.coverStyle,
     saltIndex: keep.saltIndex,
-    toneIndex: keep.toneIndex,
+    toneIndex: api.Profile.rewriteTones
+        .indexOf(profile.rewriteTone)
+        .clamp(0, api.Profile.rewriteTones.length - 1),
     experiences: profile.experiences.map(experienceFromApi).toList(),
     educations: profile.educations.map(educationFromApi).toList(),
     skills: profile.skills,

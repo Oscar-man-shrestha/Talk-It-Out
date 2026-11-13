@@ -168,6 +168,7 @@ describe('migrations', () => {
       '010_google_sign_in.sql',
       '011_realtime_notify.sql',
       '012_post_title_topic.sql',
+      '013_rewrite_tone.sql',
     ]);
   });
 });

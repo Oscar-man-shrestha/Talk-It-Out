@@ -77,6 +77,11 @@ export const api = {
       .post(path)
       .set(token ? { Authorization: `Bearer ${token}` } : {})
       .send(body ?? {}),
+  put: (app: Express, path: string, token: string, body?: unknown) =>
+    supertest(app)
+      .put(path)
+      .set({ Authorization: `Bearer ${token}` })
+      .send(body ?? {}),
   del: (app: Express, path: string, token: string) =>
     supertest(app).delete(path).set({ Authorization: `Bearer ${token}` }),
 };

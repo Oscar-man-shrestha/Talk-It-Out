@@ -72,6 +72,13 @@ class ClaimTests(unittest.TestCase):
         self.assertEqual(len(jobs), 1)
         self.assertEqual(jobs[0].job_id, "j1")
         self.assertEqual(jobs[0].text, "hello")
+        self.assertIsNone(jobs[0].tone)
+
+    def test_reads_optional_tone(self):
+        job = {"job_id": "j1", "raw_message_id": "r1", "text": "t",
+               "group_agenda": "a", "contract_version": 1, "tone": "direct"}
+        client = make_client([(200, {"jobs": [job]})])
+        self.assertEqual(client.claim()[0].tone, "direct")
 
     def test_contract_version_mismatch_is_fatal(self):
         client = make_client(

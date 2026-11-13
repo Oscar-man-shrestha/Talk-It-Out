@@ -178,10 +178,13 @@ export function createInternalPipelineRouter(pool: Pool, appConfig: Config): Rou
     // Build the worker payload: text + agenda only (contract §2).
     const { rows } = await pool.query(
       `SELECT j.id AS job_id, r.id AS raw_message_id,
-              r.original_text AS text, g.agenda AS group_agenda
+              r.original_text AS text, g.agenda AS group_agenda,
+              CASE WHEN r.is_anonymous THEN 'professional'
+                   ELSE coalesce(up.rewrite_tone, 'professional') END AS tone
        FROM jobs j
        JOIN raw_messages r ON r.id = j.raw_message_id
        JOIN groups g ON g.id = r.group_id
+       LEFT JOIN user_profiles up ON up.user_id = r.author_id
        WHERE j.id = ANY($1)`,
       [claimed.map((job) => job.id)],
     );
@@ -190,6 +193,10 @@ export function createInternalPipelineRouter(pool: Pool, appConfig: Config): Rou
       raw_message_id: row.raw_message_id,
       text: row.text,
       group_agenda: row.group_agenda,
+      // Style hint. Anonymous messages always get the default, so their
+      // wording can never hint at who wrote them, and the default is
+      // indistinguishable from a named author's default. No identity.
+      tone: row.tone,
       contract_version: GROUPS_PIPELINE_CONTRACT_VERSION,
     }));
     res.json({ jobs });

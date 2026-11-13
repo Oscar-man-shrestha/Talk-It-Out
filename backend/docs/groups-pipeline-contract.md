@@ -54,6 +54,7 @@ Response `200`:
       "raw_message_id": "b2a4...-uuid of the raw_messages row",
       "text": "the original message text submitted by the contributor",
       "group_agenda": "Making NLP notes",
+      "tone": "professional",
       "contract_version": 1
     }
   ]
@@ -72,7 +73,16 @@ is appropriate.
 - credentials, tokens, or group identifiers beyond the agenda text.
 
 The payload keys are exactly `job_id`, `raw_message_id`, `text`,
-`group_agenda`, `contract_version`. Nothing else is added.
+`group_agenda`, `tone`, `contract_version`. Nothing else is added.
+
+`tone` (added within contract version 1; workers that ignore it stay
+compatible) is a wording hint: `professional` (default), `direct`,
+`socratic` or `empathetic`. It is the author's own profile choice, but
+**anonymous messages always get `professional`**, so a distinctive style
+can never point group members at who wrote an anonymous message. The
+trade-off: a non-default tone tells the worker that message was sent with
+a name. The worker treats tone as wording only; it never changes intent
+validation, and unknown values are ignored.
 
 ## 3. Reporting a result — `POST /internal/pipeline/result`
 

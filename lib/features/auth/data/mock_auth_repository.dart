@@ -14,6 +14,9 @@ class MockAuthRepository implements AuthRepository {
   static const mockPassword = 'secret123';
   static const mockEmail = 'priya@example.com';
 
+  /// Mock only: every mock password reset accepts this code.
+  static const mockResetCode = '123456';
+
   final MockControls _controls;
   final Map<String, _Account> _accounts = {
     mockEmail: const _Account(
@@ -98,6 +101,46 @@ class MockAuthRepository implements AuthRepository {
         );
       }
       _accounts.remove(_currentEmail);
+    });
+  }
+
+  @override
+  Future<void> requestPasswordReset({required String email}) {
+    return runMock(_controls, () {
+      if (!email.contains('@')) {
+        throw const RepositoryException(
+          code: 'validation',
+          message: AppStrings.enterValidEmail,
+        );
+      }
+    });
+  }
+
+  @override
+  Future<void> confirmPasswordReset({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) {
+    return runMock(_controls, () {
+      final cleanEmail = email.trim().toLowerCase();
+      final account = _accounts[cleanEmail];
+      if (account == null || code.trim() != mockResetCode) {
+        throw const RepositoryException(
+          code: 'invalid_code',
+          message: AppStrings.resetCodeInvalid,
+        );
+      }
+      if (newPassword.length < 8) {
+        throw const RepositoryException(
+          code: 'validation',
+          message: AppStrings.passwordTooShort,
+        );
+      }
+      _accounts[cleanEmail] = _Account(
+        user: account.user,
+        password: newPassword,
+      );
     });
   }
 

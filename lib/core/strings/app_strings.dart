@@ -231,6 +231,23 @@ abstract final class AppStrings {
   static const profileDatesInvalid =
       'Enter dates as years, like "2021 - Present" or "2019 - 2021".';
   static const wrongPassword = 'That password is not correct.';
+
+  static const resetTitle = 'Reset your password';
+  static const resetIntro =
+      'Enter your account email and we will send you a 6-digit code.';
+  static const resetSendCode = 'Send code';
+  static const resetCodeSent =
+      'If that email has an account, a code is on its way. It expires in 15 minutes.';
+  static const resetCodeLabel = '6-digit code';
+  static const resetNewPasswordLabel = 'New password';
+  static const resetConfirm = 'Set new password';
+  static const resetDone = 'Password updated. Log in with your new password.';
+  static const resetCodeInvalid = 'That code is not valid or has expired.';
+  static const resetCodeFormat = 'Enter the 6-digit code from the email.';
+  static const resetResend = 'Send a new code';
+  static const resetBackToLogin = 'Back to log in';
+  static const resetMockHint = 'Mock mode: the code is 123456.';
+  static const enterValidEmail = 'Enter a valid email address.';
   static const deleteAccount = 'Delete account';
   static const deleteAccountSubtitle =
       'Permanently remove your account and personal data';

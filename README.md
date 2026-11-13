@@ -90,7 +90,7 @@ Controllers are room leaders. They have:
 
 | Feature | Description | Screen / Component |
 |---|---|---|
-| **🔐 Authentication & Session Lifecycle** | Login and registration. Access and rotating refresh tokens live only in `flutter_secure_storage`; on a `401` the app refreshes once and replays the request. Password reset by emailed 6-digit code is ready on the backend (API.md 38); the app's "Forgot?" link is not wired yet. | [LoginScreen](lib/features/auth/login_screen.dart), [RegisterScreen](lib/features/auth/register_screen.dart) |
+| **🔐 Authentication & Session Lifecycle** | Login and registration. Access and rotating refresh tokens live only in `flutter_secure_storage`; on a `401` the app refreshes once and replays the request. "Forgot?" resets the password with an emailed 6-digit code (API.md 38); "Keep active session" decides whether a refresh token is kept. | [LoginScreen](lib/features/auth/login_screen.dart), [RegisterScreen](lib/features/auth/register_screen.dart) |
 | **👥 Deliberation Groups** | Agenda-anchored rooms. The creator becomes `Controller`. | [GroupsScreen](lib/features/groups/groups_screen.dart), [CreateGroupScreen](lib/features/groups/create_group_screen.dart) |
 | **💬 Modern Bubble Group Chat** | Chat bubbles with left/right alignment, timestamps, and role badges. | [GroupChatScreen](lib/features/groups/group_chat_screen.dart) |
 | **👻 Per-Message Anonymity** | "Anonymous message" checkbox just before Send, with the disclosure that the controller can still see the sender. | [GroupChatScreen (Composer)](lib/features/groups/group_chat_screen.dart) |

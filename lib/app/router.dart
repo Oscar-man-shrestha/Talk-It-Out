@@ -5,6 +5,7 @@ import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/app/shell.dart';
 import 'package:talk_it_out/core/models/enums.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
+import 'package:talk_it_out/features/auth/forgot_password_screen.dart';
 import 'package:talk_it_out/features/auth/login_screen.dart';
 import 'package:talk_it_out/features/auth/register_screen.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
@@ -41,6 +42,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
@@ -162,7 +167,10 @@ class _RouterRefresh extends ChangeNotifier {
 
 Future<String?> _redirect(Ref ref, String location) async {
   final session = ref.read(sessionProvider);
-  final signingIn = location == '/login' || location == '/register';
+  final signingIn =
+      location == '/login' ||
+      location == '/register' ||
+      location == '/forgot-password';
   if (session.isLoading) {
     return location == '/loading' ? null : '/loading';
   }

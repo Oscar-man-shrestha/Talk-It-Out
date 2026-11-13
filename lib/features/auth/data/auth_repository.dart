@@ -21,4 +21,15 @@ abstract class AuthRepository {
   /// Permanently deletes the signed-in account (`API.md` 37). The password
   /// is required again.
   Future<void> deleteAccount({required String password});
+
+  /// Emails a 6-digit reset code (`API.md` 38). Succeeds the same way
+  /// whether or not the email has an account.
+  Future<void> requestPasswordReset({required String email});
+
+  /// Sets a new password with the emailed code (`API.md` 38).
+  Future<void> confirmPasswordReset({
+    required String email,
+    required String code,
+    required String newPassword,
+  });
 }

@@ -16,7 +16,7 @@ Rules for this file:
 **Current phase:** Complete for v1 scope (Run 073). App, backend and NLP worker run end to end with real rewrites; open product decisions D4, D10, D20–D22 are decided and built. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
-**Next step:** Review and merge `temp/project-completion-run070`. Waiting on the user: (1) whether the app may be changed to wire "Forgot?" to API 38 and to make "Keep active session" control refresh tokens (prepared, not applied; the user earlier asked for no frontend changes); (2) an SMTP provider for real reset emails; (3) confirming the default-in-use rows D1–D3, D5, D7–D9, D11–D14, D16, D18. Optional: a larger rewrite model.
+**Next step:** Review and merge `temp/project-completion-run070`. Waiting on the user: (1) an SMTP provider for real reset emails (`MAIL_TRANSPORT=smtp`, `SMTP_URL`); (2) confirming the default-in-use rows D1–D3, D5, D7–D9, D11–D14, D16, D18. Optional: a larger rewrite model.
 **Blockers:** None. Operational only: real rewrites need a running Kaggle session (rerun the launcher and update `pipeline/.env` per session).
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
@@ -53,7 +53,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
-**Quality gates (latest known):** Run 076: backend lint, typecheck and build pass, `npm test` 23 files / 170 passed. Run 074: Flutter format clean, analyze 0 issues, 53 tests passed (frontend unchanged since); pipeline 148 passed. GitHub Actions `backend-ci`, `flutter-ci`, `pipeline-ci` all green on `4a79858`.
+**Quality gates (latest known):** Run 077: Flutter format clean, analyze 0 issues, `flutter test` 60 passed, generated code up to date. Run 076: backend lint, typecheck and build pass, `npm test` 170 passed. Pipeline 148 passed. GitHub Actions `backend-ci`, `flutter-ci`, `pipeline-ci` green.
 
 **Pipeline notebook handoff:** Kaggle GPU environment verified with vLLM serving Qwen2.5-3B-Instruct (0 hijacks on adversarial probes). End-to-end claim/rewrite/result cycle against live backend verified (Run 057).
 
@@ -2620,3 +2620,26 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] Codes and addresses never logged outside the explicit dev-only `log` transport, which masks the address
   - [x] No secrets committed; `main` untouched
 - **Next steps:** User decides on the app wiring and an SMTP provider.
+
+### Run 077: App wiring for "Forgot?" and "Keep active session"
+- **Date/time:** 2026-11-13 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 23 (v1 completion)
+- **Prompt / task:** User approved the two app changes proposed in Run 076 ("Yes, wire them up").
+- **Result:** Completed
+- **Summary:** "Forgot?" on the login screen now opens a new `ForgotPasswordScreen` (`/forgot-password`, reachable signed out) in the login screen's own Monochrome Precision style: step 1 asks for the email and calls API 38 request; step 2 takes the 6-digit code and a new password, calls confirm, then returns to log in with "Password updated." It also offers "Send a new code" and "Back to log in"; errors show inline (wrong or expired code shows the server message). Mock mode accepts `123456` and says so. "Keep active session" is no longer decorative: when off, sign-in does not request a refresh token, so the session ends with the access token (D21 listed both controls as inert).
+- **Files created:** `lib/features/auth/forgot_password_screen.dart`, `test/password_reset_test.dart`
+- **Files modified:** `lib/app/router.dart`, `lib/core/api/endpoints.dart`, `lib/core/strings/app_strings.dart`, `lib/features/auth/{login_screen,session_controller}.dart`, `lib/features/auth/data/{auth_repository,api_auth_repository,mock_auth_repository}.dart`, `API.md` §38, `README.md`, `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `dart format --set-exit-if-changed` pass; `flutter analyze` 0 issues; `flutter test` 60 passed (53 + 7 new: mock reset, mock wrong code and short password, API request shapes, 400 message, keep-session on/off, widget flow with a wrong then a right code); `build_runner build` leaves `lib/` unchanged
+  - live (release build against the local backend, `MAIL_TRANSPORT=log`, throwaway `forgot-test@example.com`): Forgot? opens the screen; Send code moves to step 2 and the code appears in the dev console; code plus new password returns to log in with "Password updated."; sign-in with the new password and the switch off reaches Groups with 0 refresh tokens stored; account then deleted
+  - the first live sign-in attempt hit "Too many requests": the login rate limit (10 per 15 minutes) had been used up by test calls; restarting the dev server cleared the in-memory counter (expected behaviour, not a bug)
+- **Docs updated:** `API.md` §38 (wired; keep-session note), `README.md` auth row, `LOGS.md` Status Snapshot
+- **Assumptions / decisions:** none new
+- **Issues / blockers / known bugs:** Real reset emails need an SMTP provider; without one, the live app's Send code shows "Password reset is not available yet."
+- **Hard-rules check:**
+  - [x] Change limited to what the user approved; existing layout and style kept
+  - [x] Tokens only in secure storage; no secrets committed; `main` untouched
+- **Next steps:** User picks an SMTP provider and confirms the remaining default-in-use decisions; review and merge the branch.

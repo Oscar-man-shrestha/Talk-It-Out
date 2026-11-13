@@ -22,11 +22,17 @@ class SessionNotifier extends AsyncNotifier<User?> {
     }
   }
 
-  Future<void> login({required String email, required String password}) async {
+  /// With [keepSession] false no refresh token is requested, so the
+  /// session ends when the access token expires.
+  Future<void> login({
+    required String email,
+    required String password,
+    bool keepSession = true,
+  }) async {
     final session = await ref
         .read(authRepositoryProvider)
         .login(email: email, password: password);
-    await _storeSession(session);
+    await _storeSession(session, keepSession: keepSession);
   }
 
   Future<void> register({
@@ -47,12 +53,19 @@ class SessionNotifier extends AsyncNotifier<User?> {
     state = AsyncData(user.copyWith(name: name));
   }
 
-  Future<void> _storeSession(AuthSession session) async {
+  Future<void> _storeSession(
+    AuthSession session, {
+    bool keepSession = true,
+  }) async {
     final tokens = ref.read(tokenStoreProvider);
     await tokens.clear();
     await tokens.write(session.token);
-    final refresh = await ref.read(authRepositoryProvider).issueRefreshToken();
-    if (refresh != null) await tokens.writeRefresh(refresh);
+    if (keepSession) {
+      final refresh = await ref
+          .read(authRepositoryProvider)
+          .issueRefreshToken();
+      if (refresh != null) await tokens.writeRefresh(refresh);
+    }
     state = AsyncData(session.user);
   }
 

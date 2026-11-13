@@ -69,7 +69,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       // Sign in with exactly what was typed. No account substitution.
       await ref
           .read(sessionProvider.notifier)
-          .login(email: email, password: password);
+          .login(email: email, password: password, keepSession: _keepSession);
     } on RepositoryException catch (error) {
       setState(() => _error = error.message);
     } catch (_) {
@@ -277,7 +277,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () {},
+                  onTap: _busy ? null : () => context.push('/forgot-password'),
                   child: const Text(
                     'Forgot?',
                     style: TextStyle(

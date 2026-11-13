@@ -7,6 +7,8 @@ abstract final class Endpoints {
   static const refreshTokens = '/auth/refresh-tokens';
   static const refresh = '/auth/refresh';
   static const myAccount = '/users/me';
+  static const passwordReset = '/auth/password-reset';
+  static const passwordResetConfirm = '/auth/password-reset/confirm';
   static const groups = '/groups';
   static const posts = '/posts';
   static const notifications = '/notifications';

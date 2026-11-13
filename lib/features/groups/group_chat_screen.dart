@@ -12,6 +12,7 @@ import 'package:talk_it_out/core/ui/labels.dart';
 import 'package:talk_it_out/core/ui/screen_async.dart';
 import 'package:talk_it_out/core/ui/stitch_chrome.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
+import 'package:talk_it_out/features/groups/data/message_reactions.dart';
 import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/data/published_message.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
@@ -436,10 +437,38 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
     setState(() => _showReactionsBar = !_showReactionsBar);
   }
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_hasProviderScope) return;
+      ref
+          .read(messageReactionsProvider.notifier)
+          .load(widget.message.groupId, widget.message.id);
+    });
+  }
+
+  /// The tile is also rendered on its own in widget tests, with no providers.
+  bool get _hasProviderScope =>
+      context.findAncestorWidgetOfExactType<ProviderScope>() != null ||
+      context.findAncestorWidgetOfExactType<UncontrolledProviderScope>() !=
+          null;
+
+  Future<void> _toggleReaction(String emoji) async {
+    try {
+      await ref
+          .read(messageReactionsProvider.notifier)
+          .toggleReaction(widget.message.groupId, widget.message.id, emoji);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorText(error) ?? AppStrings.errorGeneric)),
+      );
+    }
+  }
+
   void _reactWith(String emoji) {
-    ref
-        .read(messageReactionsProvider.notifier)
-        .toggleReaction(widget.message.id, emoji);
+    _toggleReaction(emoji);
     setState(() => _showReactionsBar = false);
   }
 
@@ -480,32 +509,7 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                  for (final emoji in [
-                    '❤️',
-                    '👍',
-                    '🔥',
-                    '😂',
-                    '👏',
-                    '🎉',
-                    '🙌',
-                    '💯',
-                    '🚀',
-                    '🤔',
-                    '💡',
-                    '🙏',
-                    '✨',
-                    '👀',
-                    '🤝',
-                    '🧠',
-                    '⚡',
-                    '🎯',
-                    '📌',
-                    '💬',
-                    '☕',
-                    '🌟',
-                    '🦾',
-                    '😍',
-                  ])
+                  for (final emoji in kReactionEmojis)
                     InkWell(
                       borderRadius: BorderRadius.circular(10),
                       onTap: () {
@@ -670,7 +674,7 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      for (final emoji in ['❤️', '👍', '😂', '😮', '😢', '🔥'])
+                      for (final emoji in kReactionEmojis)
                         InkWell(
                           onTap: () => _reactWith(emoji),
                           borderRadius: BorderRadius.circular(16),
@@ -1037,18 +1041,14 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                             for (final entry in reactionCounts.entries) ...[
                               Builder(
                                 builder: (context) {
-                                  final userReacted = reactions?.hasReacted(
+                                  final userReacted =
+                                      reactions?.hasReacted(
                                         widget.message.id,
                                         entry.key,
                                       ) ??
                                       false;
                                   return InkWell(
-                                    onTap: () => ref
-                                        .read(messageReactionsProvider.notifier)
-                                        .toggleReaction(
-                                          widget.message.id,
-                                          entry.key,
-                                        ),
+                                    onTap: () => _toggleReaction(entry.key),
                                     borderRadius: BorderRadius.circular(12),
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(

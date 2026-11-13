@@ -8,6 +8,20 @@ abstract final class Endpoints {
   static const posts = '/posts';
   static const notifications = '/notifications';
   static const unreadCount = '/notifications/unread-count';
+  static const notificationsReadAll = '/notifications/read-all';
+
+  static const myProfile = '/users/me/profile';
+  static const myExperiences = '/users/me/experiences';
+  static const myEducations = '/users/me/educations';
+  static const myAvatar = '/users/me/avatar';
+  static const myCover = '/users/me/cover';
+
+  static String myExperience(String id) => '/users/me/experiences/$id';
+
+  static String myEducation(String id) => '/users/me/educations/$id';
+
+  static String messageReactions(String groupId, String messageId) =>
+      '/groups/$groupId/messages/$messageId/reactions';
 
   static String group(String groupId) => '/groups/$groupId';
 

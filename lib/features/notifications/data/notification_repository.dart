@@ -7,5 +7,8 @@ abstract class NotificationRepository {
 
   Future<AppNotification> markRead(String notificationId);
 
+  /// Marks every unread notification as read.
+  Future<void> markAllRead();
+
   Future<UnreadCount> unreadCount();
 }

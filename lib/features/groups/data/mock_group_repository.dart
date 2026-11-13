@@ -9,6 +9,7 @@ import 'package:talk_it_out/core/models/group_member.dart';
 import 'package:talk_it_out/core/models/page_result.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/features/groups/data/group_repository.dart';
+import 'package:talk_it_out/features/groups/data/message_reactions.dart';
 import 'package:talk_it_out/features/groups/data/mock_message_bridge.dart';
 import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/data/published_message.dart';
@@ -26,6 +27,23 @@ class MockGroupRepository implements GroupRepository {
   final MockBoard _board;
   final MockMessageBridge _bridge;
   var _nextMessage = 400;
+
+  /// Sample reactions for the seeded chat. Counts only, never identities.
+  final Map<String, MessageReactions> _reactions = {
+    'pm10': const MessageReactions(
+      messageId: 'pm10',
+      counts: {'❤️': 2, '👍': 3},
+      mine: {'❤️'},
+    ),
+    'pm11': const MessageReactions(
+      messageId: 'pm11',
+      counts: {'🔥': 4, '👏': 2},
+    ),
+    'pm12': const MessageReactions(
+      messageId: 'pm12',
+      counts: {'💡': 3, '👍': 1},
+    ),
+  };
 
   @override
   Future<PageResult<Group>> listGroups({int? limit, String? cursor}) {
@@ -203,6 +221,35 @@ class MockGroupRepository implements GroupRepository {
       _bridge.published.removeWhere(
         (m) => m.id == messageId && m.groupId == groupId,
       );
+      _reactions.remove(messageId);
+    });
+  }
+
+  @override
+  Future<MessageReactions> getReactions(String groupId, String messageId) {
+    return runMock(_controls, () {
+      _requireGroup(groupId);
+      return _reactions[messageId] ?? MessageReactions(messageId: messageId);
+    });
+  }
+
+  @override
+  Future<MessageReactions> toggleReaction(
+    String groupId,
+    String messageId, {
+    required String emoji,
+  }) {
+    return runMock(_controls, () {
+      _requireGroup(groupId);
+      if (!kReactionEmojis.contains(emoji)) {
+        throw const RepositoryException(
+          code: 'validation',
+          message: AppStrings.reactionRequired,
+        );
+      }
+      final current =
+          _reactions[messageId] ?? MessageReactions(messageId: messageId);
+      return _reactions[messageId] = current.toggled(emoji);
     });
   }
 

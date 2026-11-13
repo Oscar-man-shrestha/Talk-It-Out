@@ -25,4 +25,19 @@ void main() {
     expect(Endpoints.notificationRead('n1'), '/notifications/n1/read');
     expect(Endpoints.unreadCount, '/notifications/unread-count');
   });
+
+  test('section 10 paths match API.md', () {
+    expect(Endpoints.notificationsReadAll, '/notifications/read-all');
+    expect(Endpoints.myProfile, '/users/me/profile');
+    expect(Endpoints.myExperiences, '/users/me/experiences');
+    expect(Endpoints.myExperience('e1'), '/users/me/experiences/e1');
+    expect(Endpoints.myEducations, '/users/me/educations');
+    expect(Endpoints.myEducation('d1'), '/users/me/educations/d1');
+    expect(Endpoints.myAvatar, '/users/me/avatar');
+    expect(Endpoints.myCover, '/users/me/cover');
+    expect(
+      Endpoints.messageReactions('g1', 'pm1'),
+      '/groups/g1/messages/pm1/reactions',
+    );
+  });
 }

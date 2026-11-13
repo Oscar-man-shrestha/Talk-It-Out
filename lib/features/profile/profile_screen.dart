@@ -5,7 +5,12 @@ import 'package:talk_it_out/core/ui/screen_async.dart';
 import 'package:talk_it_out/core/utils/image_picker_helper.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/core/widgets/safe_image.dart';
+import 'package:talk_it_out/core/models/enums.dart';
+import 'package:talk_it_out/core/models/group.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
+import 'package:talk_it_out/features/feed/data/post.dart';
+import 'package:talk_it_out/features/feed/feed_providers.dart';
+import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/profile/profile_state.dart';
 
 // Stitch Monochrome Precision tokens
@@ -342,7 +347,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               .read(userProfileProvider.notifier)
                               .updateProfile(
                                 name: nameCtrl.text.trim().isEmpty
-                                    ? 'Priya Sharma'
+                                    ? profile.name
                                     : nameCtrl.text.trim(),
                                 headline: headlineCtrl.text.trim(),
                                 bio: bioCtrl.text.trim(),
@@ -974,6 +979,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final session = ref.watch(sessionProvider);
     final user = session.value;
     final profile = ref.watch(userProfileProvider);
+    final groups = ref.watch(groupsProvider).value ?? const <Group>[];
+    final moderated = groups
+        .where((group) => group.myRole == GroupRole.controller)
+        .length;
+    final myPosts = (ref.watch(feedProvider).value ?? const <Post>[])
+        .where((post) => post.author.id == user?.id)
+        .length;
+    ref.listen<String?>(profileSyncErrorProvider, (_, message) {
+      if (message == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      );
+      ref.read(profileSyncErrorProvider.notifier).clear();
+    });
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isDesktop = screenWidth >= 900;
     final isMobile = screenWidth < 600;
@@ -1404,7 +1423,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               Row(
                                 children: [
                                   Text(
-                                    '(she/her) • ${user.email ?? 'priya@example.com'}',
+                                    profile.email ?? user.email ?? '',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: _kTextSecondary,
@@ -1448,8 +1467,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     style: TextStyle(color: _kTextTertiary),
                                   ),
                                   const SizedBox(width: 8),
-                                  const Text(
-                                    '1,420+ peer connections',
+                                  Text(
+                                    groups.length == 1
+                                        ? '1 group'
+                                        : '${groups.length} groups',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
@@ -1923,17 +1944,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     mainAxisSpacing: 10,
                     childAspectRatio: 1.35,
                     children: [
-                      const _BentoCard(
+                      _BentoCard(
                         title: 'GROUPS JOINED',
                         icon: Icons.groups_outlined,
-                        value: '14',
+                        value: '${groups.length}',
                         subtitle: 'active squads',
                       ),
-                      const _BentoCard(
+                      _BentoCard(
                         title: 'CONTRIBUTIONS',
                         icon: Icons.forum_outlined,
-                        value: '38',
-                        subtitle: '+5 this week',
+                        value: '$myPosts',
+                        subtitle: 'public posts',
                       ),
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -1974,7 +1995,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   textBaseline: TextBaseline.alphabetic,
                                   children: [
                                     Text(
-                                      '94%',
+                                      '—',
                                       style: TextStyle(
                                         fontSize: 22,
                                         fontWeight: FontWeight.w700,
@@ -1984,7 +2005,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     ),
                                     SizedBox(width: 4),
                                     Text(
-                                      'Top 5%',
+                                      'No score yet',
                                       style: TextStyle(
                                         fontSize: 11,
                                         color: _kTextSecondary,
@@ -2002,7 +2023,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   ),
                                   alignment: Alignment.centerLeft,
                                   child: FractionallySizedBox(
-                                    widthFactor: 0.94,
+                                    widthFactor: 0,
                                     child: Container(
                                       decoration: BoxDecoration(
                                         color: _kPrimary,
@@ -2024,10 +2045,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ],
                         ),
                       ),
-                      const _BentoCard(
+                      _BentoCard(
                         title: 'MODERATED',
                         icon: Icons.gavel_outlined,
-                        value: '3',
+                        value: '$moderated',
                         subtitle: 'squad spaces',
                       ),
                     ],

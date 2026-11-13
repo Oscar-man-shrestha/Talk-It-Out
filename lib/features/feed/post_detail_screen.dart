@@ -6,6 +6,8 @@ import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/core/ui/screen_async.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
+import 'package:talk_it_out/core/utils/relative_time.dart';
+import 'package:talk_it_out/features/auth/session_controller.dart';
 import 'package:talk_it_out/features/feed/data/comment.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
 
@@ -62,6 +64,17 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     );
   }
 
+  /// Comments come oldest-first from the API.
+  List<Comment> _sorted(List<Comment> items) {
+    return _sortMode == 'NEWEST' ? items.reversed.toList() : items;
+  }
+
+  static String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
+    if (parts.isEmpty) return '?';
+    return parts.take(2).map((p) => p[0].toUpperCase()).join();
+  }
+
   @override
   void dispose() {
     _comment.dispose();
@@ -116,6 +129,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     final comments = ref.watch(commentsProvider(widget.postId));
     final post = postState.value;
     final liveComments = comments.value ?? const <Comment>[];
+    final userId = ref.watch(sessionProvider).value?.id;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final hPad = screenWidth > 860 ? (screenWidth - 800) / 2 : 16.0;
 
@@ -218,7 +232,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                             const SizedBox(width: 6),
                             const Expanded(
                               child: Text(
-                                '• PSYCH SAFETY • POLL SES...',
+                                '• PUBLIC FEED',
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 11,
@@ -296,8 +310,8 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                     shape: BoxShape.circle,
                                   ),
                                   alignment: Alignment.center,
-                                  child: const Text(
-                                    'SK',
+                                  child: Text(
+                                    _initials(post.author.name),
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w700,
@@ -306,7 +320,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 10),
-                                const Expanded(
+                                Expanded(
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -314,7 +328,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                       Row(
                                         children: [
                                           Text(
-                                            'Sophia K.',
+                                            post.author.name,
                                             style: TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w700,
@@ -331,7 +345,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                       ),
                                       SizedBox(height: 1),
                                       Text(
-                                        '@sophiak • ...',
+                                        relativeTime(post.createdAt),
                                         style: TextStyle(
                                           fontSize: 11,
                                           color: _kTextSecondary,
@@ -349,8 +363,10 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                     color: _kSurfaceMuted,
                                     borderRadius: BorderRadius.circular(999),
                                   ),
-                                  child: const Text(
-                                    '#WORKPLACEAI',
+                                  child: Text(
+                                    post.nsfwFlag
+                                        ? AppStrings.flagged.toUpperCase()
+                                        : 'PUBLIC',
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w700,
@@ -365,85 +381,11 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
 
                             // Post Content (high-fidelity sample matching image4)
                             Text(
-                              post.content.length > 50 ? post.content : 'Should AI rewriting be mandatory for executive all-hands Q&A, or strictly opt-in? We tested both in a 200-person team—here are the candid results. When mandatory, 3x more junior engineers submitted concerns, but tone homogenization was noticeable.',
+                              post.content,
                               style: const TextStyle(
                                 fontSize: 14,
                                 height: 1.5,
                                 color: _kTextPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-
-                            // Key Finding Metric Box
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: _kSurfaceSubtle,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: _kBorderSubtle),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 32,
-                                    height: 32,
-                                    decoration: BoxDecoration(
-                                      color: _kPrimary,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Icon(
-                                      Icons.trending_up,
-                                      size: 18,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  const Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'KEY FINDING CALLOUT',
-                                          style: TextStyle(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w700,
-                                            letterSpacing: 0.6,
-                                            color: _kTextSecondary,
-                                          ),
-                                        ),
-                                        SizedBox(height: 2),
-                                        Text(
-                                          '+210% Psycho...',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700,
-                                            color: _kTextPrimary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _kSurfaceMuted,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Text(
-                                      'HIGH IMPACT',
-                                      style: TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w700,
-                                        fontFamily: 'monospace',
-                                        color: _kTextPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
                               ),
                             ),
                             const SizedBox(height: 14),
@@ -493,9 +435,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                           ),
                                           const SizedBox(width: 4),
                                           Text(
-                                            post.reactionCount > 0
-                                                ? '${post.reactionCount}'
-                                                : '142',
+                                            '${post.reactionCount}',
                                             style: const TextStyle(
                                               fontSize: 12,
                                               fontFamily: 'monospace',
@@ -507,36 +447,16 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: 16),
-                                    const Row(
+                                    Row(
                                       children: [
-                                        Icon(
+                                        const Icon(
                                           Icons.chat_bubble_outline,
                                           size: 18,
                                           color: _kTextSecondary,
                                         ),
-                                        SizedBox(width: 4),
+                                        const SizedBox(width: 4),
                                         Text(
-                                          '38',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontFamily: 'monospace',
-                                            fontWeight: FontWeight.w600,
-                                            color: _kTextSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(width: 16),
-                                    const Row(
-                                      children: [
-                                        Icon(
-                                          Icons.repeat,
-                                          size: 18,
-                                          color: _kTextSecondary,
-                                        ),
-                                        SizedBox(width: 4),
-                                        Text(
-                                          '12',
+                                          '${post.commentCount}',
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontFamily: 'monospace',
@@ -574,131 +494,134 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                       ),
                       const SizedBox(height: 14),
 
-                      // Controller Action Banner (matches image4)
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: _kSurfaceSubtle,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _kBorderSubtle),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Row(
-                                  children: [
-                                    Icon(
-                                      Icons.hub_outlined,
-                                      size: 18,
-                                      color: _kPrimary,
-                                    ),
-                                    SizedBox(width: 6),
-                                    Text(
-                                      'Launch Group from this Topic',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: _kTextPrimary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _kPrimary,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text(
-                                    'CONTROLLER MODE',
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w700,
-                                      fontFamily: 'monospace',
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            const Text(
-                              'Spin up an anonymous real-time room to draft formal Q&A policy guidelines with team leads.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                height: 1.4,
-                                color: _kTextSecondary,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      width: 22,
-                                      height: 22,
-                                      decoration: const BoxDecoration(
-                                        color: _kSurfaceMuted,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.person,
-                                        size: 13,
-                                        color: _kTextSecondary,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    const Text(
-                                      '+4 peers ready',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
-                                        color: _kTextSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                FilledButton(
-                                  onPressed: _busy ? null : _createGroup,
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: _kPrimary,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 8,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
+                      // Create-group banner: offered to the post author only.
+                      if (post.author.id == userId)
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: _kSurfaceSubtle,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: _kBorderSubtle),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Row(
                                     children: [
+                                      Icon(
+                                        Icons.hub_outlined,
+                                        size: 18,
+                                        color: _kPrimary,
+                                      ),
+                                      SizedBox(width: 6),
                                       Text(
-                                        'Create Group',
+                                        'Launch Group from this Topic',
                                         style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: _kTextPrimary,
                                         ),
                                       ),
-                                      SizedBox(width: 4),
-                                      Icon(Icons.arrow_forward, size: 14),
                                     ],
                                   ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _kPrimary,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'CONTROLLER MODE',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w700,
+                                        fontFamily: 'monospace',
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Spin up an anonymous real-time room to draft formal Q&A policy guidelines with team leads.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  height: 1.4,
+                                  color: _kTextSecondary,
                                 ),
-                              ],
-                            ),
-                          ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 22,
+                                        height: 22,
+                                        decoration: const BoxDecoration(
+                                          color: _kSurfaceMuted,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.person,
+                                          size: 13,
+                                          color: _kTextSecondary,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      const Text(
+                                        'You become the controller',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                          color: _kTextSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  FilledButton(
+                                    onPressed: _busy ? null : _createGroup,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: _kPrimary,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 8,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Create Group',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        SizedBox(width: 4),
+                                        Icon(Icons.arrow_forward, size: 14),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
                       const SizedBox(height: 16),
 
                       // Discussion Section Header (matches image4)
@@ -730,7 +653,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                     vertical: 1.5,
                                   ),
                                   child: Text(
-                                    '38',
+                                    '${liveComments.length}',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontFamily: 'monospace',
@@ -756,18 +679,11 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                               setState(() => _sortMode = val);
                             },
                             itemBuilder: (ctx) => [
-                              _buildSortMenuItem(
-                                'TOP FIRST',
-                                'Top First (Agreed)',
-                              ),
+                              _buildSortMenuItem('TOP FIRST', 'Oldest First'),
                               _buildSortMenuItem('NEWEST', 'Newest First'),
                               _buildSortMenuItem(
                                 'MOST DISCUSSED',
                                 'Most Discussed',
-                              ),
-                              _buildSortMenuItem(
-                                'SHIELDED ONLY',
-                                'Shielded Only',
                               ),
                             ],
                             child: Container(
@@ -807,102 +723,46 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                       const SizedBox(height: 12),
 
                       // Rich 3-tier Discussion Thread (dynamically sorted & filtered)
-                      if (_sortMode == 'SHIELDED ONLY') ...[
-                        const _DiscussionItem(
-                          isAnonymous: true,
-                          authorName: 'Anonymous Pers...',
-                          isShielded: true,
-                          timeAgo: '25m ago',
-                          content: 'We noticed executive pushback if the AI rewrite sounds too diplomatic—they felt questions were sanitized. We ended up keeping the original bulleted concerns intact and only softening the rhetorical edge.',
-                          likesCount: '9',
-                        ),
-                      ] else if (_sortMode == 'NEWEST') ...[
-                        for (final comment in liveComments.reversed) ...[
-                          _DiscussionItem(
-                            authorInitials: comment.author.name.isNotEmpty
-                                ? comment.author.name[0].toUpperCase()
-                                : '?',
-                            authorName: comment.author.name,
-                            timeAgo: 'just now',
-                            content: comment.content,
-                            likesCount: '0',
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                        const _DiscussionItem(
-                          isAnonymous: true,
-                          authorName: 'Anonymous Pers...',
-                          isShielded: true,
-                          timeAgo: '25m ago',
-                          content: 'We noticed executive pushback if the AI rewrite sounds too diplomatic—they felt questions were sanitized. We ended up keeping the original bulleted concerns intact and only softening the rhetorical edge.',
-                          likesCount: '9',
-                        ),
-                        const SizedBox(height: 8),
+                      if (comments.isLoading && !comments.hasValue)
                         const Padding(
-                          padding: EdgeInsets.only(left: 24),
-                          child: _DiscussionItem(
-                            authorInitials: 'SK',
-                            authorName: 'Sophia K.',
-                            isAuthor: true,
-                            timeAgo: '45m ago',
-                            content: "Exactly. The key is making sure the AI rewrite preserves nuance. If it strips the core tension or urgency, leadership assumes it's low priority.",
-                            likesCount: '18',
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        const _DiscussionItem(
-                          authorInitials: 'M',
-                          authorName: 'M',
-                          timeAgo: '1h ago',
-                          badgeText: 'Rewritten: Gentle Tone',
-                          badgeIcon: Icons.auto_awesome,
-                          content: "Completely agree on psychological safety unlocking participation. When folks aren't paralyzed about how their critique lands, we get the real production blockers surfaced immediately.",
-                          likesCount: '24',
-                        ),
-                      ] else ...[
-                        const _DiscussionItem(
-                          authorInitials: 'M',
-                          authorName: 'M',
-                          timeAgo: '1h ago',
-                          badgeText: 'Rewritten: Gentle Tone',
-                          badgeIcon: Icons.auto_awesome,
-                          content: "Completely agree on psychological safety unlocking participation. When folks aren't paralyzed about how their critique lands, we get the real production blockers surfaced immediately.",
-                          likesCount: '24',
-                        ),
-                        const SizedBox(height: 8),
+                        )
+                      else if (comments.hasError && !comments.hasValue)
+                        Center(
+                          child: TextButton(
+                            onPressed: () =>
+                                ref.invalidate(commentsProvider(widget.postId)),
+                            child: Text(
+                              '${errorText(comments.error)} ${AppStrings.retry}',
+                            ),
+                          ),
+                        )
+                      else if (liveComments.isEmpty)
                         const Padding(
-                          padding: EdgeInsets.only(left: 24),
-                          child: _DiscussionItem(
-                            authorInitials: 'SK',
-                            authorName: 'Sophia K.',
-                            isAuthor: true,
-                            timeAgo: '45m ago',
-                            content: "Exactly. The key is making sure the AI rewrite preserves nuance. If it strips the core tension or urgency, leadership assumes it's low priority.",
-                            likesCount: '18',
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: Text(
+                              AppStrings.commentsEmpty,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: _kTextSecondary,
+                              ),
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        const _DiscussionItem(
-                          isAnonymous: true,
-                          authorName: 'Anonymous Pers...',
-                          isShielded: true,
-                          timeAgo: '25m ago',
-                          content: 'We noticed executive pushback if the AI rewrite sounds too diplomatic—they felt questions were sanitized. We ended up keeping the original bulleted concerns intact and only softening the rhetorical edge.',
-                          likesCount: '9',
+                      for (final comment in _sorted(liveComments)) ...[
+                        _DiscussionItem(
+                          authorInitials: _initials(comment.author.name),
+                          authorName: comment.author.name,
+                          isAuthor: comment.author.id == post.author.id,
+                          timeAgo: relativeTime(comment.createdAt),
+                          content: comment.content,
+                          likesCount: '',
                         ),
                         const SizedBox(height: 8),
-                        for (final comment in liveComments) ...[
-                          _DiscussionItem(
-                            authorInitials: comment.author.name.isNotEmpty
-                                ? comment.author.name[0].toUpperCase()
-                                : '?',
-                            authorName: comment.author.name,
-                            timeAgo: 'just now',
-                            content: comment.content,
-                            likesCount: '0',
-                          ),
-                          const SizedBox(height: 8),
-                        ],
                       ],
                     ],
                   ),
@@ -1102,21 +962,13 @@ class _DiscussionItem extends StatelessWidget {
     required this.content,
     required this.likesCount,
     this.authorInitials,
-    this.badgeText,
-    this.badgeIcon,
     this.isAuthor = false,
-    this.isAnonymous = false,
-    this.isShielded = false,
   });
 
   final String? authorInitials;
   final String authorName;
   final String timeAgo;
-  final String? badgeText;
-  final IconData? badgeIcon;
   final bool isAuthor;
-  final bool isAnonymous;
-  final bool isShielded;
   final String content;
   final String likesCount;
 
@@ -1134,38 +986,23 @@ class _DiscussionItem extends StatelessWidget {
         children: [
           Row(
             children: [
-              if (isAnonymous)
-                Container(
-                  width: 26,
-                  height: 26,
-                  decoration: const BoxDecoration(
-                    color: _kPrimary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.security,
-                    size: 14,
+              Container(
+                width: 26,
+                height: 26,
+                decoration: const BoxDecoration(
+                  color: _kPrimary,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  authorInitials ?? '?',
+                  style: const TextStyle(
                     color: Colors.white,
-                  ),
-                )
-              else
-                Container(
-                  width: 26,
-                  height: 26,
-                  decoration: const BoxDecoration(
-                    color: _kPrimary,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    authorInitials ?? '?',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                    ),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
                   ),
                 ),
+              ),
               const SizedBox(width: 8),
               Text(
                 authorName,
@@ -1196,61 +1033,11 @@ class _DiscussionItem extends StatelessWidget {
                   ),
                 ),
               ],
-              if (isShielded) ...[
-                const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 1.5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _kSurfaceMuted,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: const Text(
-                    'Shielded',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
-                      color: _kTextSecondary,
-                    ),
-                  ),
-                ),
-              ],
               const SizedBox(width: 4),
               Text(
                 '• $timeAgo',
                 style: const TextStyle(fontSize: 11, color: _kTextTertiary),
               ),
-              const Spacer(),
-              if (badgeText != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _kSurfaceMuted,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (badgeIcon != null) ...[
-                        Icon(badgeIcon, size: 10, color: _kTextSecondary),
-                        const SizedBox(width: 3),
-                      ],
-                      Text(
-                        badgeText!,
-                        style: const TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: _kTextSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
             ],
           ),
           const SizedBox(height: 8),
@@ -1270,21 +1057,23 @@ class _DiscussionItem extends StatelessWidget {
             padding: const EdgeInsets.only(left: 34),
             child: Row(
               children: [
-                const Icon(
-                  Icons.favorite_border,
-                  size: 14,
-                  color: _kTextSecondary,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  likesCount,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontFamily: 'monospace',
+                if (likesCount.isNotEmpty) ...[
+                  const Icon(
+                    Icons.favorite_border,
+                    size: 14,
                     color: _kTextSecondary,
                   ),
-                ),
-                const SizedBox(width: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    likesCount,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                      color: _kTextSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                ],
                 GestureDetector(
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(

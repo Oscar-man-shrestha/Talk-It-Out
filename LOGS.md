@@ -12,12 +12,12 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-11-04 (IST)
-**Current phase:** Real-model hookup (Run 068). Runs 066–067 brought the full stack up locally (Postgres 15, backend :3000, mock web :52000, live web :52001) and completed the backend additions (profiles, image upload, reactions, read-all, refresh tokens) on branch `temp/local-stack-run066`. The frontend is unchanged by user instruction.
+**Last updated:** 2026-11-13 (IST)
+**Current phase:** Frontend–backend wiring (Run 071) on branch `temp/project-completion-run070`. The existing screens keep their design; login, register, Alerts, Profile, chat reactions, post detail and the review screens now run on repository data, and the app was verified live against the local backend.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
-**Next step:** Follow `pipeline/KAGGLE_ENDPOINT_RUNBOOK.md`: restart Kaggle vLLM with an API key, open a tunnel, paste the URL into `pipeline/.env`, run `scripts/smoke_model.py --show-output` to manually review the two suspected probes (Run 065), then set `PIPELINE_MODE=external` and run the worker for real rewrites.
-**Blockers:** Real rewrites need the Kaggle session (user action); the dev Mac cannot host a model (8 GB RAM, under 0.5 GB free disk). Open product decisions D4 (controller transfer) and D10 (push vs polling) block those features. The frontend does not call the new backend endpoints (API.md §10); wiring them is a frontend task that has not been authorized.
+**Next step:** Real AI rewrites: after the Kaggle account is phone-verified, follow `pipeline/KAGGLE_ENDPOINT_RUNBOOK.md` (Run 069), set `PIPELINE_MODE=external`, and run the worker. Then review the Run 071 Open Decisions D20–D22.
+**Blockers:** Real rewrites need a reachable model endpoint (Kaggle phone verification is account-holder only); the stub pipeline is used until then. The dev Mac has about 200 MB free disk, which limits builds. D4 (controller transfer) and D10 (push vs polling) remain open product decisions.
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
 8. Run 060 assessed the current repository: the Flutter frontend retains the intended feature-first/Riverpod/repository structure and privacy test boundary, but the latest visual screens bypass their repository models with fixed demo content. Flutter verification was attempted but produced no output for 90 seconds and was stopped, so no current analysis or test pass is claimed.
@@ -47,11 +47,12 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 | 18 | Groups Python NLP worker foundation and real-model validation | Done | 057 |
 | 19 | Local full-stack bring-up and verification | Done | 066 |
 | 20 | Backend additions: profiles, media, reactions, read-all, refresh tokens | Done | 067 |
-| 21 | Real-model connection (Kaggle tunnel + external worker) | Blocked (needs Kaggle session) | 068 |
+| 21 | Real-model connection (Kaggle tunnel + external worker) | Blocked (needs Kaggle session) | 069 |
+| 22 | Frontend–backend wiring (design unchanged) | Done | 071 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
-**Quality gates (latest known):** Flutter: `flutter analyze` 0 issues and `flutter test` 26 passed (Run 066, unchanged frontend). Backend: lint, typecheck, and build pass; `npm test` 156 passed (Run 067). Pipeline: 148 passed (Run 066). `backend/scripts/demo-flow.sh` end to end against the live API: pass (Run 066).
+**Quality gates (latest known):** Flutter: `dart format` clean, `flutter analyze` 0 issues, `flutter test` 43 passed (Run 071). Backend: `npm test` 156 passed, no pending migrations (Run 071). Pipeline: 148 passed (Run 071). Live check against the local backend: sign-in, Alerts, review queue/detail, profile save (Run 071).
 
 **Pipeline notebook handoff:** Kaggle GPU environment verified with vLLM serving Qwen2.5-3B-Instruct (0 hijacks on adversarial probes). End-to-end claim/rewrite/result cycle against live backend verified (Run 057).
 
@@ -81,6 +82,9 @@ Items the user should confirm. Agents add rows here when they make an assumption
 | D16 | Backend list orderings and small response defaults not pinned by the client contract | Backend orders: groups & notifications newest-first, `/messages/mine` newest-first, members / chat / review-queue oldest-first; `POST /notifications/:id/read` returns 204 with no body; a notification not owned by the caller is 404 (no existence leak); invalid `limit`/`cursor` → 400 envelope; `limit` clamped to 100 | Open | |
 | D17 | How the real NLP pipeline replaces the stub worker | `backend/src/worker/stubWorker.ts` is a labeled placeholder (prefix "rewrite", constant scores) behind the `jobs` outbox; swap the `processJob` body, keep the pending-only guards | Resolved | External Python worker under `pipeline/` claims via the internal HTTP API with `PIPELINE_MODE=external`; foundation implemented in Run 046 |
 | D18 | Pipeline scoring method (contract requires scores; no calibrated confidence exists) | Deterministic heuristics in `pipeline/talkitout_pipeline/scoring.py` (length/digit-loss penalties; agenda-word overlap for relevance); thresholds provisional and advisory only | Open | |
+| D20 | Preset avatar/cover pictures (fixed web addresses) have no file to upload | Picked files upload to `/users/me/avatar` and `/users/me/cover`; a preset is shown on that device only and is not saved | Open | |
+| D21 | Screen controls with no backend or v1 behind them were kept to preserve the design | Kept but inert: review queue relevance slider and priority order (relevance must never hide messages), Forgot password, Keep active session, profile Share, Approved/Rejected review tabs (the API lists pending only, shown with "–") | Open | |
+| D22 | Descriptive copy that overstates the product ("end-to-end encrypted", "Zero-Knowledge", "cryptographic", "AI Rewrite: Active" on feed comments) | Left unchanged because the user asked for no frontend changes; only invented data was replaced | Open | |
 | D19 | Prompt-injection defense for the model layer | Delimiters + system-prompt data rule + deterministic validation; verified on Kaggle with Qwen2.5-3B-Instruct (0 hijacks across all 4 synthetic probes; manual review confirmed safe) | Resolved | Delimiters and data-only system prompt verified empirically against real model |
 
 ---
@@ -2414,3 +2418,56 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] No frontend/backend code changed; `main` untouched
   - [x] No secret committed or entered by the agent
 - **Next steps:** After phone verification, in that notebook: Accelerator GPU T4 x2, Internet on, one cell `import urllib.request; exec(urllib.request.urlopen("https://raw.githubusercontent.com/Oscar-man-shrestha/Talk-It-Out/temp/local-stack-run066/pipeline/scripts/kaggle_serve.py").read())`, then runbook steps 3–4.
+
+### Run 070: Frontend completion pass, set aside at the user's request
+- **Date/time:** 2026-11-13 (IST)
+- **Agent/tool:** Claude Code (Claude Fable 5.2)
+- **Phase:** Frontend data wiring (not adopted)
+- **Prompt / task:** "Do what is not done, complete the project, make it professional." The user asked for a temporary branch first and nothing on `main`. Mid-run the user said: "I want frontend from before."
+- **Result:** Reverted. The frontend in `lib/` and `test/` is byte-identical to `033849e`. No commit was made.
+- **Summary:** On branch `temp/project-completion-run070` (from `temp/local-stack-run066`), a pass replaced demo content with repository data: login/register used the typed credentials (no persona substitution), Alerts rendered notification records with read-all, Profile and message reactions were wired to API §10 with mock twins, post detail and review screens dropped invented comments, counts and out-of-scope controls (rewrite editing, rejection notes, audit export). It reached `flutter analyze` 0 issues and 52 tests passing. At the user's request, all of it was moved to `git stash` entry "run070 frontend rework (set aside at user request)" and the previous frontend restored.
+- **Files created:** `.claude/launch.json` (local static preview of `build/web-mock` on 127.0.0.1:52000)
+- **Files modified:** `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - baseline: `flutter analyze` 0 issues; `flutter test` 26 passed
+  - with the rework: `flutter analyze` 0 issues; `flutter test` 52 passed (not kept)
+  - after restore: `flutter analyze` 0 issues; `flutter test` 26 passed; `flutter build web --release --dart-define=USE_MOCK=true -o build/web-mock` built
+- **Docs updated:** `LOGS.md` only
+- **Assumptions / decisions:** Stashed rather than deleted, so the work can be restored with `git stash apply` if wanted.
+- **Issues / blockers / known bugs:** Unchanged from Run 059: Alerts shows fixed demo cards including rewrite/rejection-note actions (hard-rule conflict), Profile is local demo state, and login substitutes credentials. Left in place by user instruction.
+- **Hard-rules check:**
+  - [x] Nothing pushed; `main` untouched
+  - [x] No backend, pipeline, or schema change
+  - [x] No secrets written
+- **Next steps:** User decision on whether any part of the stashed frontend work should be applied. Real-model hookup still waits on Kaggle phone verification (Run 069).
+
+### Run 071: Connect the existing frontend to the backend (design unchanged)
+- **Date/time:** 2026-11-13 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 22 Frontend–backend wiring
+- **Prompt / task:** "Frontend will be this only. Connect everything to the backend and finish the project. The frontend and the tech stack should not be changed."
+- **Result:** Completed on branch `temp/project-completion-run070` (not committed, not pushed, `main` untouched). Real AI rewrites still blocked on the model endpoint.
+- **Summary:** Kept every screen's layout and styling and replaced what sat behind it. Login and register submit exactly what is typed (the old code silently signed any email in as Priya); mock builds still pre-fill the documented sample account, live builds start empty. Alerts renders notification records in the same card style with real counts, filters and mark-all-read (`POST /notifications/read-all`); the rewrite preview/apply card and the rejection note card (hard-rule conflicts from Run 059) are gone. Profile keeps the same screen and `userProfileProvider` method names but loads from and saves to API §10 (details, skills, experience, education, avatar/cover upload), with failures restored and shown. Chat reactions go through `GET/POST /groups/:id/messages/:id/reactions`; the emoji set became the six the backend accepts. Post detail shows the real author, time, content, like and comment counts and real comments instead of invented ones; create-group is offered only to the post author. Review queue/detail show the real sender (controllers see senders of anonymous messages), real relevance/intent scores and a real word-level difference highlight; invented figures, the audit-log export, and the rewrite-editing controls (out of scope for v1) were removed.
+- **Summary:** Non-UI data-layer files were reused from the Run 070 stash; none of its rewritten screens were applied.
+- **Files created:** `lib/core/utils/relative_time.dart`, `lib/features/groups/data/message_reactions.dart`, `lib/features/profile/data/{profile,profile_repository,api_profile_repository,mock_profile_repository}.dart`, `test/profile_and_reactions_test.dart`, `test/app_wiring_test.dart`, `.claude/launch.json` (backend :3000, live web :52001, mock web :52000)
+- **Files modified:** `lib/app/repository_providers.dart`, `lib/core/api/endpoints.dart`, `lib/core/strings/app_strings.dart`, `lib/features/auth/{login_screen,register_screen,session_controller}.dart`, `lib/features/auth/data/mock_auth_repository.dart`, `lib/features/notifications/{notifications_screen,notification_providers}.dart`, `lib/features/notifications/data/{notification_repository,api_notification_repository,mock_notification_repository}.dart`, `lib/features/groups/{group_chat_screen,group_providers}.dart`, `lib/features/groups/data/{group_repository,api_group_repository,mock_group_repository}.dart`, `lib/features/profile/{profile_state,profile_screen}.dart`, `lib/features/feed/post_detail_screen.dart`, `lib/features/review/{review_queue_screen,review_detail_screen}.dart`, `test/endpoints_test.dart`, `API.md` (§10 intro), `LOGS.md`
+- **Files deleted:** `build/` (generated output, deleted with the user's approval to free disk; rebuilt `build/web-live`)
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `dart format` clean; `flutter analyze` 0 issues; `flutter test` 43 passed (26 existing + 17 new)
+  - backend `npm run migrate` -> no pending migrations; `npm test` -> 21 files, 156 passed
+  - pipeline `python3 -m unittest discover -s pipeline/tests -t pipeline` -> 148 passed
+  - `flutter build web --release --dart-define=USE_MOCK=false --dart-define=API_BASE_URL=http://localhost:3000 -o build/web-live` -> built
+  - Live check at http://localhost:52001 against the local backend (stub pipeline): sign-in with the `API.md` sample account, Alerts showed the real review-request notification, Open review led to the queue and detail with real sender and scores, adding a profile skill saved to `PUT /users/me/profile` (confirmed with `GET`, then cleared)
+- **Docs updated:** `API.md` §10, `LOGS.md` Status Snapshot, Open Decisions D20–D22
+- **Assumptions / decisions:** See D20–D22. Experience and education dates are typed as year ranges ("2021 - Present"); unreadable dates are rejected with a message instead of being dropped. Groups joined, moderated and contributions on Profile are counts of the user's groups, controlled groups and own feed posts. The AI clarity tile shows "No score yet" because no such score exists.
+- **Issues / blockers / known bugs:** Rewrites are `[stub rewrite] …` until a model endpoint is reachable. Refresh tokens (API 35) are not used by the app. Disk on the dev Mac is nearly full.
+- **Hard-rules check:**
+  - [x] Group screens still use only `PublishedMessage`; `RawMessage` stays in `features/review` (`no_raw_message_import_test` passes)
+  - [x] No rewrite editing, rejection reasons, audit log or relevance-based hiding remains in the UI
+  - [x] Feed shows authors; no anonymous filter
+  - [x] No backend, pipeline or schema change; no new dependency; nothing pushed
+- **Next steps:** Kaggle phone verification, then runbook steps for real rewrites. Decide D20–D22.
+

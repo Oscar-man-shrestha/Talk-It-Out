@@ -102,4 +102,132 @@ abstract final class AppStrings {
   static const alreadyReviewed = 'That message was already reviewed.';
   static const groupAlreadyExists = 'A group already exists for this post.';
   static const reactionRequired = 'Choose a reaction.';
+
+  static const tagline = 'Thoughtful group conversations, refined together.';
+  static const emailHint = 'you@example.com';
+  static const confirmPasswordLabel = 'Confirm password';
+  static const showPassword = 'Show password';
+  static const hidePassword = 'Hide password';
+  static const invalidEmail = 'Enter a valid email address.';
+  static const passwordTooShort = 'Use at least 8 characters.';
+  static const passwordsDoNotMatch = 'Passwords do not match.';
+  static const anonymityNoticeTitle = 'How anonymity works';
+  static const demoModeTitle = 'Demo mode';
+  static const demoModeBody =
+      'This build runs on sample data. Nothing you enter leaves this device.';
+  static const demoModeAction = 'Use the demo account';
+
+  static const notificationsTitle = 'Notifications';
+  static const markAllRead = 'Mark all read';
+  static const filterAll = 'All';
+  static const filterUnread = 'Unread';
+  static const filterReview = 'To review';
+  static const filterRejected = 'Rejected';
+  static const notificationsFilterEmpty = 'Nothing here right now.';
+  static const openReview = 'Open review';
+  static const openMyMessages = 'View my messages';
+  static const unreadLabel = 'Unread';
+
+  static String unreadSummary(int count) => '$count unread';
+
+  static const postTitle = 'Post';
+  static const back = 'Back';
+  static const createGroupFromPostHint =
+      'Start a group with this post as its agenda. You become the controller.';
+  static const feedAttribution =
+      'Posts and comments on the feed always show who wrote them.';
+
+  static String commentCount(int count) =>
+      count == 1 ? '1 comment' : '$count comments';
+
+  static const anonymityExplainer =
+      'Anonymous messages are hidden from the group but visible to the '
+      'controller.\n\nEvery message is rewritten for tone, then the controller '
+      'reviews the original next to the rewrite and decides whether to '
+      'publish it. Other contributors never see your original wording.';
+  static const controllerReviews =
+      'Messages are rewritten for tone and reviewed by the controller before '
+      'they are published.';
+  static const leaveGroupBody =
+      'You will stop receiving updates from this group and will not be able '
+      'to send messages to it.';
+  static const howGroupsWork = 'How groups work';
+  static const startGroup = 'Start a new group';
+  static const createGroupIntro =
+      'Set the agenda for a new group. Messages are rewritten for tone and '
+      'reviewed before they are published.';
+  static const controllerDuty =
+      'As the creator you are the controller. You review each original '
+      'message next to its rewrite and decide what is published.';
+  static const toneRewriteTitle = 'Tone rewrite';
+  static const toneRewriteBody =
+      'Each message is rewritten for tone. Relevance scores are suggestions '
+      'only; nothing is hidden or rejected automatically.';
+
+  static const reviewDecisionHint =
+      'Accept publishes the rewrite to the group. Reject publishes nothing.';
+  static const reviewWaitingForRewrite =
+      'You can accept once the rewrite is ready.';
+  static const sentWithName = 'Sent with name';
+  static const openMessage = 'Open message';
+
+  static String scorePercent(double score) =>
+      '${(score.clamp(0, 1) * 100).round()}%';
+
+  static const profileNameRequired = 'Enter your name.';
+  static const imageTooLarge = 'Choose an image smaller than 2 MB.';
+  static const imageUnsupported = 'Choose a PNG, JPEG, or WebP image.';
+  static const editProfile = 'Edit profile';
+  static const save = 'Save';
+  static const cancel = 'Cancel';
+  static const delete = 'Delete';
+  static const add = 'Add';
+  static const edit = 'Edit';
+  static const profileSaved = 'Profile saved.';
+  static const headlineLabel = 'Headline';
+  static const bioLabel = 'About';
+  static const locationLabel = 'Location';
+  static const websiteLabel = 'Website';
+  static const githubLabel = 'GitHub username';
+  static const linkedinLabel = 'LinkedIn URL';
+  static const aboutTitle = 'About';
+  static const aboutEmpty =
+      'Add a headline and a short bio so people know you.';
+  static const linksTitle = 'Links';
+  static const skillsTitle = 'Skills';
+  static const skillsEmpty = 'No skills added yet.';
+  static const skillHint = 'Add a skill';
+  static const experienceTitle = 'Experience';
+  static const experienceEmpty = 'No experience added yet.';
+  static const addExperience = 'Add experience';
+  static const editExperience = 'Edit experience';
+  static const educationTitle = 'Education';
+  static const educationEmpty = 'No education added yet.';
+  static const addEducation = 'Add education';
+  static const editEducation = 'Edit education';
+  static const jobTitleLabel = 'Title';
+  static const companyLabel = 'Company';
+  static const startYearLabel = 'Start year';
+  static const endYearLabel = 'End year';
+  static const currentRoleLabel = 'I currently work here';
+  static const descriptionLabel = 'Description';
+  static const schoolLabel = 'School';
+  static const degreeLabel = 'Degree';
+  static const fieldOfStudyLabel = 'Field of study';
+  static const requiredField = 'This field is required.';
+  static const invalidYear = 'Enter a four-digit year.';
+  static const endBeforeStart = 'The end year cannot be before the start year.';
+  static const changePhoto = 'Change photo';
+  static const removePhoto = 'Remove photo';
+  static const changeCover = 'Change cover';
+  static const removeCover = 'Remove cover';
+  static const accountTitle = 'Account';
+  static const logoutConfirmTitle = 'Log out?';
+  static const logoutConfirmBody = 'You will need to log in again.';
+
+  static String deleteConfirm(String what) => 'Delete "$what"?';
+
+  static String removeSkill(String skill) => 'Remove $skill';
+  static const profileDatesInvalid =
+      'Enter dates as years, like "2021 - Present" or "2019 - 2021".';
 }

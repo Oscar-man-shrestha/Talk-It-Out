@@ -12,15 +12,20 @@ class MockAuthRepository implements AuthRepository {
 
   /// Local mock only. Matches the sample in API.md. Not a real credential.
   static const mockPassword = 'secret123';
+  static const mockEmail = 'priya@example.com';
 
   final MockControls _controls;
   final Map<String, _Account> _accounts = {
-    'priya@example.com': const _Account(
-      user: User(id: MockIds.priya, name: 'Priya', email: 'priya@example.com'),
+    mockEmail: const _Account(
+      user: User(id: MockIds.priya, name: 'Priya', email: mockEmail),
       password: mockPassword,
     ),
   };
   var _nextUser = 100;
+
+  /// The signed-in mock account. Defaults to the seeded user so a restored
+  /// mock token resolves the same way `GET /me` would.
+  String _currentEmail = mockEmail;
 
   @override
   Future<AuthSession> register({
@@ -47,6 +52,7 @@ class MockAuthRepository implements AuthRepository {
       _nextUser += 1;
       final user = User(id: id, name: cleanName, email: cleanEmail);
       _accounts[cleanEmail] = _Account(user: user, password: password);
+      _currentEmail = cleanEmail;
       return _session(user);
     });
   }
@@ -68,13 +74,14 @@ class MockAuthRepository implements AuthRepository {
           message: AppStrings.wrongLogin,
         );
       }
+      _currentEmail = cleanEmail;
       return _session(account.user);
     });
   }
 
   @override
   Future<User> me() {
-    return runMock(_controls, () => _accounts['priya@example.com']!.user);
+    return runMock(_controls, () => _accounts[_currentEmail]!.user);
   }
 
   @override

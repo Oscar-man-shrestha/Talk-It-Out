@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:talk_it_out/app/app.dart';
+import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/app/theme.dart';
 import 'package:talk_it_out/core/api/dio_provider.dart';
 import 'package:talk_it_out/core/mock/mock_controls.dart';
@@ -15,7 +16,6 @@ import 'package:talk_it_out/features/groups/data/published_message.dart';
 import 'package:talk_it_out/features/groups/group_chat_screen.dart';
 import 'package:talk_it_out/features/notifications/data/app_notification.dart';
 import 'package:talk_it_out/features/notifications/notification_text.dart';
-import 'package:talk_it_out/app/repository_providers.dart';
 
 void main() {
   testWidgets('a null sender renders Anonymous user', (tester) async {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:talk_it_out/app/providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/features/auth/data/mock_auth_repository.dart';
@@ -24,14 +25,27 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _email = TextEditingController(text: 'alex@contributor.internal');
-  final _password = TextEditingController(text: 'secret123');
+  final _email = TextEditingController();
+  final _password = TextEditingController();
   var _busy = false;
   var _obscure = true;
   var _role = 'contributor';
   var _roleTag = '#member';
   var _keepSession = true;
   String? _error;
+
+  /// Mock builds start filled with the seeded sample account from `API.md`.
+  /// Live builds start empty: there is no shared demo account on a server.
+  bool get _useMock => ref.read(appConfigProvider).useMock;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_useMock) {
+      _email.text = MockAuthRepository.mockEmail;
+      _password.text = MockAuthRepository.mockPassword;
+    }
+  }
 
   @override
   void dispose() {
@@ -41,24 +55,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _submit() async {
+    final email = _email.text.trim();
+    final password = _password.text;
+    if (email.isEmpty || password.isEmpty) {
+      setState(() => _error = AppStrings.missingCredentials);
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      // In mock mode, priya@example.com is seeded with full permissions.
-      // If demo email is entered, fall back to priya credentials for mock session.
-      final emailInput = _email.text.trim();
-      final effectiveEmail =
-          emailInput.contains('@') && !emailInput.contains('example.com')
-          ? 'priya@example.com'
-          : emailInput;
+      // Sign in with exactly what was typed. No account substitution.
       await ref
           .read(sessionProvider.notifier)
-          .login(
-            email: effectiveEmail,
-            password: MockAuthRepository.mockPassword,
-          );
+          .login(email: email, password: password);
     } on RepositoryException catch (error) {
       setState(() => _error = error.message);
     } catch (_) {
@@ -71,14 +82,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void _selectRole(String role) {
     setState(() {
       _role = role;
-      if (role == 'contributor') {
-        _roleTag = '#contributor';
-        _email.text = 'alex@contributor.internal';
-      } else {
-        _roleTag = '#controller';
-        _email.text = 'elena@controller.council';
+      _roleTag = role == 'contributor' ? '#contributor' : '#controller';
+      // The seeded sample account is a contributor in one group and the
+      // controller of another, so both quick-access tabs sign in as it.
+      if (_useMock) {
+        _email.text = MockAuthRepository.mockEmail;
+        _password.text = MockAuthRepository.mockPassword;
       }
-      _password.text = 'secret123';
       _error = null;
     });
   }
@@ -197,12 +207,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Work or Personal Email',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: _kTextPrimary,
+                const Flexible(
+                  child: Text(
+                    'Work or Personal Email',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: _kTextPrimary,
+                    ),
                   ),
                 ),
                 Text(
@@ -595,8 +608,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
             // Footer
             Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   const Text(
                     "Don't have an invitation code?",

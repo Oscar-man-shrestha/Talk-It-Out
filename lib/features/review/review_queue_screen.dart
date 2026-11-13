@@ -333,7 +333,17 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
     final groupAsync = ref.watch(groupDetailProvider(widget.groupId));
     final groupAgenda =
         groupAsync.value?.agenda ?? 'AI Ethics & Workplace Policy';
-    final items = queue.value ?? const <RawMessage>[];
+    final pending = queue.value ?? const <RawMessage>[];
+    final ready = pending.where((m) => m.rewrittenText != null).length;
+    // The queue endpoint lists pending messages only. Relevance is advisory
+    // and never hides a message, so only the identity filter narrows this.
+    final items = _activeTab != 0
+        ? const <RawMessage>[]
+        : pending.where((m) {
+            if (_anonymityFilter == 1) return m.isAnonymous;
+            if (_anonymityFilter == 2) return !m.isAnonymous;
+            return true;
+          }).toList();
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isDesktop = screenWidth >= 900;
     final isMobile = screenWidth < 600;
@@ -406,9 +416,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            val == 'export'
-                                ? 'Exporting cryptographic ledger audit log...'
-                                : 'Zero-knowledge buffer health: 100% synchronized',
+                            '${pending.length} pending • $ready rewrites ready',
                           ),
                           duration: const Duration(seconds: 2),
                           behavior: SnackBarBehavior.floating,
@@ -416,27 +424,6 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                       );
                     },
                     itemBuilder: (ctx) => const [
-                      PopupMenuItem(
-                        value: 'export',
-                        height: 36,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.download,
-                              size: 15,
-                              color: _kTextSecondary,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Export Review Ledger',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: _kTextPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                       PopupMenuItem(
                         value: 'health',
                         height: 36,
@@ -449,7 +436,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                             ),
                             SizedBox(width: 8),
                             Text(
-                              'Buffer Health Diagnostics',
+                              'Queue status',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: _kTextPrimary,
@@ -467,7 +454,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
         ),
       ),
       body: AsyncBody(
-        status: asyncStatus(queue, isEmpty: items.isEmpty),
+        status: asyncStatus(queue, isEmpty: pending.isEmpty),
         errorMessage: errorText(queue.error),
         onRetry: () => ref.invalidate(reviewQueueProvider(widget.groupId)),
         empty: _EmptyReviewState(hPad: hPad),
@@ -553,7 +540,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                       Row(
                         children: [
                           Text(
-                            '${items.length} awaiting moderation',
+                            '${pending.length} awaiting moderation',
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
@@ -583,20 +570,25 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                         ],
                       ),
                       const SizedBox(height: 3),
-                      const Row(
+                      Row(
                         children: [
                           Text(
-                            'Active buffer sync',
+                            ready == 1
+                                ? '1 rewrite ready'
+                                : '$ready rewrites ready',
                             style: TextStyle(
                               fontSize: 11,
                               color: _kTextSecondary,
                             ),
                           ),
-                          SizedBox(width: 4),
-                          Text('•', style: TextStyle(color: _kTextTertiary)),
-                          SizedBox(width: 4),
+                          const SizedBox(width: 4),
+                          const Text(
+                            '•',
+                            style: TextStyle(color: _kTextTertiary),
+                          ),
+                          const SizedBox(width: 4),
                           Text(
-                            'Est. wait time: ~4 mins',
+                            '${pending.length - ready} rewriting',
                             style: TextStyle(
                               fontSize: 11,
                               color: _kTextSecondary,
@@ -679,21 +671,21 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                 children: [
                   _FilterPill(
                     label: 'Pending',
-                    count: '${items.length}',
+                    count: '${pending.length}',
                     selected: _activeTab == 0,
                     onTap: () => setState(() => _activeTab = 0),
                   ),
                   const SizedBox(width: 8),
                   _FilterPill(
                     label: 'Approved',
-                    count: '24',
+                    count: '–',
                     selected: _activeTab == 1,
                     onTap: () => setState(() => _activeTab = 1),
                   ),
                   const SizedBox(width: 8),
                   _FilterPill(
                     label: 'Rejected',
-                    count: '2',
+                    count: '–',
                     selected: _activeTab == 2,
                     onTap: () => setState(() => _activeTab = 2),
                   ),
@@ -703,6 +695,21 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
             const SizedBox(height: 14),
 
             // 4. Queue Cards List
+            if (items.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Text(
+                    _activeTab == 0
+                        ? AppStrings.reviewEmpty
+                        : 'Reviewed messages are not listed here.',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: _kTextSecondary,
+                    ),
+                  ),
+                ),
+              ),
             for (final message in items) ...[
               _QueueCard(
                 message: message,
@@ -730,7 +737,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                 Icon(Icons.swipe, size: 16, color: _kTextTertiary),
                 SizedBox(width: 6),
                 Text(
-                  'Tip: Swipe card right to approve instantly',
+                  'Tip: Open a message to compare it with its rewrite',
                   style: TextStyle(fontSize: 11, color: _kTextTertiary),
                 ),
               ],
@@ -818,12 +825,16 @@ class _QueueCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isAnon = message.isAnonymous;
-    final senderTitle = isAnon
-        ? 'Anonymous #${message.senderId.length > 3 ? message.senderId.substring(0, 3).toUpperCase() : "8B9"}'
-        : message.senderName;
+    // Controllers see who sent every message, including anonymous ones.
+    final senderTitle = message.senderName;
     final relevance = message.relevanceScore != null
         ? '${(message.relevanceScore! * 100).round()}% Relevance'
-        : '94% Relevance';
+        : 'Relevance pending';
+    final label = message.relevanceLabel;
+    final tag = label == null
+        ? (isAnon ? 'SENT AS ANONYMOUS' : 'SENT WITH NAME')
+        : relevanceText(label).toUpperCase();
+    final intent = message.intentPreservationScore;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -915,13 +926,13 @@ class _QueueCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
               border: Border.all(color: _kBorderSubtle),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.gavel, size: 12, color: _kTextPrimary),
-                SizedBox(width: 4),
+                const Icon(Icons.gavel, size: 12, color: _kTextPrimary),
+                const SizedBox(width: 4),
                 Text(
-                  'POLICY FEEDBACK',
+                  tag,
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w700,
@@ -987,10 +998,10 @@ class _QueueCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
+                      const Row(
                         children: [
                           Icon(
                             Icons.auto_fix_high,
@@ -1010,8 +1021,10 @@ class _QueueCard extends StatelessWidget {
                         ],
                       ),
                       Text(
-                        'Model: CleanSynthetics-v4',
-                        style: TextStyle(
+                        intent == null
+                            ? ''
+                            : 'Intent ${(intent * 100).round()}%',
+                        style: const TextStyle(
                           fontSize: 9,
                           fontFamily: 'monospace',
                           color: _kTextTertiary,

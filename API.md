@@ -380,9 +380,9 @@ Response `200`: `{ "count": 2 }`
 
 ---
 
-## 10. Backend additions (not yet called by the Flutter app)
+## 10. Backend additions (migrations 005–007)
 
-These endpoints exist on the backend (migrations 005–007) and are covered by backend tests, but no `Api*Repository` calls them yet. Endpoints 1–26 above are unchanged; in particular, login/register still return exactly `{ token, user }`. Same conventions as section 1: snake_case JSON, `{ "error": { "code", "message" } }` envelope, everything except `GET /media/:mediaId` needs `Authorization: Bearer`.
+These endpoints are covered by backend tests. Since Run 071 the app calls endpoints 27–31 through `ApiProfileRepository`, 33 through `ApiGroupRepository.getReactions`/`toggleReaction`, and 34 through `ApiNotificationRepository.markAllRead`. Endpoint 35 (refresh tokens) is not called yet: the app keeps the stateless access token only. Endpoints 1–26 above are unchanged; in particular, login/register still return exactly `{ token, user }`. Same conventions as section 1: snake_case JSON, `{ "error": { "code", "message" } }` envelope, everything except `GET /media/:mediaId` needs `Authorization: Bearer`.
 
 ### 27. GET `/users/:userId/profile` (also `/users/me/profile`)
 Response `200`:

@@ -16,6 +16,9 @@ import 'package:talk_it_out/features/groups/data/mock_message_bridge.dart';
 import 'package:talk_it_out/features/notifications/data/api_notification_repository.dart';
 import 'package:talk_it_out/features/notifications/data/mock_notification_repository.dart';
 import 'package:talk_it_out/features/notifications/data/notification_repository.dart';
+import 'package:talk_it_out/features/profile/data/api_profile_repository.dart';
+import 'package:talk_it_out/features/profile/data/mock_profile_repository.dart';
+import 'package:talk_it_out/features/profile/data/profile_repository.dart';
 import 'package:talk_it_out/features/review/data/api_review_repository.dart';
 import 'package:talk_it_out/features/review/data/mock_review_repository.dart';
 import 'package:talk_it_out/features/review/data/review_repository.dart';
@@ -71,6 +74,16 @@ final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
     return MockNotificationRepository(ref.watch(mockControlsProvider));
   }
   return ApiNotificationRepository(ref.watch(dioProvider));
+});
+
+final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
+  if (_useMock(ref)) {
+    return MockProfileRepository(
+      ref.watch(mockControlsProvider),
+      ref.watch(authRepositoryProvider),
+    );
+  }
+  return ApiProfileRepository(ref.watch(dioProvider));
 });
 
 bool _useMock(Ref ref) => ref.watch(appConfigProvider).useMock;

@@ -41,6 +41,13 @@ class SessionNotifier extends AsyncNotifier<User?> {
     state = AsyncData(session.user);
   }
 
+  /// Keeps the signed-in user's display name in step with a profile edit.
+  void renamed(String name) {
+    final user = state.value;
+    if (user == null || user.name == name) return;
+    state = AsyncData(user.copyWith(name: name));
+  }
+
   Future<void> logout() async {
     try {
       await ref.read(authRepositoryProvider).logout();

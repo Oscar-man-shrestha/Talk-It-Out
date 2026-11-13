@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/core/models/group.dart';
 import 'package:talk_it_out/core/models/group_member.dart';
+import 'package:talk_it_out/features/auth/session_controller.dart';
+import 'package:talk_it_out/features/groups/data/message_reactions.dart';
 import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/data/published_message.dart';
 
@@ -141,64 +143,86 @@ String unreadBadgeLabel(int count) {
   return '$count';
 }
 
-/// Emoji reactions state for published messages (WhatsApp & Instagram style).
+/// Reactions for the published messages seen this session, keyed by message
+/// id. Loaded from and saved through [GroupRepository].
 class MessageReactionsState {
-  const MessageReactionsState({
-    this.counts = const {},
-    this.userReactions = const {},
-  });
+  const MessageReactionsState([this.byMessage = const {}]);
 
-  /// Map of messageId -> Map of emoji -> count
-  final Map<String, Map<String, int>> counts;
+  final Map<String, MessageReactions> byMessage;
 
-  /// Map of messageId -> Set of emojis reacted by current user
-  final Map<String, Set<String>> userReactions;
-
-  Map<String, int> getCounts(String messageId) => counts[messageId] ?? const {};
+  Map<String, int> getCounts(String messageId) =>
+      byMessage[messageId]?.counts ?? const {};
 
   bool hasReacted(String messageId, String emoji) =>
-      userReactions[messageId]?.contains(emoji) ?? false;
+      byMessage[messageId]?.mine.contains(emoji) ?? false;
 }
 
 class MessageReactionsNotifier extends Notifier<MessageReactionsState> {
+  final Set<String> _requested = {};
+
   @override
   MessageReactionsState build() {
-    return const MessageReactionsState(
-      counts: {
-        'pm10': {'❤️': 2, '👍': 3},
-        'pm11': {'🔥': 4, '👏': 2},
-        'pm12': {'💡': 3, '👍': 1},
-        'pm13': {'❤️': 2},
-      },
-      userReactions: {
-        'pm10': {'❤️'},
-      },
-    );
+    // A different account must not inherit the previous user's reactions.
+    ref.watch(sessionProvider.select((session) => session.value?.id));
+    ref.watch(groupRepositoryProvider);
+    _requested.clear();
+    return const MessageReactionsState();
   }
 
-  void toggleReaction(String messageId, String emoji) {
-    final currentCounts = Map<String, int>.from(state.getCounts(messageId));
-    final currentUserReactions = Set<String>.from(
-      state.userReactions[messageId] ?? const <String>{},
-    );
+  void _put(MessageReactions reactions) {
+    state = MessageReactionsState({
+      ...state.byMessage,
+      reactions.messageId: reactions,
+    });
+  }
 
-    if (currentUserReactions.contains(emoji)) {
-      currentUserReactions.remove(emoji);
-      final c = (currentCounts[emoji] ?? 1) - 1;
-      if (c <= 0) {
-        currentCounts.remove(emoji);
-      } else {
-        currentCounts[emoji] = c;
-      }
-    } else {
-      currentUserReactions.add(emoji);
-      currentCounts[emoji] = (currentCounts[emoji] ?? 0) + 1;
+  /// Fetches a message's reactions once. Failures are silent: reactions are
+  /// decoration and must never block reading the chat.
+  Future<void> load(String groupId, String messageId) async {
+    if (!_requested.add(messageId)) return;
+    try {
+      final loaded = await ref
+          .read(groupRepositoryProvider)
+          .getReactions(groupId, messageId);
+      if (!ref.mounted) return;
+      _put(
+        MessageReactions(
+          messageId: messageId,
+          counts: loaded.counts,
+          mine: loaded.mine,
+        ),
+      );
+    } catch (_) {
+      _requested.remove(messageId);
     }
+  }
 
-    state = MessageReactionsState(
-      counts: {...state.counts, messageId: currentCounts},
-      userReactions: {...state.userReactions, messageId: currentUserReactions},
-    );
+  /// Toggles immediately, then confirms with the repository. A failed call
+  /// restores the previous counts and rethrows.
+  Future<void> toggleReaction(
+    String groupId,
+    String messageId,
+    String emoji,
+  ) async {
+    final before =
+        state.byMessage[messageId] ?? MessageReactions(messageId: messageId);
+    _put(before.toggled(emoji));
+    try {
+      final saved = await ref
+          .read(groupRepositoryProvider)
+          .toggleReaction(groupId, messageId, emoji: emoji);
+      if (!ref.mounted) return;
+      _put(
+        MessageReactions(
+          messageId: messageId,
+          counts: saved.counts,
+          mine: saved.mine,
+        ),
+      );
+    } catch (_) {
+      if (ref.mounted) _put(before);
+      rethrow;
+    }
   }
 }
 

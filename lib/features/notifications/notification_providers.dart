@@ -9,6 +9,46 @@ class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
     final page = await ref.watch(notificationRepositoryProvider).list();
     return page.items;
   }
+
+  /// Marks one notification read. The list updates first so the tap feels
+  /// instant; a failed call restores the previous list and rethrows.
+  Future<void> markRead(String notificationId) async {
+    final before = state.value;
+    if (before == null) return;
+    final target = before.where((item) => item.id == notificationId);
+    if (target.isEmpty || !target.first.isUnread) return;
+    final now = DateTime.now().toUtc();
+    state = AsyncData([
+      for (final item in before)
+        item.id == notificationId ? item.copyWith(readAt: now) : item,
+    ]);
+    try {
+      await ref.read(notificationRepositoryProvider).markRead(notificationId);
+    } catch (_) {
+      state = AsyncData(before);
+      rethrow;
+    } finally {
+      ref.invalidate(unreadCountProvider);
+    }
+  }
+
+  Future<void> markAllRead() async {
+    final before = state.value;
+    if (before == null || before.every((item) => !item.isUnread)) return;
+    final now = DateTime.now().toUtc();
+    state = AsyncData([
+      for (final item in before)
+        item.isUnread ? item.copyWith(readAt: now) : item,
+    ]);
+    try {
+      await ref.read(notificationRepositoryProvider).markAllRead();
+    } catch (_) {
+      state = AsyncData(before);
+      rethrow;
+    } finally {
+      ref.invalidate(unreadCountProvider);
+    }
+  }
 }
 
 final notificationsProvider =

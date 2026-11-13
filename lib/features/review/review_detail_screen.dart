@@ -304,9 +304,6 @@ class ReviewDetailBody extends StatelessWidget {
               _AiProposalCard(message: message, diffActive: diffActive),
               const SizedBox(height: 16),
 
-              // 6. Consensus Impact Projection
-              const _ConsensusImpactCard(),
-
               if (error != null) ...[
                 const SizedBox(height: 16),
                 _ErrorBanner(error: error!),
@@ -444,20 +441,21 @@ class _MetadataCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final senderLabel = message.isAnonymous
-        ? 'Submitted Anonymously'
-        : message.senderName;
+    // Controllers see the sender even when the message is anonymous.
+    final senderLabel = message.senderName;
     final peerNode = message.senderId.length > 3
         ? message.senderId
               .substring(0, min(4, message.senderId.length))
               .toUpperCase()
         : 'NODE';
 
-    final score = message.relevanceScore ?? 0.94;
-    final scorePercent = (score * 100).round();
+    final score = message.relevanceScore;
     final relevance = message.relevanceLabel != null
         ? relevanceText(message.relevanceLabel!)
-        : 'Relevant';
+        : 'Not scored yet';
+    final scoreText = score == null
+        ? relevance
+        : '$relevance (${(score * 100).round()}% score)';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -533,7 +531,7 @@ class _MetadataCard extends StatelessWidget {
                 const Icon(Icons.check_circle, size: 14, color: _kTextPrimary),
                 const SizedBox(width: 4),
                 Text(
-                  '$relevance ($scorePercent% score)',
+                  scoreText,
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -613,8 +611,7 @@ class _OriginalDraftCard extends StatelessWidget {
         .split(RegExp(r'\s+'))
         .where((s) => s.isNotEmpty)
         .length;
-    final intentScore = message.intentPreservationScore ?? 0.89;
-    final clarity = (intentScore * 100).round();
+    final intentScore = message.intentPreservationScore;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -695,18 +692,26 @@ class _OriginalDraftCard extends StatelessWidget {
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.info_outline, size: 13, color: _kTextSecondary),
-                    SizedBox(width: 5),
+                  children: [
+                    const Icon(
+                      Icons.info_outline,
+                      size: 13,
+                      color: _kTextSecondary,
+                    ),
+                    const SizedBox(width: 5),
                     Text(
-                      'Informal / Emotional tone detected',
+                      message.isAnonymous
+                          ? AppStrings.anonymousFlag
+                          : 'Sent with name',
                       style: TextStyle(fontSize: 11, color: _kTextSecondary),
                     ),
                   ],
                 ),
               ),
               Text(
-                'Intent clarity: $clarity%',
+                intentScore == null
+                    ? 'Intent clarity: —'
+                    : 'Intent clarity: ${(intentScore * 100).round()}%',
                 style: const TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 11,
@@ -846,10 +851,20 @@ class _AiProposalCard extends StatelessWidget {
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
-                  children: const [
-                    _RationalePill(text: 'Preserved core intent'),
-                    _RationalePill(text: 'Elevated professional tone'),
-                    _RationalePill(text: 'Added actionable remedy'),
+                  children: [
+                    if (message.intentPreservationScore != null)
+                      _RationalePill(
+                        text:
+                            'Intent preserved: '
+                            '${(message.intentPreservationScore! * 100).round()}%',
+                      ),
+                    if (message.relevanceLabel != null)
+                      _RationalePill(
+                        text: relevanceText(message.relevanceLabel!),
+                      ),
+                    _RationalePill(
+                      text: '${_changedWords(_rewriteText)} words changed',
+                    ),
                   ],
                 ),
               ],
@@ -860,27 +875,52 @@ class _AiProposalCard extends StatelessWidget {
     );
   }
 
+  static final _word = RegExp(r"[A-Za-z0-9']+");
+
+  Set<String> get _originalWords => _word
+      .allMatches(message.originalText.toLowerCase())
+      .map((m) => m[0]!)
+      .toSet();
+
+  int _changedWords(String text) {
+    final original = _originalWords;
+    return _word
+        .allMatches(text.toLowerCase())
+        .where((m) => !original.contains(m[0]))
+        .length;
+  }
+
+  /// Highlights the words in the rewrite that are not in the original.
   Widget _buildHighlightedProposal(String text) {
-    // Provide an illustrative breakdown highlighting constructive transforms
+    final original = _originalWords;
+    final spans = <TextSpan>[];
+    var last = 0;
+    for (final match in _word.allMatches(text)) {
+      if (match.start > last) {
+        spans.add(TextSpan(text: text.substring(last, match.start)));
+      }
+      final changed = !original.contains(match[0]!.toLowerCase());
+      spans.add(
+        TextSpan(
+          text: match[0],
+          style: changed
+              ? const TextStyle(
+                  backgroundColor: _kSurfaceMuted,
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.underline,
+                  decorationThickness: 1.5,
+                  decorationColor: _kPrimary,
+                )
+              : null,
+        ),
+      );
+      last = match.end;
+    }
+    if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
     return Text.rich(
       TextSpan(
         style: const TextStyle(fontSize: 15, height: 1.5, color: _kTextPrimary),
-        children: [
-          TextSpan(text: text.length > 30 ? text.substring(0, 30) : text),
-          if (text.length > 30) ...[
-            TextSpan(
-              text: text.substring(30, min(80, text.length)),
-              style: const TextStyle(
-                backgroundColor: _kSurfaceMuted,
-                fontWeight: FontWeight.w600,
-                decoration: TextDecoration.underline,
-                decorationThickness: 1.5,
-                decorationColor: _kPrimary,
-              ),
-            ),
-            if (text.length > 80) TextSpan(text: text.substring(80)),
-          ],
-        ],
+        children: spans,
       ),
     );
   }
@@ -912,58 +952,6 @@ class _RationalePill extends StatelessWidget {
               fontWeight: FontWeight.w600,
               color: _kTextPrimary,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── 6. Consensus Impact Projection ──────────────────────────────────────────
-
-class _ConsensusImpactCard extends StatelessWidget {
-  const _ConsensusImpactCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _kSurface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kBorderSubtle),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: const [
-              Icon(Icons.psychology_outlined, size: 20, color: _kTextPrimary),
-              SizedBox(width: 8),
-              Text(
-                'Consensus Impact Projection',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: _kTextPrimary,
-                ),
-              ),
-            ],
-          ),
-          Row(
-            children: const [
-              Text(
-                '+42% Acceptance',
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: _kTextPrimary,
-                ),
-              ),
-              SizedBox(width: 4),
-              Icon(Icons.trending_up, size: 16, color: _kTextSecondary),
-            ],
           ),
         ],
       ),
@@ -1083,75 +1071,6 @@ class _FixedActionDock extends StatelessWidget {
                                 ],
                               ),
                       ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  InkWell(
-                    onTap: () {},
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.refresh, size: 14, color: _kTextSecondary),
-                        SizedBox(width: 4),
-                        Text(
-                          'Request Re-run',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: _kTextSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Text(
-                    '•',
-                    style: TextStyle(color: _kBorderStrong, fontSize: 11),
-                  ),
-                  InkWell(
-                    onTap: () {},
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.tune, size: 14, color: _kTextSecondary),
-                        SizedBox(width: 4),
-                        Text(
-                          'Adjust Tone Preset',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: _kTextSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Text(
-                    '•',
-                    style: TextStyle(color: _kBorderStrong, fontSize: 11),
-                  ),
-                  InkWell(
-                    onTap: () {},
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(
-                          Icons.edit_outlined,
-                          size: 14,
-                          color: _kTextSecondary,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          'Manual Polish',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: _kTextSecondary,
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 ],

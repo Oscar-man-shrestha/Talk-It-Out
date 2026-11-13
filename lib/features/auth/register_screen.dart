@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:talk_it_out/app/providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
@@ -24,14 +25,25 @@ class RegisterScreen extends ConsumerStatefulWidget {
 }
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
-  final _name = TextEditingController(text: 'Maya Lin');
-  final _email = TextEditingController(text: 'maya.lin@domain.com');
-  final _password = TextEditingController(text: 'RefinedTalk2024!');
-  final _confirmPassword = TextEditingController(text: 'RefinedTalk2024!');
+  final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  final _confirmPassword = TextEditingController();
 
   var _obscurePassword = true;
   var _obscureConfirm = true;
-  var _agreeToTerms = true;
+  var _agreeToTerms = false;
+
+  /// Sample personas only fill the form in mock builds. A live build never
+  /// pre-fills, so nobody creates a real account with invented details.
+  bool get _useMock => ref.read(appConfigProvider).useMock;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_useMock) _fillPersona('contributor');
+  }
+
   var _selectedRole = 'contributor'; // 'contributor' | 'controller'
   var _busy = false;
   String? _error;
@@ -48,6 +60,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   void _fillPersona(String role) {
     setState(() {
       _selectedRole = role;
+      _error = null;
+      _agreeToTerms = _useMock;
+      if (!_useMock) return;
       if (role == 'contributor') {
         _name.text = 'Maya Lin';
         _email.text = 'maya.lin@domain.com';
@@ -66,6 +81,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Future<void> _submit() async {
     if (!_agreeToTerms) {
       setState(() => _error = 'Please agree to the Terms of Service.');
+      return;
+    }
+    if (_name.text.trim().isEmpty ||
+        _email.text.trim().isEmpty ||
+        _password.text.isEmpty) {
+      setState(() => _error = AppStrings.missingAccountFields);
+      return;
+    }
+    if (_password.text.length < 8) {
+      setState(() => _error = AppStrings.passwordTooShort);
       return;
     }
     if (_password.text != _confirmPassword.text) {

@@ -6,6 +6,7 @@ import 'package:talk_it_out/core/models/group.dart';
 import 'package:talk_it_out/core/models/group_member.dart';
 import 'package:talk_it_out/core/models/page_result.dart';
 import 'package:talk_it_out/features/groups/data/group_repository.dart';
+import 'package:talk_it_out/features/groups/data/message_reactions.dart';
 import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/data/published_message.dart';
 import 'package:talk_it_out/features/groups/data/sent_message.dart';
@@ -123,6 +124,31 @@ class ApiGroupRepository implements GroupRepository {
   Future<void> deleteMessage(String groupId, String messageId) {
     return guardApi(() async {
       await _dio.delete('${Endpoints.groupMessages(groupId)}/$messageId');
+    });
+  }
+
+  @override
+  Future<MessageReactions> getReactions(String groupId, String messageId) {
+    return guardApi(() async {
+      final response = await _dio.get(
+        Endpoints.messageReactions(groupId, messageId),
+      );
+      return MessageReactions.fromJson(asJsonMap(response.data));
+    });
+  }
+
+  @override
+  Future<MessageReactions> toggleReaction(
+    String groupId,
+    String messageId, {
+    required String emoji,
+  }) {
+    return guardApi(() async {
+      final response = await _dio.post(
+        Endpoints.messageReactions(groupId, messageId),
+        data: {'emoji': emoji},
+      );
+      return MessageReactions.fromJson(asJsonMap(response.data));
     });
   }
 

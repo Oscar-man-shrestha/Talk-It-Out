@@ -41,7 +41,16 @@ export function createMailer(appConfig: Config): Mailer | null {
         },
       };
     case 'smtp': {
-      const transport = nodemailer.createTransport(appConfig.smtpUrl);
+      const transport = appConfig.smtpUrl
+        ? nodemailer.createTransport(appConfig.smtpUrl)
+        : nodemailer.createTransport({
+            host: appConfig.smtpHost,
+            port: appConfig.smtpPort,
+            // 465 is implicit TLS; 587 upgrades with STARTTLS.
+            secure: appConfig.smtpPort === 465,
+            requireTLS: appConfig.smtpPort !== 465,
+            auth: { user: appConfig.smtpUser, pass: appConfig.smtpPass },
+          });
       return {
         async send(mail) {
           await transport.sendMail({ from: appConfig.mailFrom, ...mail });

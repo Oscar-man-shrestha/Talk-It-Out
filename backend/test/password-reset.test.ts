@@ -152,7 +152,17 @@ describe('password reset', () => {
 });
 
 describe('mail configuration', () => {
-  const base = { ...process.env, NODE_ENV: 'test' } as NodeJS.ProcessEnv;
+  // Start from the real environment minus any local mail settings, so a
+  // developer's own SMTP details in backend/.env cannot change the outcome.
+  const base = {
+    ...process.env,
+    NODE_ENV: 'test',
+    SMTP_URL: '',
+    SMTP_HOST: '',
+    SMTP_USER: '',
+    SMTP_PASS: '',
+    MAIL_FROM: '',
+  } as NodeJS.ProcessEnv;
   it('defaults to disabled and accepts smtp with a URL', async () => {
     const { loadConfig } = await import('../src/config');
     expect(loadConfig({ ...base, MAIL_TRANSPORT: '' }).mailTransport).toBe('disabled');
@@ -160,12 +170,31 @@ describe('mail configuration', () => {
     expect(smtp.mailTransport).toBe('smtp');
     expect(smtp.mailFrom).toContain('Talk It Out');
   });
+  it('accepts Gmail-style host/user/pass settings', async () => {
+    const { loadConfig } = await import('../src/config');
+    const gmail = loadConfig({
+      ...base,
+      MAIL_TRANSPORT: 'smtp',
+      SMTP_URL: '',
+      SMTP_HOST: 'smtp.gmail.com',
+      SMTP_USER: 'oscar@gmail.com',
+      SMTP_PASS: 'abcd efgh ijkl mnop',
+      MAIL_FROM: '',
+    });
+    expect(gmail.smtpHost).toBe('smtp.gmail.com');
+    expect(gmail.smtpPort).toBe(465);
+    expect(gmail.smtpPass).toBe('abcdefghijklmnop');
+    expect(gmail.mailFrom).toBe('Talk It Out <oscar@gmail.com>');
+    expect(() =>
+      loadConfig({ ...base, MAIL_TRANSPORT: 'smtp', SMTP_URL: '', SMTP_HOST: 'h', SMTP_USER: 'u', SMTP_PASS: '' }),
+    ).toThrow(/SMTP_PASS/);
+  });
   it('refuses unsafe or incomplete settings', async () => {
     const { loadConfig } = await import('../src/config');
     expect(() => loadConfig({ ...base, MAIL_TRANSPORT: 'smtp', SMTP_URL: '' })).toThrow(/SMTP_URL/);
     expect(() => loadConfig({ ...base, MAIL_TRANSPORT: 'carrier-pigeon' })).toThrow();
     const prod = {
-      ...process.env,
+      ...base,
       NODE_ENV: 'production',
       JWT_SECRET: 'x'.repeat(40),
       PIPELINE_API_KEY: '',

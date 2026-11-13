@@ -44,8 +44,14 @@ export interface Config {
    * in production), or 'memory' (tests only).
    */
   mailTransport: 'disabled' | 'smtp' | 'log' | 'memory';
-  /** e.g. smtps://user:pass@smtp.example.com:465 */
+  /** e.g. smtps://user:pass@smtp.example.com:465 (takes precedence). */
   smtpUrl: string;
+  /** Alternative to SMTP_URL, e.g. smtp.gmail.com / 465 / you@gmail.com. */
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  /** Spaces are removed (Gmail shows app passwords in groups of four). */
+  smtpPass: string;
   mailFrom: string;
 }
 
@@ -61,8 +67,12 @@ function parseMailTransport(env: NodeJS.ProcessEnv): Config['mailTransport'] {
   if (raw === 'memory' && env.NODE_ENV === 'production') {
     throw new Error('MAIL_TRANSPORT=memory is for tests only.');
   }
-  if (raw === 'smtp' && !(env.SMTP_URL ?? '').trim()) {
-    throw new Error('MAIL_TRANSPORT=smtp needs SMTP_URL.');
+  const hasUrl = (env.SMTP_URL ?? '').trim() !== '';
+  const hasParts = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'].every(
+    (name) => (env[name] ?? '').trim() !== '',
+  );
+  if (raw === 'smtp' && !hasUrl && !hasParts) {
+    throw new Error('MAIL_TRANSPORT=smtp needs SMTP_URL, or SMTP_HOST, SMTP_USER and SMTP_PASS.');
   }
   return raw;
 }
@@ -150,7 +160,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     pgConnectionTimeoutMillis: positiveInt(env, 'PG_CONNECT_TIMEOUT_MS', 5000),
     mailTransport: parseMailTransport(env),
     smtpUrl: (env.SMTP_URL ?? '').trim(),
-    mailFrom: (env.MAIL_FROM ?? '').trim() || 'Talk It Out <no-reply@localhost>',
+    smtpHost: (env.SMTP_HOST ?? '').trim(),
+    smtpPort: positiveInt(env, 'SMTP_PORT', 465),
+    smtpUser: (env.SMTP_USER ?? '').trim(),
+    smtpPass: (env.SMTP_PASS ?? '').replace(/\s+/g, ''),
+    mailFrom:
+      (env.MAIL_FROM ?? '').trim() ||
+      ((env.SMTP_USER ?? '').trim()
+        ? `Talk It Out <${(env.SMTP_USER ?? '').trim()}>`
+        : 'Talk It Out <no-reply@localhost>'),
   };
 }
 

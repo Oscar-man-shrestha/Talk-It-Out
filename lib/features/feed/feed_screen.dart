@@ -57,8 +57,10 @@ const _levels = [
   'Executive',
 ];
 
+// Index 0 shows everything, so a first visit never hides posts that
+// already have comments.
 const _statuses = [
-  'Unanswered / Awaiting Consensus',
+  'All questions',
   'Unanswered',
   'Peer solved',
   'Active debate',
@@ -104,12 +106,14 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
   bool _statusMatches(Post post) {
     switch (_status) {
+      case 1:
+        return post.commentCount == 0;
       case 2:
         return post.commentCount > 0;
       case 3:
         return post.commentCount >= 2;
       default:
-        return post.commentCount == 0;
+        return true;
     }
   }
 

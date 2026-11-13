@@ -90,7 +90,7 @@ Controllers are room leaders. They have:
 
 | Feature | Description | Screen / Component |
 |---|---|---|
-| **🔐 Authentication & Session Lifecycle** | Login and registration. Access and rotating refresh tokens live only in `flutter_secure_storage`; on a `401` the app refreshes once and replays the request. | [LoginScreen](lib/features/auth/login_screen.dart), [RegisterScreen](lib/features/auth/register_screen.dart) |
+| **🔐 Authentication & Session Lifecycle** | Login and registration. Access and rotating refresh tokens live only in `flutter_secure_storage`; on a `401` the app refreshes once and replays the request. Password reset by emailed 6-digit code is ready on the backend (API.md 38); the app's "Forgot?" link is not wired yet. | [LoginScreen](lib/features/auth/login_screen.dart), [RegisterScreen](lib/features/auth/register_screen.dart) |
 | **👥 Deliberation Groups** | Agenda-anchored rooms. The creator becomes `Controller`. | [GroupsScreen](lib/features/groups/groups_screen.dart), [CreateGroupScreen](lib/features/groups/create_group_screen.dart) |
 | **💬 Modern Bubble Group Chat** | Chat bubbles with left/right alignment, timestamps, and role badges. | [GroupChatScreen](lib/features/groups/group_chat_screen.dart) |
 | **👻 Per-Message Anonymity** | "Anonymous message" checkbox just before Send, with the disclosure that the controller can still see the sender. | [GroupChatScreen (Composer)](lib/features/groups/group_chat_screen.dart) |
@@ -169,7 +169,7 @@ Then open `http://127.0.0.1:52000/#/login` in your browser.
    cp .env.example .env          # set a real JWT_SECRET and database URLs
    npm install && npm run migrate && npm run dev
    ```
-   With `PIPELINE_MODE=stub` and `RUN_STUB_WORKER=true`, rewrites are labeled placeholders, so everything works without a model. `bash scripts/demo-flow.sh` runs the whole moderation flow against the API.
+   Set `MAIL_TRANSPORT=log` to see password-reset codes in this console (use `smtp` with `SMTP_URL` for real email). With `PIPELINE_MODE=stub` and `RUN_STUB_WORKER=true`, rewrites are labeled placeholders, so everything works without a model. `bash scripts/demo-flow.sh` runs the whole moderation flow against the API.
 2. **App against the backend:**
    ```bash
    flutter run -d web-server --web-hostname=127.0.0.1 --web-port=52001 \

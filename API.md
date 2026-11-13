@@ -447,4 +447,8 @@ Body: `{ "password": "..." }` (required again, so a stolen access token alone ca
 
 The old access token stops working immediately (`401`), because the auth check looks the user up on every request.
 
-**Still not built:** password reset ("Forgot password" needs an email service).
+### 38. Password reset by emailed code (backend only; the app's "Forgot?" link is not wired yet)
+- `POST /auth/password-reset` with `{ "email" }` returns `202` `{ "status": "sent_if_registered" }` for **every** valid email, registered or not, and sends the mail without waiting for it, so neither the answer nor its timing reveals which emails have accounts. A registered email gets a 6-digit code that expires in 15 minutes; a new request voids older codes. Returns `503 email_not_configured` when `MAIL_TRANSPORT` is unset or `disabled`.
+- `POST /auth/password-reset/confirm` with `{ "email", "code", "new_password" }` returns `204` and sets the password (8–128 characters). It also revokes all of that user's refresh tokens; access tokens expire on their own schedule. A wrong, used or expired code returns `400 invalid_code` ("That code is not valid or has expired."); after 5 wrong attempts the code stops working.
+- Both share the login rate limit. Only an HMAC of each code is stored (`password_resets`).
+- Email delivery is configured in `backend/.env`: `MAIL_TRANSPORT=smtp` plus `SMTP_URL` works with any email provider; `MAIL_TRANSPORT=log` prints the code to the server console for local development and is refused when `NODE_ENV=production`.

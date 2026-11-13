@@ -16,7 +16,7 @@ Rules for this file:
 **Current phase:** Complete for v1 scope (Run 073). App, backend and NLP worker run end to end with real rewrites; open product decisions D4, D10, D20–D22 are decided and built. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
-**Next step:** Review and merge `temp/project-completion-run070` when ready. Remaining open rows (D1–D3, D5, D7–D9, D11–D14, D16, D18) record defaults already in use and only need confirming. Optional: a larger model for rewrite fidelity; password reset once an email service is chosen.
+**Next step:** Review and merge `temp/project-completion-run070`. Waiting on the user: (1) whether the app may be changed to wire "Forgot?" to API 38 and to make "Keep active session" control refresh tokens (prepared, not applied; the user earlier asked for no frontend changes); (2) an SMTP provider for real reset emails; (3) confirming the default-in-use rows D1–D3, D5, D7–D9, D11–D14, D16, D18. Optional: a larger rewrite model.
 **Blockers:** None. Operational only: real rewrites need a running Kaggle session (rerun the launcher and update `pipeline/.env` per session).
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
@@ -53,7 +53,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
-**Quality gates (latest known):** Run 074: Flutter `dart format` clean, `flutter analyze` 0 issues, `flutter test` 53 passed; backend lint, typecheck and build pass, `npm test` 160 passed; pipeline 148 passed. CI now runs all three (`backend-ci`, `flutter-ci`, `pipeline-ci`).
+**Quality gates (latest known):** Run 076: backend lint, typecheck and build pass, `npm test` 23 files / 170 passed. Run 074: Flutter format clean, analyze 0 issues, 53 tests passed (frontend unchanged since); pipeline 148 passed. GitHub Actions `backend-ci`, `flutter-ci`, `pipeline-ci` all green on `4a79858`.
 
 **Pipeline notebook handoff:** Kaggle GPU environment verified with vLLM serving Qwen2.5-3B-Instruct (0 hijacks on adversarial probes). End-to-end claim/rewrite/result cycle against live backend verified (Run 057).
 
@@ -2594,3 +2594,29 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] No code changed
   - [x] Privacy rules restated unchanged
 - **Next steps:** Review and merge the branch.
+
+### Run 076: Password reset by emailed code (backend)
+- **Date/time:** 2026-11-13 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 23 (v1 completion)
+- **Prompt / task:** "Do everything, finish everything."
+- **Result:** Partial by design. Backend complete and verified live. App wiring prepared but not applied, because the user asked earlier in this conversation for no frontend/UI changes.
+- **Summary:** "Forgot password" was blocked only by the lack of an email service. Added a provider-neutral mailer (`MAIL_TRANSPORT`: `disabled` (default; reset returns 503), `smtp` with `SMTP_URL` for any provider, `log` for local development (refused in production), `memory` for tests) and API 38: `POST /auth/password-reset` always answers `202 sent_if_registered` and sends without awaiting, so neither the response nor its timing reveals which emails have accounts. It emails a 6-digit code (15 minutes, 5 attempts, a new request voids older codes, only an HMAC keyed with `JWT_SECRET` and bound to the user id is stored). `POST /auth/password-reset/confirm` sets the new password and revokes all refresh tokens. Both share the login rate limit.
+- **Summary:** An attempt to also wire the app's "Forgot?" link and the "Keep active session" switch was stopped by the permission check. That matched the user's earlier instruction, so the five `lib/` data-layer edits already made were reverted (saved as a patch outside the repo) and `lib/` is unchanged.
+- **Files created:** `backend/migrations/008_password_resets.sql`, `backend/src/mailer.ts`, `backend/src/routes/passwordReset.ts`, `backend/test/password-reset.test.ts`
+- **Files modified:** `backend/src/config.ts` (mail settings), `backend/src/routes/index.ts` (mount + rate limit), `backend/test/validation-sweep.test.ts` (migration 008), `backend/.env.example`, `backend/package.json` and lockfile, `API.md` §38, `README.md`, `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** `nodemailer` ~10.2.1 (SMTP delivery for reset codes; released 2026-10-22, ships its own types, no dependencies)
+- **Commands run and results:**
+  - `npx tsc --noEmit` pass; `npm run lint` pass; `npm run build` pass
+  - `npm test` 23 files, 170 passed (160 + 10 new: full reset and refresh revocation, unknown email identical and silent, hash-only storage, attempt limit, expiry and voiding, validation, 503 when disabled, `/api/v1` mount, mail config defaults, unsafe config refused)
+  - `npm run migrate` on the dev database: applied 008
+  - live, dev server with `MAIL_TRANSPORT=log`, throwaway `reset-test@example.com`: registered and unknown emails both 202 with one mail sent (address masked in the console); wrong code 400 `invalid_code`; right code 204; old password 401; new password 200; account then deleted (204)
+- **Docs updated:** `API.md` §38, `README.md` (auth row, full-stack run note), `backend/.env.example`, `LOGS.md` Status Snapshot
+- **Assumptions / decisions:** A code instead of an emailed link, so the app needs no deep-link setup. Access tokens are not revoked on reset (they are stateless and expire on their own); refresh tokens are.
+- **Issues / blockers / known bugs:** Real emails need an SMTP provider (`SMTP_URL`). The app's "Forgot?" link and "Keep active session" switch stay inert until frontend changes are allowed.
+- **Hard-rules check:**
+  - [x] No frontend/UI file changed
+  - [x] Codes and addresses never logged outside the explicit dev-only `log` transport, which masks the address
+  - [x] No secrets committed; `main` untouched
+- **Next steps:** User decides on the app wiring and an SMTP provider.

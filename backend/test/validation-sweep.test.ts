@@ -163,6 +163,7 @@ describe('migrations', () => {
       '005_profiles.sql',
       '006_message_reactions.sql',
       '007_refresh_tokens.sql',
+      '008_password_resets.sql',
     ]);
   });
 });

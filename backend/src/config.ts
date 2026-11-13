@@ -38,6 +38,33 @@ export interface Config {
   pgIdleTimeoutMillis: number;
   pgStatementTimeoutMillis: number;
   pgConnectionTimeoutMillis: number;
+  /**
+   * How password-reset emails are sent: 'disabled' (reset returns 503),
+   * 'smtp' (SMTP_URL, any provider), 'log' (prints to the console; refused
+   * in production), or 'memory' (tests only).
+   */
+  mailTransport: 'disabled' | 'smtp' | 'log' | 'memory';
+  /** e.g. smtps://user:pass@smtp.example.com:465 */
+  smtpUrl: string;
+  mailFrom: string;
+}
+
+function parseMailTransport(env: NodeJS.ProcessEnv): Config['mailTransport'] {
+  const raw = (env.MAIL_TRANSPORT ?? '').trim().toLowerCase();
+  if (raw === '' || raw === 'disabled') return 'disabled';
+  if (raw !== 'smtp' && raw !== 'log' && raw !== 'memory') {
+    throw new Error('MAIL_TRANSPORT must be disabled, smtp, or log.');
+  }
+  if (raw === 'log' && env.NODE_ENV === 'production') {
+    throw new Error('MAIL_TRANSPORT=log prints reset codes; it is not allowed in production.');
+  }
+  if (raw === 'memory' && env.NODE_ENV === 'production') {
+    throw new Error('MAIL_TRANSPORT=memory is for tests only.');
+  }
+  if (raw === 'smtp' && !(env.SMTP_URL ?? '').trim()) {
+    throw new Error('MAIL_TRANSPORT=smtp needs SMTP_URL.');
+  }
+  return raw;
 }
 
 /**
@@ -121,6 +148,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     pgIdleTimeoutMillis: positiveInt(env, 'PG_IDLE_TIMEOUT_MS', 30000),
     pgStatementTimeoutMillis: positiveInt(env, 'PG_STATEMENT_TIMEOUT_MS', 15000),
     pgConnectionTimeoutMillis: positiveInt(env, 'PG_CONNECT_TIMEOUT_MS', 5000),
+    mailTransport: parseMailTransport(env),
+    smtpUrl: (env.SMTP_URL ?? '').trim(),
+    mailFrom: (env.MAIL_FROM ?? '').trim() || 'Talk It Out <no-reply@localhost>',
   };
 }
 

@@ -1,0 +1,19 @@
+# Keep the web image's build context small and free of local secrets.
+**/.env
+**/.env.*
+!**/.env.example
+.git
+.dart_tool
+build
+backend
+pipeline
+android
+ios
+macos
+linux
+windows
+test
+docs
+*.md
+.claude
+.github

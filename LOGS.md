@@ -2708,3 +2708,14 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] Only synthetic text used for probes and checks; nothing logged or committed with message content
   - [x] App change limited to the approved Feed filter; `main` untouched
 - **Next steps:** Review and merge; optional Gmail app password.
+
+### Run 082: CI lint fix and local stack recovery after a reboot
+- **Date/time:** 2026-11-14 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Verification
+- **Prompt / task:** "status?"
+- **Result:** Completed
+- **Summary:** `backend-ci` had failed at lint on `d63bfdb`: the new `scripts/live-check.mjs` used Node globals that the flat ESLint config does not declare for `.mjs` (15 `no-undef`). Declared them with a `/* global */` comment; lint clean; `backend-ci` passes on `a97faf9`. After a Mac restart, local Postgres 15 would not start: a stale `postmaster.pid` named PID 887, which is now an unrelated macOS process (no Postgres running). Moved the lock aside (`postmaster.pid.stale-887`) and restarted the service; data intact (4 users, migrations through 010). Backend and worker restarted; Ollama had survived as a service. `npm run check:live` 47/47 including a real AI rewrite.
+- **Files modified:** `backend/scripts/live-check.mjs`, `LOGS.md`
+- **Commands run and results:** `npm run lint` pass; GitHub `backend-ci` success, `flutter-ci` / `pipeline-ci` / `stack-ci` success on `06f374e`; `npm run check:live` 47/47.
+- **Next steps:** Review and merge; optional Gmail app password.

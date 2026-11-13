@@ -12,6 +12,7 @@ import 'package:talk_it_out/core/ui/labels.dart';
 import 'package:talk_it_out/core/ui/screen_async.dart';
 import 'package:talk_it_out/core/ui/stitch_chrome.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
+import 'package:talk_it_out/features/auth/session_controller.dart';
 import 'package:talk_it_out/features/groups/data/message_reactions.dart';
 import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/data/published_message.dart';
@@ -95,6 +96,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
     final messages = ref.watch(groupMessagesProvider(widget.groupId));
     final items = messages.value ?? const <PublishedMessage>[];
     final isController = group.value?.myRole == GroupRole.controller;
+    final currentUserId = ref.watch(sessionProvider).value?.id;
+    final controllerId = group.value?.controllerId;
 
     final members = ref.watch(membersProvider(widget.groupId)).value?.length;
     final mine = ref.watch(myMessagesProvider(widget.groupId)).value;
@@ -330,6 +333,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                         message: items[index],
                         groupId: widget.groupId,
                         isController: isController,
+                        currentUserId: currentUserId,
+                        controllerId: controllerId,
                         onReply: () => _setReplyingTo(items[index]),
                       );
                     }
@@ -429,6 +434,8 @@ class PublishedMessageTile extends ConsumerStatefulWidget {
     required this.message,
     this.groupId = '',
     this.isController = false,
+    this.currentUserId,
+    this.controllerId,
     this.onReply,
     super.key,
   });
@@ -436,6 +443,12 @@ class PublishedMessageTile extends ConsumerStatefulWidget {
   final PublishedMessage message;
   final String groupId;
   final bool isController;
+
+  /// The signed-in user: their own messages sit on the right.
+  final String? currentUserId;
+
+  /// The group's controller: their messages carry the Controller badge.
+  final String? controllerId;
   final VoidCallback? onReply;
 
   @override
@@ -606,11 +619,11 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
     final isAnonymous = widget.message.displaySender == null;
     final senderName =
         widget.message.displaySender?.name ?? AppStrings.anonymousUser;
-    final isMe =
-        widget.message.displaySender?.id == 'u1' ||
-        widget.message.displaySender?.name == 'Priya';
+    // Decided by id, never by name: anyone can be called "Priya".
+    final senderId = widget.message.displaySender?.id;
+    final isMe = senderId != null && senderId == widget.currentUserId;
     final isOfficialController =
-        widget.message.displaySender?.name.contains('Controller') ?? false;
+        senderId != null && senderId == widget.controllerId;
 
     // Parse potential reply quote
     String? quoteSender;

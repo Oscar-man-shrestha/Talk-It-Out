@@ -13,11 +13,11 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-13 (IST)
-**Current phase:** Complete for v1 scope (Run 073). App, backend and NLP worker run end to end with real rewrites; open product decisions D4, D10, D20–D22 are decided and built. Branch `temp/project-completion-run070`.
+**Current phase:** Complete and verified end to end (Run 081): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together; `npm run check:live` passes 47/47 including a real AI rewrite. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
-**Next step:** Optional: a Gmail app password for real reset emails (docs/SETUP_GOOGLE_AND_EMAIL.md §1, entered by the user in `backend/.env`). Then review and merge `temp/project-completion-run070`.
-**Blockers:** None. Operational only: real rewrites need a running Kaggle session (rerun the launcher and update `pipeline/.env` per session).
+**Next step:** Review and merge `temp/project-completion-run070`. Optional: Gmail app password in `backend/.env` for real reset emails (user enters it); a larger model for higher rewrite fidelity.
+**Blockers:** None. Real reset emails need the user's Gmail app password (the agent does not handle passwords); until then codes print to the backend console.
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
 8. Run 060 assessed the current repository: the Flutter frontend retains the intended feature-first/Riverpod/repository structure and privacy test boundary, but the latest visual screens bypass their repository models with fixed demo content. Flutter verification was attempted but produced no output for 90 seconds and was stopped, so no current analysis or test pass is claimed.
@@ -53,7 +53,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
-**Quality gates (latest known):** Run 078: backend 192 passed, lint/typecheck/build pass, `npm audit --omit=dev` 0 vulnerabilities; Flutter 69 passed, analyze 0 issues; pipeline 148. GitHub Actions green: `backend-ci` (now with blocking audit and a live end-to-end run), `flutter-ci`, `pipeline-ci`, and the new `stack-ci` (full Docker stack, first run passed).
+**Quality gates (latest known):** Run 081: live whole-stack check 47/47; Flutter 70 passed, analyze 0, format clean; pipeline 150 passed; backend 192 passed (Run 078) with runtime audit 0. GitHub Actions `backend-ci`, `flutter-ci`, `pipeline-ci`, `stack-ci` green on the last pushed commits.
 
 **Pipeline notebook handoff:** Kaggle GPU environment verified with vLLM serving Qwen2.5-3B-Instruct (0 hijacks on adversarial probes). End-to-end claim/rewrite/result cycle against live backend verified (Run 057).
 
@@ -2690,3 +2690,21 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
 - **Files created:** `backend/scripts/live-check.mjs`
 - **Files modified:** `backend/package.json` (`check:live`), `LOGS.md`
 - **Next steps:** Restart Kaggle model and worker (blocked while a stale Google popup is open in the browser pane); fix (b) and (c); rerun `npm run check:live`.
+
+### Run 081: Everything integrated: local AI model, Feed fix, 47/47 live checks
+- **Date/time:** 2026-11-13 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Verification and completion
+- **Prompt / task:** "Do everything; make sure backend, database and every part of the stack is integrated and working."
+- **Result:** Completed. Every check passes.
+- **Summary:** Kaggle was not signed in in the fresh browser, so (user's choice) the model now runs on the Mac: Homebrew `ollama` 0.40.16 as a `brew services` service bound to 127.0.0.1, model `qwen2.5:3b` (1.93 GB). `pipeline/.env` points the worker at it; smoke test: functional PASS, about 14 s per rewrite, `append_token` SUSPECTED as in Run 072 (manual PASS there). The first live run then failed the rewrite with `intent_not_preserved`: the model writes "3" as "three" despite the prompt rule. The validator and intent score now accept a spelled-out whole number 0–20 (zero-padded, larger and dropped numbers are still refused); `pipeline_version` → `talkitout-pipeline 0.3.0` (model changed). After that `npm run check:live` passed 47/47, including the real rewrite, anonymous publish and no original text in chat.
+- **Summary:** App: the Feed opened on an "Unanswered" filter that hid posts with comments; the default is now "All questions" (user approved this specific change; regression test). The suspected Alerts "1 new" mismatch was a misread of a small screenshot ("0 new"); no change. Disk: freed about 230 MB of regenerable caches (Flutter test cache, Homebrew downloads); about 0.7 GB free afterwards. Mock web build restored on :52000.
+- **Files created:** `test/feed_filter_test.dart`
+- **Files modified:** `lib/features/feed/feed_screen.dart`, `pipeline/talkitout_pipeline/{scoring,rewrite,config}.py`, `pipeline/.env.example`, `pipeline/tests/{test_rewrite,test_config}.py`, `pipeline/README.md`, `pipeline/KAGGLE_ENDPOINT_RUNBOOK.md`, `README.md`, `LOGS.md`; local only: `pipeline/.env`
+- **Dependencies added:** none in the repo; on the Mac: Homebrew `ollama` and the `qwen2.5:3b` model (user approved)
+- **Commands run and results:** pipeline 150 passed (2 new), compileall OK; Flutter 70 passed, analyze 0, format clean; `npm run check:live` 41/42 before the number fix, 47/47 after; smoke test functional PASS.
+- **Hard-rules check:**
+  - [x] Worker still uses only the internal HTTP contract; model bound to localhost
+  - [x] Only synthetic text used for probes and checks; nothing logged or committed with message content
+  - [x] App change limited to the approved Feed filter; `main` untouched
+- **Next steps:** Review and merge; optional Gmail app password.

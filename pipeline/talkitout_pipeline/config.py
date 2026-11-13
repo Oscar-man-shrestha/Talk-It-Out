@@ -158,6 +158,6 @@ def load_config(env: dict[str, str] | None = None) -> Config:
         model_max_tokens=_positive_int(env, "MODEL_MAX_TOKENS", 1024),
         model_request_timeout_seconds=timeout,
         model_extra_body=extra_body,
-        pipeline_version=env.get("PIPELINE_VERSION", "").strip() or "talkitout-pipeline 0.2.0",
+        pipeline_version=env.get("PIPELINE_VERSION", "").strip() or "talkitout-pipeline 0.3.0",
         log_level=env.get("PIPELINE_LOG_LEVEL", "INFO").strip().upper(),
     )

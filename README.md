@@ -185,7 +185,7 @@ Open `http://localhost:8080` (app) — the API is on `http://localhost:3000`. Mi
      --dart-define=USE_MOCK=false \
      --dart-define=API_BASE_URL=http://localhost:3000
    ```
-3. **Real AI rewrites (optional):** serve the model (for example with [`pipeline/scripts/kaggle_serve.py`](pipeline/KAGGLE_ENDPOINT_RUNBOOK.md) on a Kaggle GPU), fill in `pipeline/.env`, set `PIPELINE_MODE=external` in `backend/.env`, and run `cd pipeline && python3 -m talkitout_pipeline`.
+3. **Real AI rewrites:** run the model locally with Ollama (`brew install ollama && brew services start ollama && ollama pull qwen2.5:3b`; [pipeline/README.md](pipeline/README.md#local-model-on-a-mac-ollama--the-default-dev-setup)) or on a Kaggle GPU ([runbook](pipeline/KAGGLE_ENDPOINT_RUNBOOK.md)); set `PIPELINE_MODE=external` in `backend/.env` and run `cd pipeline && python3 -m talkitout_pipeline`. Check everything with `cd backend && npm run check:live`.
 
 ---
 

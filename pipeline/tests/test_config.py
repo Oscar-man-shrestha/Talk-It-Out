@@ -24,7 +24,7 @@ class LoadConfigTests(unittest.TestCase):
         self.assertEqual(config.max_output_chars, 8000)  # provisional backend default
         self.assertEqual(config.lease_seconds, 300)
         self.assertEqual(config.max_attempts, 3)
-        self.assertEqual(config.pipeline_version, "talkitout-pipeline 0.2.0")
+        self.assertEqual(config.pipeline_version, "talkitout-pipeline 0.3.0")
 
     def test_missing_required_vars_raise(self):
         for missing in (

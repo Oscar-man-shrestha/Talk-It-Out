@@ -14,7 +14,8 @@ Security posture for untrusted input:
   ever reaches the result path through the adapter's successful return.
 
 Deterministic detail checks (hard rejects, code intent_not_preserved):
-- every digit sequence in the original appears in the rewrite,
+- every digit sequence in the original appears in the rewrite (a whole
+  number 0-20 may appear spelled out, e.g. "3" as "three"),
 - if the original contains a negation, the rewrite does too,
 - every URL in the original appears in the rewrite.
 
@@ -163,7 +164,7 @@ def _validate_output(original: str, output: str, max_output_chars: int) -> str:
             code="intent_not_preserved",
         )
 
-    missing_digits = scoring.digit_sequences(original) - scoring.digit_sequences(candidate)
+    missing_digits = scoring.missing_numbers(original, candidate)
     if missing_digits:
         raise OutputValidationError(
             f"rewrite lost {len(missing_digits)} number(s) from the original",

@@ -146,6 +146,34 @@ nothing more. Exact requirements:
   120 < 300) so a hanging model still lets the worker report failure
   before the backend re-claims the job.
 
+## Local model on a Mac (Ollama) — the default dev setup
+
+No GPU or tunnel needed; this is how the stack runs on the dev Mac
+(8 GB M1) since Run 081. It needs about 2 GB of disk.
+
+```bash
+brew install ollama
+brew services start ollama          # always on, survives reboots, 127.0.0.1 only
+ollama pull qwen2.5:3b              # 1.9 GB, the validated model family
+```
+
+`pipeline/.env`:
+
+```
+MODEL_ENDPOINT=http://127.0.0.1:11434/v1/chat/completions
+MODEL_ID=qwen2.5:3b
+MODEL_API_KEY=
+```
+
+`backend/.env`: `PIPELINE_MODE=external`. Then start the worker with
+`python3 -m talkitout_pipeline` and check the whole stack with
+`cd backend && npm run check:live`. Measured on the M1: about 14 s per
+rewrite (25 s for the first call while the model loads), well inside
+the 300 s lease. The smoke test gives the same result as the Kaggle GPU
+run: functional PASS, `append_token` SUSPECTED (manually reviewed as a
+faithful restatement in Run 072). A GPU (`KAGGLE_ENDPOINT_RUNBOOK.md`) is
+only needed for speed.
+
 ## Smoke test (model only, synthetic text)
 
 `scripts/smoke_model.py` validates the adapter and the full rewrite

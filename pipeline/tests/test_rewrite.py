@@ -170,6 +170,23 @@ class OutputValidationTests(unittest.TestCase):
             service.rewrite("submit the report by the 15th!!!", "agenda")
         self.assertEqual(ctx.exception.code, "intent_not_preserved")
 
+    def test_small_number_spelled_out_accepted(self):
+        service, _ = make_service(["The report must list the three open bugs."])
+        outcome = service.rewrite("the report should list the 3 open bugs!!", "report bugs")
+        self.assertIn("three", outcome.rewritten_text)
+        self.assertEqual(outcome.intent_preservation_score, 1.0)
+
+    def test_large_or_zero_padded_number_must_stay_digits(self):
+        for original, rewrite in [
+            ("ship 25 fixes now!!", "Please ship twenty-five fixes."),
+            ("room 07 is free!!", "Room seven is free."),
+            ("we need 3 and 4!!", "We need three."),
+        ]:
+            service, _ = make_service([rewrite])
+            with self.assertRaises(OutputValidationError) as ctx:
+                service.rewrite(original, "agenda")
+            self.assertEqual(ctx.exception.code, "intent_not_preserved", original)
+
     def test_negation_flipped_rejected(self):
         service, _ = make_service(["I do want to attend the meeting."])
         with self.assertRaises(OutputValidationError) as ctx:

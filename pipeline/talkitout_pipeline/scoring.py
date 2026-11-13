@@ -11,7 +11,9 @@ intent_preservation_score
     1.0, minus penalties: 0.25 if the rewrite is under 40% of the
     original's UTF-16 length (possible content loss), 0.2 per digit
     sequence present in the original but absent from the rewrite
-    (capped at 0.4). Clamped to [0, 1], rounded to 2 decimals.
+    (capped at 0.4). A whole number from 0 to 20 also counts as present
+    when the rewrite spells it out ("3" -> "three"); small models often
+    do, and the number is not lost. Clamped to [0, 1], rounded to 2 decimals.
 
 relevance_score
     The fraction of the group agenda's word stems that appear in the
@@ -44,11 +46,33 @@ def digit_sequences(text: str) -> set[str]:
     return set(_DIGITS_RE.findall(text))
 
 
+_NUMBER_WORDS = (
+    "zero one two three four five six seven eight nine ten eleven twelve "
+    "thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty"
+).split()
+
+
+def missing_numbers(original: str, rewrite: str) -> set[str]:
+    """Digit sequences of the original that the rewrite lost.
+
+    A number 0-20 written out as a word in the rewrite still counts as
+    kept. Leading zeros, larger numbers, ordinals and dates must stay
+    exactly as digits.
+    """
+    lost = digit_sequences(original) - digit_sequences(rewrite)
+    words = set(_WORD_RE.findall(rewrite.lower()))
+    return {
+        d
+        for d in lost
+        if not (d == str(int(d)) and int(d) <= 20 and _NUMBER_WORDS[int(d)] in words)
+    }
+
+
 def intent_preservation_score(original: str, rewrite: str) -> float:
     score = 1.0
     if utf16_length(rewrite) < 0.4 * utf16_length(original):
         score -= 0.25
-    lost = digit_sequences(original) - digit_sequences(rewrite)
+    lost = missing_numbers(original, rewrite)
     score -= min(0.4, 0.2 * len(lost))
     return round(max(0.0, min(1.0, score)), 2)
 

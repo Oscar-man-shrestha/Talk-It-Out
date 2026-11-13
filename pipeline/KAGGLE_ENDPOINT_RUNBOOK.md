@@ -110,9 +110,9 @@ show a real rewrite instead of `[stub rewrite] …`.
 To go back to the stub: set `PIPELINE_MODE=stub`, restart the backend, and
 stop the worker.
 
-## Why not run the model on the laptop?
+## Or run the model on the laptop
 
-`README.md` lists Ollama or llama.cpp as CPU/laptop options. The dev Mac this
-was prepared on (8 GB M1) had under 0.5 GB of free disk, and the smallest
-validated model needs about 2 GB. Free some disk and that route works too:
-point `MODEL_ENDPOINT` at the local server and skip steps 0–2.
+Since Run 081 the dev Mac runs Qwen2.5-3B locally with Ollama (see
+`README.md`, "Local model on a Mac"): no Kaggle session, no tunnel, about
+14 s per rewrite on an 8 GB M1. Use this runbook only when you need GPU
+speed.

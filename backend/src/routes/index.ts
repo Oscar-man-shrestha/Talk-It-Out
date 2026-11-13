@@ -5,6 +5,7 @@ import { Config } from '../config';
 import { createAuthMiddleware } from '../middleware/auth';
 import { createAuthRouter, createMeHandler } from './auth';
 import { createFeedRouter } from './feed';
+import { createGoogleAuthRouter } from './googleAuth';
 import { createGroupsRouter } from './groups';
 import { createMessagesRouter } from './messages';
 import { createNotificationsRouter } from './notifications';
@@ -38,6 +39,7 @@ export function createApiRouter(
         '/auth/password-reset',
         '/auth/password-reset/confirm',
         '/auth/change-password',
+        '/auth/google',
       ],
       opts.authLimiter,
     );
@@ -76,6 +78,7 @@ export function createApiRouter(
   router.use('/auth', createRefreshRouter(pool, appConfig.jwtSecret, requireAuth, appConfig));
   router.use('/auth', createPasswordResetRouter(pool, appConfig));
   router.use('/auth', createSecurityRouter(pool, requireAuth, appConfig));
+  router.use('/auth', createGoogleAuthRouter(pool, appConfig));
   router.use('/groups', createReactionsRouter(pool, requireAuth));
   router.use('/notifications', createNotificationsReadAllRouter(pool, requireAuth));
   router.use('/users', createProfilesRouter(pool, requireAuth));

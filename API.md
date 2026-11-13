@@ -462,4 +462,12 @@ Every access token now carries the user's `token_version` (claim `tv`; tokens fr
 - A password reset (endpoint 38) also ends every session.
 
 In the app, Profile → Account has **Change password** and **Sign out of all devices** next to Log out and Delete account.
+
+### 40. POST `/auth/google` (Sign in with Google)
+Body: `{ "id_token": "<Google ID token>" }`. Response `200` is exactly the login response (`{ "token", "user" }`), so refresh tokens, Keep active session and everything else work the same.
+- The token is checked against Google's published keys: RS256 signature, audience in `GOOGLE_CLIENT_ID`, issuer `accounts.google.com`, not expired, and `email_verified` true. Anything else is `401`.
+- A known Google account signs in. A new email creates an account with **no password**. An email that already has a password account is linked: the old password is removed and every session ends, because registration never verified emails. A different Google account for an already linked email is `409 google_account_mismatch`.
+- Accounts without a password get `401` on password sign-in (same answer as a wrong password) and `409 no_password` on change password and delete account; "Forgot?" sets a password.
+- `503 google_not_configured` when `GOOGLE_CLIENT_ID` is unset. Shares the login rate limit.
+- Setup steps: [`docs/SETUP_GOOGLE_AND_EMAIL.md`](docs/SETUP_GOOGLE_AND_EMAIL.md).
 - Email delivery is configured in `backend/.env`: `MAIL_TRANSPORT=smtp` plus `SMTP_URL` works with any email provider; `MAIL_TRANSPORT=log` prints the code to the server console for local development and is refused when `NODE_ENV=production`.

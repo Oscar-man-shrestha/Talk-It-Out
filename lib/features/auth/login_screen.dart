@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +8,8 @@ import 'package:talk_it_out/app/providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/features/auth/data/mock_auth_repository.dart';
+import 'package:talk_it_out/features/auth/google/google_button.dart';
+import 'package:talk_it_out/features/auth/google/google_sign_in_service.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
 
 // Stitch Monochrome Precision design tokens
@@ -464,6 +469,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
               ),
             ),
+            _GoogleSignInSection(keepSession: _keepSession, disabled: _busy),
             const SizedBox(height: 22),
 
             // Protocol Notice Card: Zero-Knowledge Moderation
@@ -715,6 +721,173 @@ class _MinimalSwitch extends StatelessWidget {
           color: Colors.white,
           shape: BoxShape.circle,
         ),
+      ),
+    );
+  }
+}
+
+/// "or" divider plus Sign in with Google (`API.md` 40). Web shows Google's
+/// own button; mobile draws one that opens Google's sign-in sheet. Hidden
+/// in live builds without `GOOGLE_CLIENT_ID`; mock builds always show it.
+class _GoogleSignInSection extends ConsumerStatefulWidget {
+  const _GoogleSignInSection({
+    required this.keepSession,
+    required this.disabled,
+  });
+
+  final bool keepSession;
+  final bool disabled;
+
+  @override
+  ConsumerState<_GoogleSignInSection> createState() =>
+      _GoogleSignInSectionState();
+}
+
+class _GoogleSignInSectionState extends ConsumerState<_GoogleSignInSection> {
+  StreamSubscription<String>? _tokens;
+  var _ready = false;
+  var _busy = false;
+  String? _error;
+
+  bool get _useMock => ref.read(appConfigProvider).useMock;
+  GoogleSignInService get _google => ref.read(googleSignInServiceProvider);
+
+  @override
+  void initState() {
+    super.initState();
+    if (!_useMock && _google.configured) _setUp();
+  }
+
+  Future<void> _setUp() async {
+    try {
+      await _google.ensureInitialized();
+      _tokens = _google.idTokens.listen(
+        _signIn,
+        onError: (Object _) {
+          if (mounted) setState(() => _error = AppStrings.googleFailed);
+        },
+      );
+      if (mounted) setState(() => _ready = true);
+    } catch (_) {
+      if (mounted) setState(() => _error = AppStrings.googleFailed);
+    }
+  }
+
+  @override
+  void dispose() {
+    _tokens?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _signIn(String idToken) async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref
+          .read(sessionProvider.notifier)
+          .loginWithGoogle(idToken: idToken, keepSession: widget.keepSession);
+    } on RepositoryException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = AppStrings.googleFailed);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _tap() async {
+    if (_useMock) {
+      await _signIn('mock-google-id-token');
+      return;
+    }
+    try {
+      await _google.authenticate();
+      // The ID token arrives on the idTokens stream.
+    } catch (_) {
+      // Closing Google's sheet is not an error worth showing.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mock = _useMock;
+    if (!mock && !_google.configured) return const SizedBox.shrink();
+    final webButton = !mock && kIsWeb && _ready ? renderGoogleButton() : null;
+    final showOwnButton = mock || (!kIsWeb && _ready);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Row(
+            children: [
+              Expanded(child: Divider(color: _kBorderSubtle)),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: Text(
+                  AppStrings.orDivider,
+                  style: TextStyle(fontSize: 12, color: _kTextTertiary),
+                ),
+              ),
+              Expanded(child: Divider(color: _kBorderSubtle)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (webButton != null)
+            Center(child: SizedBox(height: 44, child: webButton))
+          else if (showOwnButton)
+            SizedBox(
+              height: 44,
+              child: OutlinedButton(
+                onPressed: widget.disabled || _busy ? null : _tap,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _kTextPrimary,
+                  side: const BorderSide(color: _kBorderSubtle),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: _busy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'G',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: _kTextPrimary,
+                            ),
+                          ),
+                          SizedBox(width: 10),
+                          Text(
+                            AppStrings.continueWithGoogle,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFFBA1A1A), fontSize: 12),
+            ),
+          ],
+        ],
       ),
     );
   }

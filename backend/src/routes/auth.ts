@@ -37,7 +37,7 @@ const loginSchema = z.object({
  * the new user id are appended (more hex chars only in the extreme case where
  * even that collides). The client never sends or receives the username.
  */
-function baseUsername(email: string): string {
+export function baseUsername(email: string): string {
   const local = email.split('@')[0].toLowerCase();
   const cleaned = local.replace(/[^a-z0-9._-]/g, '');
   return cleaned.length > 0 ? cleaned : 'user';
@@ -151,7 +151,9 @@ export function createAuthRouter(
       [body.email],
     );
     const user = rows[0];
-    const passwordOk = user
+    // Accounts created with Google have no password: same cost and the
+    // same answer as a wrong password.
+    const passwordOk = user?.password_hash
       ? await argon2.verify(user.password_hash, body.password)
       : // Unknown email: burn the same argon2 work so timing does not
         // reveal whether the account exists.

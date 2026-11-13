@@ -11,6 +11,7 @@ abstract final class Endpoints {
   static const passwordResetConfirm = '/auth/password-reset/confirm';
   static const changePassword = '/auth/change-password';
   static const logoutAll = '/auth/logout-all';
+  static const google = '/auth/google';
   static const groups = '/groups';
   static const posts = '/posts';
   static const notifications = '/notifications';

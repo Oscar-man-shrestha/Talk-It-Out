@@ -10,6 +10,9 @@ abstract class AuthRepository {
 
   Future<AuthSession> login({required String email, required String password});
 
+  /// Signs in or up with a Google ID token (`API.md` 40).
+  Future<AuthSession> signInWithGoogle({required String idToken});
+
   Future<User> me();
 
   /// Asks for a long-lived refresh token for the signed-in user. Returns

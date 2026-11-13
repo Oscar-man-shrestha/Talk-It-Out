@@ -53,6 +53,8 @@ export interface Config {
   /** Spaces are removed (Gmail shows app passwords in groups of four). */
   smtpPass: string;
   mailFrom: string;
+  /** OAuth client ids whose Google ID tokens are accepted (GOOGLE_CLIENT_ID, comma-separated). */
+  googleClientIds: string[];
 }
 
 function parseMailTransport(env: NodeJS.ProcessEnv): Config['mailTransport'] {
@@ -159,6 +161,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     pgStatementTimeoutMillis: positiveInt(env, 'PG_STATEMENT_TIMEOUT_MS', 15000),
     pgConnectionTimeoutMillis: positiveInt(env, 'PG_CONNECT_TIMEOUT_MS', 5000),
     mailTransport: parseMailTransport(env),
+    googleClientIds: (env.GOOGLE_CLIENT_ID ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter((id) => id && !id.startsWith('<')),
     smtpUrl: (env.SMTP_URL ?? '').trim(),
     smtpHost: (env.SMTP_HOST ?? '').trim(),
     smtpPort: positiveInt(env, 'SMTP_PORT', 465),

@@ -32,11 +32,18 @@ export function createAccountRouter(pool: Pool, requireAuth: RequireAuth): Route
   router.delete('/me', requireAuth, async (req, res) => {
     const body = parseWith(deleteAccountSchema, req.body);
     const userId = req.user!.id;
-    const { rows } = await pool.query<{ password_hash: string }>(
+    const { rows } = await pool.query<{ password_hash: string | null }>(
       'SELECT password_hash FROM users WHERE id = $1',
       [userId],
     );
     const hash = rows[0]?.password_hash;
+    if (rows[0] && !hash) {
+      throw new ApiError(
+        409,
+        'no_password',
+        'This account has no password yet. Use "Forgot?" on the login screen to set one.',
+      );
+    }
     if (!hash || !(await argon2.verify(hash, body.password))) {
       // 403, not 401: a 401 means "session expired" to clients, which
       // would sign the user out over a typo.

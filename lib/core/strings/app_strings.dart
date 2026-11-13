@@ -232,6 +232,9 @@ abstract final class AppStrings {
       'Enter dates as years, like "2021 - Present" or "2019 - 2021".';
   static const wrongPassword = 'That password is not correct.';
 
+  static const continueWithGoogle = 'Continue with Google';
+  static const orDivider = 'or';
+  static const googleFailed = 'Google sign-in failed. Please try again.';
   static const changePassword = 'Change password';
   static const changePasswordSubtitle =
       'Signs out your other devices after the change';

@@ -87,6 +87,21 @@ class MockAuthRepository implements AuthRepository {
     return runMock(_controls, () => _accounts[_currentEmail]!.user);
   }
 
+  /// Mock only: any Google sign-in becomes the seeded sample account.
+  @override
+  Future<AuthSession> signInWithGoogle({required String idToken}) {
+    return runMock(_controls, () {
+      if (idToken.isEmpty) {
+        throw const RepositoryException(
+          code: 'unauthorized',
+          message: AppStrings.googleFailed,
+        );
+      }
+      _currentEmail = mockEmail;
+      return _session(_accounts[mockEmail]!.user);
+    });
+  }
+
   @override
   Future<String?> issueRefreshToken() async => null;
 

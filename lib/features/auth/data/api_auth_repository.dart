@@ -37,6 +37,17 @@ class ApiAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<AuthSession> signInWithGoogle({required String idToken}) {
+    return guardApi(() async {
+      final response = await _dio.post(
+        Endpoints.google,
+        data: {'id_token': idToken},
+      );
+      return AuthSession.fromJson(asJsonMap(response.data));
+    });
+  }
+
+  @override
   Future<User> me() {
     return guardApi(() async {
       final response = await _dio.get(Endpoints.me);

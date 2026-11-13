@@ -35,6 +35,17 @@ class SessionNotifier extends AsyncNotifier<User?> {
     await _storeSession(session, keepSession: keepSession);
   }
 
+  /// Signs in with a Google ID token; same session rules as [login].
+  Future<void> loginWithGoogle({
+    required String idToken,
+    bool keepSession = true,
+  }) async {
+    final session = await ref
+        .read(authRepositoryProvider)
+        .signInWithGoogle(idToken: idToken);
+    await _storeSession(session, keepSession: keepSession);
+  }
+
   Future<void> register({
     required String name,
     required String email,

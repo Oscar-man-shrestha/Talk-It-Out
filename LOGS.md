@@ -2574,3 +2574,23 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] Anonymized messages store `author_id = NULL`, consistent with the published-message CHECK constraint
   - [x] No secrets committed; `main` untouched
 - **Next steps:** Review and merge the branch; confirm the remaining default-in-use decisions.
+
+### Run 075: README made accurate (claims and links)
+- **Date/time:** 2026-11-13 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Docs
+- **Prompt / task:** "Continue to finish the project, make it best."
+- **Result:** Completed
+- **Summary:** `README.md` kept its structure and sections but now describes the shipped system. Removed claims that were never true (a "Zero-Knowledge Enclave", "mathematical/cryptographic" anonymity, an "Async BullMQ Queue", Perspective toxicity scoring, a CHECK constraint that differed from the real one); it now says plainly that anonymity is moderation-backed (the controller can see the sender) and quotes the actual `anonymous_author_consistency` constraint. Every doc and screen link was a `file:///Users/oscar/Desktop/...` path that only worked on one laptop; all 27 are now repository-relative and verified to exist. Added the backend, rewrite worker, account deletion, hand-over, refresh tokens, reactions and uploads to the feature table; a "Running the Full Stack" section; CI badges for the three workflows; and real dependency versions (Flutter 3.47, Riverpod 3, GoRouter 18). The original proposal docs (ARCHITECTURE, PLAN, HANDOFF, BACKEND_DATABASE_HANDOFF_REPORT) are labeled as pre-build design proposals instead of being rewritten.
+- **Files created:** none
+- **Files modified:** `README.md`, `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:** link check over every relative README link -> 27/27 exist, 0 `file:///` links. GitHub Actions on `dc592d0..4a79858`: `backend-ci`, `pipeline-ci` and `flutter-ci` all success (first runs of the two new workflows; every flutter-ci step passed: generated code up to date, format, analyze, test).
+- **Docs updated:** `README.md`
+- **Assumptions / decisions:** Same rule as D22 (fix overstated wording in place): only false statements changed, not the document's layout.
+- **Issues / blockers / known bugs:** none
+- **Hard-rules check:**
+  - [x] No code changed
+  - [x] Privacy rules restated unchanged
+- **Next steps:** Review and merge the branch.

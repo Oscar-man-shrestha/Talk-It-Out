@@ -164,6 +164,7 @@ describe('migrations', () => {
       '006_message_reactions.sql',
       '007_refresh_tokens.sql',
       '008_password_resets.sql',
+      '009_token_version.sql',
     ]);
   });
 });

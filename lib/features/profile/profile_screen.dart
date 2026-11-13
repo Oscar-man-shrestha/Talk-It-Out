@@ -976,6 +976,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  Future<void> _openChangePassword() async {
+    final changed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => const _ChangePasswordDialog(),
+    );
+    if (changed == true && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(AppStrings.passwordChanged)));
+    }
+  }
+
+  Future<void> _confirmLogoutAll() async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => const _LogoutAllDialog(),
+    );
+  }
+
   Future<void> _confirmDeleteAccount() async {
     await showDialog<void>(
       context: context,
@@ -2169,6 +2188,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                         const Divider(height: 1, color: _kBorderSubtle),
                         _PreferenceTile(
+                          icon: Icons.password,
+                          title: AppStrings.changePassword,
+                          subtitle: AppStrings.changePasswordSubtitle,
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 13,
+                            color: _kTextTertiary,
+                          ),
+                          onTap: _openChangePassword,
+                        ),
+                        const Divider(height: 1, color: _kBorderSubtle),
+                        _PreferenceTile(
+                          icon: Icons.devices_other,
+                          title: AppStrings.logoutAll,
+                          subtitle: AppStrings.logoutAllSubtitle,
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 13,
+                            color: _kTextTertiary,
+                          ),
+                          onTap: _confirmLogoutAll,
+                        ),
+                        const Divider(height: 1, color: _kBorderSubtle),
+                        _PreferenceTile(
                           icon: Icons.delete_outline,
                           title: AppStrings.deleteAccount,
                           subtitle: AppStrings.deleteAccountSubtitle,
@@ -2826,6 +2869,207 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
                   ),
                 )
               : const Text(AppStrings.deleteAccount),
+        ),
+      ],
+    );
+  }
+}
+
+/// Current password plus the new one twice. Stays open on errors.
+class _ChangePasswordDialog extends ConsumerStatefulWidget {
+  const _ChangePasswordDialog();
+
+  @override
+  ConsumerState<_ChangePasswordDialog> createState() =>
+      _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
+  final _current = TextEditingController();
+  final _next = TextEditingController();
+  final _confirm = TextEditingController();
+  var _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _current.dispose();
+    _next.dispose();
+    _confirm.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_current.text.isEmpty) {
+      setState(() => _error = AppStrings.missingCredentials);
+      return;
+    }
+    if (_next.text.length < 8) {
+      setState(() => _error = AppStrings.passwordTooShort);
+      return;
+    }
+    if (_next.text != _confirm.text) {
+      setState(() => _error = AppStrings.passwordsDontMatch);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref
+          .read(sessionProvider.notifier)
+          .changePassword(
+            currentPassword: _current.text,
+            newPassword: _next.text,
+          );
+      if (mounted) Navigator.of(context).pop(true);
+    } on RepositoryException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = AppStrings.errorGeneric);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _field(TextEditingController c, String label, List<String> hints) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: c,
+        obscureText: true,
+        enabled: !_busy,
+        autofillHints: hints,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text(
+        AppStrings.changePassword,
+        style: TextStyle(fontSize: 17),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _field(_current, AppStrings.currentPasswordLabel, const [
+            AutofillHints.password,
+          ]),
+          _field(_next, AppStrings.resetNewPasswordLabel, const [
+            AutofillHints.newPassword,
+          ]),
+          _field(_confirm, AppStrings.confirmNewPasswordLabel, const [
+            AutofillHints.newPassword,
+          ]),
+          if (_error != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                _error!,
+                style: TextStyle(color: Colors.red.shade700, fontSize: 12.5),
+              ),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+          child: const Text(AppStrings.cancel),
+        ),
+        FilledButton(
+          onPressed: _busy ? null : _save,
+          style: FilledButton.styleFrom(backgroundColor: Colors.black),
+          child: _busy
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text(AppStrings.changePassword),
+        ),
+      ],
+    );
+  }
+}
+
+/// Confirms ending every session; signs out here on success.
+class _LogoutAllDialog extends ConsumerStatefulWidget {
+  const _LogoutAllDialog();
+
+  @override
+  ConsumerState<_LogoutAllDialog> createState() => _LogoutAllDialogState();
+}
+
+class _LogoutAllDialogState extends ConsumerState<_LogoutAllDialog> {
+  var _busy = false;
+  String? _error;
+
+  Future<void> _go() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref.read(sessionProvider.notifier).logoutAll();
+      if (mounted) Navigator.of(context).pop();
+    } on RepositoryException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = AppStrings.errorGeneric);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text(AppStrings.logoutAll, style: TextStyle(fontSize: 17)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            AppStrings.logoutAllBody,
+            style: TextStyle(fontSize: 13, height: 1.4),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              _error!,
+              style: TextStyle(color: Colors.red.shade700, fontSize: 12.5),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+          child: const Text(AppStrings.cancel),
+        ),
+        FilledButton(
+          onPressed: _busy ? null : _go,
+          style: FilledButton.styleFrom(backgroundColor: Colors.black),
+          child: _busy
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text(AppStrings.logoutAll),
         ),
       ],
     );

@@ -232,6 +232,20 @@ abstract final class AppStrings {
       'Enter dates as years, like "2021 - Present" or "2019 - 2021".';
   static const wrongPassword = 'That password is not correct.';
 
+  static const changePassword = 'Change password';
+  static const changePasswordSubtitle =
+      'Signs out your other devices after the change';
+  static const currentPasswordLabel = 'Current password';
+  static const confirmNewPasswordLabel = 'Confirm new password';
+  static const passwordsDontMatch = 'The new passwords do not match.';
+  static const passwordChanged =
+      'Password changed. Your other devices are signed out.';
+  static const logoutAll = 'Sign out of all devices';
+  static const logoutAllSubtitle = 'Ends every session, including this one';
+  static const logoutAllBody =
+      'You will be signed out here and on every other phone, tablet or '
+      'browser that is signed in to this account.';
+
   static const resetTitle = 'Reset your password';
   static const resetIntro =
       'Enter your account email and we will send you a 6-digit code.';

@@ -1,12 +1,12 @@
 import crypto from 'node:crypto';
 import { Router } from 'express';
-import jwt from 'jsonwebtoken';
 import { Pool } from 'pg';
 import { z } from 'zod';
 import { Config } from '../config';
 import { parseWith, unauthorized } from '../errors';
 import { RequireAuth } from '../middleware/auth';
 import { withTransaction } from '../db';
+import { signAccessToken } from '../tokens';
 
 /**
  * Rotating refresh tokens (PLAN.md task 1.2).
@@ -94,24 +94,29 @@ export function createRefreshRouter(
         return 'reused' as const;
       }
       if (row.expires_at.getTime() <= Date.now()) return null;
-      const { rows: user } = await client.query('SELECT id FROM users WHERE id = $1', [
-        row.user_id,
-      ]);
+      const { rows: user } = await client.query(
+        'SELECT id, token_version FROM users WHERE id = $1',
+        [row.user_id],
+      );
       if (!user[0]) return null;
       const next = await issueRefreshToken(client, row.user_id, row.family_id);
       await client.query(
         'UPDATE refresh_tokens SET revoked_at = now(), replaced_by = $2 WHERE id = $1',
         [row.id, next.id],
       );
-      return { userId: row.user_id as string, next };
+      return {
+        userId: row.user_id as string,
+        tokenVersion: user[0].token_version as number,
+        next,
+      };
     });
     // The family revocation above must commit, so throw only afterwards.
     if (result === null || result === 'reused') throw unauthorized();
-    const token = jwt.sign({}, jwtSecret, {
-      subject: result.userId,
-      expiresIn: appConfig.jwtExpiresIn as jwt.SignOptions['expiresIn'],
-      algorithm: 'HS256',
-    });
+    const token = signAccessToken(
+      { jwtSecret, jwtExpiresIn: appConfig.jwtExpiresIn },
+      result.userId,
+      result.tokenVersion,
+    );
     res.json({
       token,
       refresh_token: result.next.token,

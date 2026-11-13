@@ -450,8 +450,16 @@ The old access token stops working immediately (`401`), because the auth check l
 ### 38. Password reset by emailed code
 The app's "Forgot?" link opens a two-step screen (email, then code + new password) that calls these endpoints. In mock mode the code is always `123456`.
 - `POST /auth/password-reset` with `{ "email" }` returns `202` `{ "status": "sent_if_registered" }` for **every** valid email, registered or not, and sends the mail without waiting for it, so neither the answer nor its timing reveals which emails have accounts. A registered email gets a 6-digit code that expires in 15 minutes; a new request voids older codes. Returns `503 email_not_configured` when `MAIL_TRANSPORT` is unset or `disabled`.
-- `POST /auth/password-reset/confirm` with `{ "email", "code", "new_password" }` returns `204` and sets the password (8–128 characters). It also revokes all of that user's refresh tokens; access tokens expire on their own schedule. A wrong, used or expired code returns `400 invalid_code` ("That code is not valid or has expired."); after 5 wrong attempts the code stops working.
+- `POST /auth/password-reset/confirm` with `{ "email", "code", "new_password" }` returns `204` and sets the password (8–128 characters). It also ends every session of that user (endpoint 39): existing access and refresh tokens stop working. A wrong, used or expired code returns `400 invalid_code` ("That code is not valid or has expired."); after 5 wrong attempts the code stops working.
 - Both share the login rate limit. Only an HMAC of each code is stored (`password_resets`).
 
 **Keep active session (login screen):** when the switch is on (the default), the app asks for a refresh token after sign-in (endpoint 35), so the session survives the access token's expiry. When it is off, no refresh token is requested and the user signs in again once the access token expires.
+
+### 39. Account security: change password and sign out everywhere
+Every access token now carries the user's `token_version` (claim `tv`; tokens from before migration 009 count as `0`). Bumping the version ends every session at once: all access tokens get `401` and all refresh tokens are revoked.
+- `POST /auth/change-password` (Bearer) with `{ "current_password", "new_password" }` returns `200` `{ "token" }`: a fresh access token, so this device stays signed in while every other session ends. A wrong current password is `403 wrong_password` (not `401`); a short or unchanged password is `422`; an account created with Google that has no password yet is `409 no_password`. Shares the login rate limit.
+- `POST /auth/logout-all` (Bearer) returns `204` and ends every session, including this one.
+- A password reset (endpoint 38) also ends every session.
+
+In the app, Profile → Account has **Change password** and **Sign out of all devices** next to Log out and Delete account.
 - Email delivery is configured in `backend/.env`: `MAIL_TRANSPORT=smtp` plus `SMTP_URL` works with any email provider; `MAIL_TRANSPORT=log` prints the code to the server console for local development and is refused when `NODE_ENV=production`.

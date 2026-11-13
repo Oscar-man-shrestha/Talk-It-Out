@@ -105,6 +105,36 @@ class MockAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<String> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) {
+    return runMock(_controls, () {
+      final account = _accounts[_currentEmail];
+      if (account == null || account.password != currentPassword) {
+        throw const RepositoryException(
+          code: 'wrong_password',
+          message: AppStrings.wrongPassword,
+        );
+      }
+      if (newPassword.length < 8) {
+        throw const RepositoryException(
+          code: 'validation',
+          message: AppStrings.passwordTooShort,
+        );
+      }
+      _accounts[_currentEmail] = _Account(
+        user: account.user,
+        password: newPassword,
+      );
+      return 'mock-token-${account.user.id}';
+    });
+  }
+
+  @override
+  Future<void> logoutAll() => runMock(_controls, () {});
+
+  @override
   Future<void> requestPasswordReset({required String email}) {
     return runMock(_controls, () {
       if (!email.contains('@')) {

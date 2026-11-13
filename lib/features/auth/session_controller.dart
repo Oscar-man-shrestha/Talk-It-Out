@@ -78,6 +78,36 @@ class SessionNotifier extends AsyncNotifier<User?> {
     state = const AsyncData(null);
   }
 
+  /// Changes the password; the server ends every other session. This
+  /// device keeps going with the returned token, and gets a new refresh
+  /// token only if it had one (so "Keep active session" is respected).
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final repo = ref.read(authRepositoryProvider);
+    final token = await repo.changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+    final tokens = ref.read(tokenStoreProvider);
+    final hadRefresh = (await tokens.readRefresh()) != null;
+    await tokens.clear();
+    await tokens.write(token);
+    if (hadRefresh) {
+      final refresh = await repo.issueRefreshToken();
+      if (refresh != null) await tokens.writeRefresh(refresh);
+    }
+  }
+
+  /// Ends every session on every device, then signs out here. Throws, and
+  /// keeps this session, when the server cannot be reached.
+  Future<void> logoutAll() async {
+    await ref.read(authRepositoryProvider).logoutAll();
+    await ref.read(tokenStoreProvider).clear();
+    state = const AsyncData(null);
+  }
+
   Future<void> logout() async {
     try {
       await ref.read(authRepositoryProvider).logout();

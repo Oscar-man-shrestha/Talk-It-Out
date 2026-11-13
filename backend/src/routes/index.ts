@@ -9,6 +9,7 @@ import { createGroupsRouter } from './groups';
 import { createMessagesRouter } from './messages';
 import { createNotificationsRouter } from './notifications';
 import { createPasswordResetRouter } from './passwordReset';
+import { createSecurityRouter } from './security';
 import { createMediaRouter, createProfilesRouter } from './profiles';
 import { createNotificationsReadAllRouter, createReactionsRouter } from './reactions';
 import { createRefreshRouter } from './refresh';
@@ -36,6 +37,7 @@ export function createApiRouter(
         '/auth/refresh',
         '/auth/password-reset',
         '/auth/password-reset/confirm',
+        '/auth/change-password',
       ],
       opts.authLimiter,
     );
@@ -73,6 +75,7 @@ export function createApiRouter(
   // app). Mounted after the routers above so they never shadow them.
   router.use('/auth', createRefreshRouter(pool, appConfig.jwtSecret, requireAuth, appConfig));
   router.use('/auth', createPasswordResetRouter(pool, appConfig));
+  router.use('/auth', createSecurityRouter(pool, requireAuth, appConfig));
   router.use('/groups', createReactionsRouter(pool, requireAuth));
   router.use('/notifications', createNotificationsReadAllRouter(pool, requireAuth));
   router.use('/users', createProfilesRouter(pool, requireAuth));

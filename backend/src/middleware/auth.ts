@@ -15,6 +15,7 @@ export function createAuthMiddleware(pool: Pool, jwtSecret: string) {
     }
     const token = header.slice('Bearer '.length).trim();
     let userId: string;
+    let tokenVersion: number;
     try {
       // Algorithm pinned to HS256: tokens signed any other way (including
       // alg:none confusion) are rejected outright.
@@ -28,19 +29,23 @@ export function createAuthMiddleware(pool: Pool, jwtSecret: string) {
         throw unauthorized();
       }
       userId = payload.sub;
+      // Tokens issued before migration 009 carry no tv claim: version 0.
+      tokenVersion = typeof payload.tv === 'number' ? payload.tv : 0;
     } catch {
       throw unauthorized();
     }
     // Tokens for users that no longer exist are rejected.
     const { rows } = await pool.query(
-      'SELECT id, name, email, username FROM users WHERE id = $1',
+      'SELECT id, name, email, username, token_version FROM users WHERE id = $1',
       [userId],
     );
     const user = rows[0];
-    if (!user) {
+    // Rejected when the user no longer exists, or every session was ended
+    // (sign out everywhere, password change or reset) after this token.
+    if (!user || user.token_version !== tokenVersion) {
       throw unauthorized();
     }
-    req.user = user;
+    req.user = { id: user.id, name: user.name, email: user.email, username: user.username };
     next();
   };
 }

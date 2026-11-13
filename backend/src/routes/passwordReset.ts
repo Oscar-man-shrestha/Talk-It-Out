@@ -7,6 +7,7 @@ import { Config } from '../config';
 import { withTransaction } from '../db';
 import { ApiError, parseWith } from '../errors';
 import { createMailer } from '../mailer';
+import { endAllSessions } from '../tokens';
 
 /**
  * Password reset by emailed 6-digit code (API.md 38).
@@ -17,8 +18,8 @@ import { createMailer } from '../mailer';
  * - Only an HMAC of the code (keyed with JWT_SECRET, bound to the user id)
  *   is stored. Codes expire after 15 minutes, allow 5 attempts, and a new
  *   request voids older codes.
- * - A successful reset revokes every refresh token. Access tokens are
- *   stateless and expire on their own schedule.
+ * - A successful reset ends every session (token_version bump plus
+ *   refresh-token revocation), so a thief's tokens stop working too.
  */
 
 export const RESET_CODE_TTL_MINUTES = 15;
@@ -117,10 +118,8 @@ export function createPasswordResetRouter(pool: Pool, appConfig: Config): Router
         reset.user_id,
       ]);
       await client.query('DELETE FROM password_resets WHERE user_id = $1', [reset.user_id]);
-      await client.query(
-        'UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',
-        [reset.user_id],
-      );
+      // Ends every session: existing access and refresh tokens stop working.
+      await endAllSessions(client, reset.user_id);
       return true;
     });
     // Throw after the transaction so a wrong-attempt count is committed.

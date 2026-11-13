@@ -26,6 +26,16 @@ abstract class AuthRepository {
   /// whether or not the email has an account.
   Future<void> requestPasswordReset({required String email});
 
+  /// Changes the password while signed in (`API.md` 39). Every other
+  /// session ends; returns a fresh access token for this device.
+  Future<String> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  });
+
+  /// Ends every session of this account, on every device (`API.md` 39).
+  Future<void> logoutAll();
+
   /// Sets a new password with the emailed code (`API.md` 38).
   Future<void> confirmPasswordReset({
     required String email,

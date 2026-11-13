@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global process, console, setTimeout, fetch, FormData, Blob, Buffer */
 /**
  * npm run check:live [-- http://localhost:3000]
  *

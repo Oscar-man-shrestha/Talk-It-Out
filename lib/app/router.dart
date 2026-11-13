@@ -30,7 +30,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     navigatorKey: rootNavigatorKey,
     initialLocation: '/groups',
     refreshListenable: refresh,
-    redirect: (context, state) => _redirect(ref, state.uri.path),
+    redirect: (context, state) => _redirect(ref, state.uri),
     routes: [
       GoRoute(
         path: '/loading',
@@ -165,18 +165,42 @@ class _RouterRefresh extends ChangeNotifier {
   }
 }
 
-Future<String?> _redirect(Ref ref, String location) async {
+const _authPaths = {'/login', '/register', '/forgot-password'};
+
+/// Where to go after loading or signing in: an in-app path from `?from=`,
+/// never an auth page and never another site.
+String? _returnTo(String? from) {
+  if (from == null || !from.startsWith('/') || from.startsWith('//')) {
+    return null;
+  }
+  final path = Uri.tryParse(from)?.path;
+  if (path == null || path == '/loading' || _authPaths.contains(path)) {
+    return null;
+  }
+  return from;
+}
+
+Future<String?> _redirect(Ref ref, Uri uri) async {
+  final location = uri.path;
   final session = ref.read(sessionProvider);
-  final signingIn =
-      location == '/login' ||
-      location == '/register' ||
-      location == '/forgot-password';
+  final signingIn = _authPaths.contains(location);
+  // Keep the page someone opened (a reload or a shared link) so they land
+  // on it after loading or signing in, instead of always on Groups.
+  final pending = location == '/loading' || signingIn
+      ? _returnTo(uri.queryParameters['from'])
+      : _returnTo(uri.toString());
+  String via(String target) => pending == null || pending == '/groups'
+      ? target
+      : Uri(path: target, queryParameters: {'from': pending}).toString();
   if (session.isLoading) {
-    return location == '/loading' ? null : '/loading';
+    return location == '/loading' ? null : via('/loading');
   }
   final signedIn = session.asData?.value != null;
-  if (!signedIn) return signingIn ? null : '/login';
-  if (signingIn || location == '/loading') return '/groups';
+  if (!signedIn) {
+    if (signingIn) return null;
+    return via('/login');
+  }
+  if (signingIn || location == '/loading') return pending ?? '/groups';
 
   final review = RegExp(r'^/groups/([^/]+)/review(?:/|$)').firstMatch(location);
   if (review == null) return null;

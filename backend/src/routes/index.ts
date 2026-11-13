@@ -2,8 +2,10 @@ import { createAccountRouter } from './account';
 import { Router, RequestHandler } from 'express';
 import { Pool } from 'pg';
 import { Config } from '../config';
+import { RealtimeHub } from '../realtime';
 import { createAuthMiddleware } from '../middleware/auth';
 import { createAuthRouter, createMeHandler } from './auth';
+import { createEventsRouter } from './events';
 import { createFeedRouter } from './feed';
 import { createGoogleAuthRouter } from './googleAuth';
 import { createGroupsRouter } from './groups';
@@ -24,7 +26,7 @@ import '../types';
 export function createApiRouter(
   pool: Pool,
   appConfig: Config,
-  opts: { authLimiter?: RequestHandler } = {},
+  opts: { authLimiter?: RequestHandler; realtime?: RealtimeHub } = {},
 ): Router {
   const router = Router();
   const requireAuth = createAuthMiddleware(pool, appConfig.jwtSecret);
@@ -84,6 +86,7 @@ export function createApiRouter(
   router.use('/users', createProfilesRouter(pool, requireAuth));
   router.use('/users', createAccountRouter(pool, requireAuth));
   router.use('/media', createMediaRouter(pool));
+  router.use('/events', createEventsRouter(pool, requireAuth, appConfig, opts.realtime ?? new RealtimeHub(pool)));
 
   return router;
 }

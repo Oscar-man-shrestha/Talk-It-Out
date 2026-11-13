@@ -7,6 +7,7 @@ import { Pool } from 'pg';
 import { Config } from './config';
 import { ApiError } from './errors';
 import { createApiRouter } from './routes';
+import { RealtimeHub } from './realtime';
 import { createInternalPipelineRouter } from './internal/pipeline';
 
 /**
@@ -108,7 +109,10 @@ export function buildApp(pool: Pool, appConfig: Config): Express {
     handler: rateLimited(60),
   });
 
-  const api = createApiRouter(pool, appConfig, { authLimiter });
+  // One live-update hub per app; server.ts closes it on shutdown.
+  const realtime = new RealtimeHub(pool);
+  app.locals.realtime = realtime;
+  const api = createApiRouter(pool, appConfig, { authLimiter, realtime });
   // The global limiter covers the public mounts only, never /internal.
   const publicOnly = (req: Request, res: Response, next: express.NextFunction) => {
     if (req.path === '/internal' || req.path.startsWith('/internal/')) {

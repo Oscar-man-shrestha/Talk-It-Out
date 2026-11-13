@@ -35,6 +35,10 @@ async function main() {
     console.log(`Feed analysis worker running in-process (provider: ${config.feedProvider}).`);
   }
 
+  // Open live-update streams would keep server.close() waiting forever.
+  const realtime = app.locals.realtime as { close: () => Promise<void> } | undefined;
+  if (realtime) stop.push(() => void realtime.close());
+
   setupGracefulShutdown({ server, pools: [pool], stop });
 }
 

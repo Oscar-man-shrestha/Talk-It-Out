@@ -166,6 +166,7 @@ describe('migrations', () => {
       '008_password_resets.sql',
       '009_token_version.sql',
       '010_google_sign_in.sql',
+      '011_realtime_notify.sql',
     ]);
   });
 });

@@ -16,7 +16,7 @@ Rules for this file:
 **Current phase:** Complete for v1 scope (Run 073). App, backend and NLP worker run end to end with real rewrites; open product decisions D4, D10, D20–D22 are decided and built. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
-**Next step:** User creates the Google OAuth Web Client ID (docs/SETUP_GOOGLE_AND_EMAIL.md §2; the "OAuth client was not found / invalid_client" error means no real id is configured yet) and a Gmail app password (§1); both go in local config only. Then review and merge `temp/project-completion-run070`.
+**Next step:** Optional: a Gmail app password for real reset emails (docs/SETUP_GOOGLE_AND_EMAIL.md §1, entered by the user in `backend/.env`). Then review and merge `temp/project-completion-run070`.
 **Blockers:** None. Operational only: real rewrites need a running Kaggle session (rerun the launcher and update `pipeline/.env` per session).
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
@@ -2661,3 +2661,20 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] App changes limited to what the user approved, in the existing style
   - [x] No secrets committed; root `.env` now ignored; `main` untouched
 - **Next steps:** User provides the Google Web Client ID and a Gmail app password per the setup guide.
+
+### Run 079: Google sign-in live with a real OAuth client
+- **Date/time:** 2026-11-13 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 24 (improvements)
+- **Prompt / task:** User asked Claude to set up the Google OAuth client in their Cloud project (`handoff-512316`).
+- **Result:** Completed and verified with a real Google sign-in.
+- **Summary:** In Google Auth Platform → Clients, created a new Web application client "Talk It Out web" with JavaScript origins `http://localhost:52001`, `http://127.0.0.1:52001` and `http://localhost:8080`, no redirect URIs. The project's existing "Web client 1" and its branding were left untouched; the consent screen was already External and in production, so no audience change was needed. The client secret was neither copied nor stored (not used by this flow). The Client ID went into the gitignored `backend/.env` and the live web build (`--dart-define=GOOGLE_CLIENT_ID`). The user then clicked Continue with Google at `http://127.0.0.1:52001` and reached the app.
+- **Files created:** none in the repository
+- **Files modified:** `LOGS.md`; local only: `backend/.env` (GOOGLE_CLIENT_ID), `build/web-live`
+- **Commands run and results:** backend `POST /auth/google` with a junk token -> 401 (configured; was 503 before); database after the user's sign-in: `oscarmanshrestha@gmail.com` created through Google (`google_sub` set, no password, token_version 0) with one active refresh token (Keep active session on).
+- **Assumptions / decisions:** The earlier "OAuth client was not found / Error 401: invalid_client" came from the compile-check build's placeholder client id and is resolved by the real id.
+- **Issues / blockers / known bugs:** none. For a public domain, add its origin to the same client and rebuild with the same id.
+- **Hard-rules check:**
+  - [x] No secret committed; client secret not stored anywhere
+  - [x] The user performed the Google sign-in; `main` untouched
+- **Next steps:** Optional Gmail app password; review and merge the branch.

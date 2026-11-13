@@ -962,8 +962,10 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: 5),
-                                    const Text(
-                                      'Shown as written',
+                                    Text(
+                                      _postPublicly
+                                          ? 'Shown with your name'
+                                          : 'Turn on to comment',
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontFamily: 'monospace',
@@ -1017,7 +1019,11 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                     width: 32,
                                     height: 32,
                                     child: FilledButton(
-                                      onPressed: _busy ? null : _addComment,
+                                      // The switch is consent: feed comments
+                                      // always show your name.
+                                      onPressed: _busy || !_postPublicly
+                                          ? null
+                                          : _addComment,
                                       style: FilledButton.styleFrom(
                                         backgroundColor: _kPrimary,
                                         foregroundColor: Colors.white,

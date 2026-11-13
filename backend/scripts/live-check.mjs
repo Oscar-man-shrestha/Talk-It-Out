@@ -119,11 +119,20 @@ async function main() {
     check('reaction toggle (counts only)', r1.status === 200 && r1.body.reactions['👍'] === 1 && !JSON.stringify(r1.body).includes(M.id));
   }
 
+  // Named message in the author's chosen tone; then ask for a fresh rewrite.
+  const tone = await call('PUT', '/users/me/profile', { token: M.token, body: { rewrite_tone: 'direct' } });
+  check('rewrite tone saved (private setting)', tone.status === 200 && tone.body.user.rewrite_tone === 'direct');
   const second = await call('POST', `/groups/${gid}/messages`, { token: M.token, body: { text: 'Second message for the reject path.', is_anonymous: false } });
-  await waitFor(async () => {
+  const settled = async () => waitFor(async () => {
     const q = await call('GET', `/groups/${gid}/review-queue/${second.body.id}`, { token: C.token });
-    return q.status === 200 && ['done', 'failed'].includes(q.body.pipeline_status);
+    return q.status === 200 && ['done', 'failed'].includes(q.body.pipeline_status) ? q.body : null;
   }, 90);
+  await settled();
+  const again = await call('POST', `/messages/${second.body.id}/rewrite`, { token: C.token });
+  check('controller asks for a new rewrite', again.status === 202 && again.body.pipeline_status === 'queued');
+  const redone = await settled();
+  check('the new rewrite arrives', redone?.pipeline_status === 'done' && !!redone.rewritten_text,
+    redone ? `pipeline_status=${redone.pipeline_status}` : 'still queued after 90 s');
   const rej = await call('POST', `/messages/${second.body.id}/reject`, { token: C.token });
   check('reject', rej.status === 200 && rej.body.status === 'rejected');
   const notes = await call('GET', '/notifications', { token: M.token });
@@ -137,8 +146,9 @@ async function main() {
   check('controller deletes a published message', (await call('DELETE', `/groups/${gid}/messages/${ann.body.id}`, { token: C.token })).status === 204);
 
   // --- Feed --------------------------------------------------------------
-  const post = await call('POST', '/posts', { token: M.token, body: { content: `Live check post ${run}` } });
+  const post = await call('POST', '/posts', { token: M.token, body: { title: `Live check question ${run}?`, topic: 'culture', content: `Live check post ${run}` } });
   check('feed post (author shown)', post.status === 201 && post.body.author?.id === M.id);
+  check('question keeps title and topic', post.body.title === `Live check question ${run}?` && post.body.topic === 'culture');
   check('comment', (await call('POST', `/posts/${post.body.id}/comments`, { token: C.token, body: { content: 'Comment from the live check.' } })).status === 201);
   check('like', (await call('POST', `/posts/${post.body.id}/reactions`, { token: C.token, body: { type: 'like' } })).body.reaction_count === 1);
   const conv = await call('POST', `/posts/${post.body.id}/group`, { token: M.token });

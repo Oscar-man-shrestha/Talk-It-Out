@@ -12,8 +12,8 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-11-13 (IST)
-**Current phase:** Complete and verified end to end (Run 081): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together; `npm run check:live` passes 47/47 including a real AI rewrite. Branch `temp/project-completion-run070`.
+**Last updated:** 2026-11-14 (IST)
+**Current phase:** Complete and verified end to end (Run 084): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real. `npm run check:live` passes 51/51 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
 **Next step:** Review and merge `temp/project-completion-run070`. Optional: Gmail app password in `backend/.env` for real reset emails (user enters it); a larger model for higher rewrite fidelity.
@@ -50,10 +50,12 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 | 21 | Real-model connection (Kaggle tunnel + external worker) | Done | 072 |
 | 22 | Frontend–backend wiring (design unchanged) | Done | 071 |
 | 23 | Decided items D4, D10, D20–D22 and refresh tokens | Done | 073 |
+| 24 | Live updates (SSE) and chat identity fix | Done | 083 |
+| 25 | Feed questions, dead-control audit, rewrite tone | Done | 084 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
-**Quality gates (latest known):** Run 081: live whole-stack check 47/47; Flutter 70 passed, analyze 0, format clean; pipeline 150 passed; backend 192 passed (Run 078) with runtime audit 0. GitHub Actions `backend-ci`, `flutter-ci`, `pipeline-ci`, `stack-ci` green on the last pushed commits.
+**Quality gates (latest known):** Run 084: live whole-stack check 51/51; Flutter 88 passed, analyze 0, format clean; pipeline 152 passed; backend 208 passed, lint clean. GitHub Actions `backend-ci`, `flutter-ci`, `pipeline-ci`, `stack-ci` green on the last pushed commits.
 
 **Pipeline notebook handoff:** Kaggle GPU environment verified with vLLM serving Qwen2.5-3B-Instruct (0 hijacks on adversarial probes). End-to-end claim/rewrite/result cycle against live backend verified (Run 057).
 
@@ -2719,3 +2721,43 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
 - **Files modified:** `backend/scripts/live-check.mjs`, `LOGS.md`
 - **Commands run and results:** `npm run lint` pass; GitHub `backend-ci` success, `flutter-ci` / `pipeline-ci` / `stack-ci` success on `06f374e`; `npm run check:live` 47/47.
 - **Next steps:** Review and merge; optional Gmail app password.
+
+### Run 083: Live updates, a pool crash fix and correct chat sides
+- **Date/time:** 2026-11-14 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 24 (Feature)
+- **Prompt / task:** "Is messaging live, like WhatsApp? Make it top notch."
+- **Result:** Completed
+- **Summary:** Postgres triggers (migration 011) send id-only `pg_notify` events. One `LISTEN` connection per API instance fans them out to permitted users over SSE (`GET /events?ticket=`, 60 s HMAC tickets, API.md 41). The app's `RealtimeClient` (EventSource on web, HttpClient elsewhere) reconnects with backoff and resyncs. Providers refresh on matching events with a 250 ms debounce (groups, chat, review, feed, alerts). Two-browser check: posts, member adds and announcements appear without reload. Also: an idle pg connection dropped by a Postgres restart crashed the API; the pool now has an error listener. Chat placed anyone named "Priya" on the right and gave the Controller badge by name; both now use user ids.
+- **Files created:** `backend/migrations/011_realtime_notify.sql`, `backend/src/realtime.ts`, `backend/src/routes/events.ts`, `backend/test/{realtime,db-pool}.test.ts`, `lib/core/realtime/*`, `test/{realtime,chat_bubble_identity}_test.dart`
+- **Files modified:** backend app/server/routes index/db, group/review/feed/notification providers, `group_chat_screen.dart`, `pubspec.yaml` (`web`), `API.md`
+- **Dependencies added:** `web` (Dart; EventSource on the web build)
+- **Hard-rules check:** [x] events carry ids only, never message text or sender; [x] review events go to the group's controller only; [x] no RawMessage outside review
+- **Next steps:** Feed improvements.
+
+### Run 084: Feed questions, every control working, rewrite tone, deep links
+- **Date/time:** 2026-11-14 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 25 (Feature / Fix)
+- **Prompt / task:** "The Feed's ask-question form is not good" and "make it as good as possible; each feature should work from the frontend" (user asleep; worked autonomously on the temp branch).
+- **Result:** Completed
+- **Summary:**
+  - **Ask a question:** a real form with a title (8–150), a required topic, details (≤5000), counters, inline errors, a public-name notice and a discard confirm. Posts store `title` and `topic` (migration 012, API.md 42). The Feed filters by the real topic and sorts by newest, likes or discussion. The "weekly" board is really 7 days. Wrong copy is fixed: the Feed claimed "anonymous queries synthesized by AI".
+  - **Dead buttons audit:** 8 `onPressed: () {}` handlers.
+    - Review "rerun" and the detail menu ask the AI for a new rewrite (`POST /messages/:id/rewrite`, API.md 43; the old rewrite is cleared so nothing stale can be accepted).
+    - Review filters now apply. The ordering works; the relevance mark only labels and never hides.
+    - Question page: bookmark (saved on the device, plus a "Saved" filter), share (copies a link), menu (copy, save, start group). "Post Publicly" is now real consent: switched off, a comment cannot be sent.
+    - Chat: emoji picker; attach explains that chats are text only.
+  - **Default Tone Target** was local-only. It is now saved (migration 013, API.md 44) and sent to the worker as a wording hint. Anonymous messages always get `professional`, so a style cannot point to an author. Documented trade-off: a non-default tone tells the worker the message is named.
+  - **Deep links:** a reload or shared link always landed on Groups. The router now carries `?from=` through loading and sign-in (in-app paths only).
+- **Files created:** `backend/migrations/{012_post_title_topic,013_rewrite_tone}.sql`, `backend/test/{feed-questions,review-rewrite,rewrite-tone}.test.ts`, `lib/features/feed/{data/post_topic,saved_posts}.dart`, `test/{ask_question,inert_controls,return_to}_test.dart`
+- **Files modified:** feed/messages/profiles routes, internal pipeline claim, pipeline `http_client.py`/`rewrite.py`/`worker.py` (+tests), Flutter feed/review/chat/profile/router files, `app_strings.dart`, `API.md`, `backend/docs/groups-pipeline-contract.md`, `README.md`, `backend/scripts/live-check.mjs` (now also checks a new rewrite, the tone and question fields)
+- **Commands run and results:** backend 208 passed, lint and build clean; pipeline 152 passed; Flutter 88 passed, analyze 0, format clean; `npm run check:live` 51/51 with real Ollama rewrites. Browser (live build): posted a question from the new form; checked bookmark, share ("Link copied."), the menu, and that a reload stays on the Feed.
+- **Hard-rules check:**
+  - [x] Feed still never anonymous (the copy now says so)
+  - [x] Relevance never hides a message
+  - [x] No rewrite editing (a controller can only ask the AI again); no rejection reasons
+  - [x] Worker payload still has no identity or `is_anonymous`
+  - [x] `main` untouched
+- **Next steps:** Review and merge `temp/project-completion-run070`. (The test question posted while checking the form was deleted from the local database afterwards.)
+

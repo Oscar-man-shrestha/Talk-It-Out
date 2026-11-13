@@ -12,5 +12,9 @@ abstract class AuthRepository {
 
   Future<User> me();
 
+  /// Asks for a long-lived refresh token for the signed-in user. Returns
+  /// null when the backend does not offer one (the mock never does).
+  Future<String?> issueRefreshToken();
+
   Future<void> logout();
 }

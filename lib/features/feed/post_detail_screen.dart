@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/core/ui/screen_async.dart';
-import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/core/utils/relative_time.dart';
+import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
 import 'package:talk_it_out/features/feed/data/comment.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
@@ -477,7 +478,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                     ),
                                     SizedBox(width: 4),
                                     Text(
-                                      'ENCRYPTED',
+                                      'PUBLIC',
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w700,
@@ -850,7 +851,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                     ),
                                     const SizedBox(width: 5),
                                     const Text(
-                                      'AI Rewrite: Active',
+                                      'Shown as written',
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontFamily: 'monospace',
@@ -1108,13 +1109,17 @@ class _DiscussionItem extends StatelessWidget {
                   ),
                   color: _kSurface,
                   elevation: 3,
-                  onSelected: (val) {
+                  onSelected: (val) async {
+                    if (val == 'copy') {
+                      await Clipboard.setData(ClipboardData(text: content));
+                    }
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
                           val == 'copy'
                               ? 'Comment copied to clipboard'
-                              : 'Feedback logged securely',
+                              : 'Reporting is not available yet.',
                         ),
                         duration: const Duration(seconds: 1),
                         behavior: SnackBarBehavior.floating,
@@ -1131,27 +1136,6 @@ class _DiscussionItem extends StatelessWidget {
                           SizedBox(width: 8),
                           Text(
                             'Copy Text',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'tone',
-                      height: 34,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.auto_awesome,
-                            size: 14,
-                            color: _kTextSecondary,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Inspect Tone Stack',
                             style: TextStyle(
                               fontSize: 12,
                               color: _kTextPrimary,

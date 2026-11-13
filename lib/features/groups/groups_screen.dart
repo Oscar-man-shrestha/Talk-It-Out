@@ -428,7 +428,7 @@ class _ProtocolBanner extends StatelessWidget {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'Groups are moderated by a Controller with AI pre-screening to protect team candidness and eliminate toxicity.',
+                      'Each group has a controller. Messages are rewritten for tone and reviewed before they are published.',
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.4,

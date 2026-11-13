@@ -152,7 +152,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                     children: [
                       for (final entry in [
                         (0, 'All'),
-                        (1, 'Shielded Only'),
+                        (1, 'Anonymous Only'),
                         (2, 'Attributed Only'),
                       ])
                         Expanded(

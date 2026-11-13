@@ -383,7 +383,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(width: 5),
                     const Text(
-                      'Vault v2.4',
+                      'v1.0',
                       style: TextStyle(
                         fontSize: 11.5,
                         fontFamily: 'monospace',
@@ -490,7 +490,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Zero-Knowledge Moderation',
+                          'Reviewed before it is shared',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -499,7 +499,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                         SizedBox(height: 2),
                         Text(
-                          'End-to-end encrypted discourse with cryptographic pseudonyms and optional total contributor anonymity.',
+                          'Every message is rewritten for tone and checked by the group controller before anyone sees it. Anonymous messages hide your name from the group.',
                           style: TextStyle(
                             fontSize: 11.5,
                             height: 1.4,
@@ -522,7 +522,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'LIVE CONSENSUS ROOMS',
+                      'HOW IT WORKS',
                       style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w700,
@@ -531,7 +531,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     Text(
-                      '● 4 active',
+                      '● 3 steps',
                       style: TextStyle(
                         fontSize: 11,
                         fontFamily: 'monospace',
@@ -576,7 +576,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Autonomous Policy Audit',
+                              'Write, rewrite, review',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -585,7 +585,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             SizedBox(height: 2),
                             Text(
-                              '9 contributors deliberating',
+                              'Nothing is published without the controller',
                               style: TextStyle(
                                 fontSize: 11.5,
                                 color: _kTextSecondary,

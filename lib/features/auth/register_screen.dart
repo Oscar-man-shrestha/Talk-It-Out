@@ -659,7 +659,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             ),
                             const SizedBox(width: 4),
                             const Text(
-                              'End-to-end encrypted identity shielding',
+                              'Anonymous to the group, visible to the controller',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: _kTextSecondary,
@@ -752,7 +752,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 Icon(Icons.lock_reset, size: 14, color: _kTextTertiary),
                 SizedBox(width: 4),
                 Text(
-                  'Zero telemetry mode',
+                  'Message text is never logged',
                   style: TextStyle(
                     fontSize: 11,
                     fontFamily: 'monospace',

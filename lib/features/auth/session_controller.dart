@@ -4,6 +4,7 @@ import 'package:talk_it_out/core/api/dio_provider.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/models/user.dart';
 import 'package:talk_it_out/features/auth/auth_events.dart';
+import 'package:talk_it_out/features/auth/data/auth_session.dart';
 
 class SessionNotifier extends AsyncNotifier<User?> {
   @override
@@ -25,8 +26,7 @@ class SessionNotifier extends AsyncNotifier<User?> {
     final session = await ref
         .read(authRepositoryProvider)
         .login(email: email, password: password);
-    await ref.read(tokenStoreProvider).write(session.token);
-    state = AsyncData(session.user);
+    await _storeSession(session);
   }
 
   Future<void> register({
@@ -37,8 +37,7 @@ class SessionNotifier extends AsyncNotifier<User?> {
     final session = await ref
         .read(authRepositoryProvider)
         .register(name: name, email: email, password: password);
-    await ref.read(tokenStoreProvider).write(session.token);
-    state = AsyncData(session.user);
+    await _storeSession(session);
   }
 
   /// Keeps the signed-in user's display name in step with a profile edit.
@@ -46,6 +45,15 @@ class SessionNotifier extends AsyncNotifier<User?> {
     final user = state.value;
     if (user == null || user.name == name) return;
     state = AsyncData(user.copyWith(name: name));
+  }
+
+  Future<void> _storeSession(AuthSession session) async {
+    final tokens = ref.read(tokenStoreProvider);
+    await tokens.clear();
+    await tokens.write(session.token);
+    final refresh = await ref.read(authRepositoryProvider).issueRefreshToken();
+    if (refresh != null) await tokens.writeRefresh(refresh);
+    state = AsyncData(session.user);
   }
 
   Future<void> logout() async {

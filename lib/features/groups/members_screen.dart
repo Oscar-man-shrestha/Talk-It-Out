@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:talk_it_out/app/repository_providers.dart';
+import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/models/enums.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/core/ui/labels.dart';
@@ -58,12 +59,17 @@ class MembersScreen extends ConsumerWidget {
   }
 
   Future<void> _leaveGroup(BuildContext context, WidgetRef ref) async {
+    final isController =
+        ref.read(groupDetailProvider(groupId)).value?.myRole ==
+        GroupRole.controller;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Leave Group?'),
-        content: const Text(
-          'Are you sure you want to leave this deliberation? You will no longer receive updates or be able to submit messages.',
+        content: Text(
+          isController
+              ? 'Are you sure you want to leave this deliberation? You will no longer receive updates or be able to submit messages. The member who joined earliest will become the controller.'
+              : 'Are you sure you want to leave this deliberation? You will no longer receive updates or be able to submit messages.',
         ),
         actions: [
           TextButton(
@@ -80,7 +86,15 @@ class MembersScreen extends ConsumerWidget {
     );
 
     if (confirmed == true && context.mounted) {
-      await ref.read(groupRepositoryProvider).leaveGroup(groupId);
+      try {
+        await ref.read(groupRepositoryProvider).leaveGroup(groupId);
+      } on RepositoryException catch (error) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(error.message)));
+        }
+        return;
+      }
       ref.invalidate(groupsProvider);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

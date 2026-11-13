@@ -45,8 +45,26 @@ class ApiAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<String?> issueRefreshToken() async {
+    try {
+      final response = await _dio.post(Endpoints.refreshTokens);
+      final token = asJsonMap(response.data)['refresh_token'];
+      return token is String && token.isNotEmpty ? token : null;
+    } catch (_) {
+      // Optional: without it the user simply signs in again when the access
+      // token expires, exactly as before.
+      return null;
+    }
+  }
+
+  @override
   Future<void> logout() {
     return guardApi(() async {
+      try {
+        await _dio.delete(Endpoints.refreshTokens);
+      } catch (_) {
+        // Revoking is best-effort; local sign-out still happens.
+      }
       await _dio.post(Endpoints.logout);
     });
   }

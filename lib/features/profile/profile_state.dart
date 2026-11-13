@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
+import 'package:talk_it_out/core/utils/image_download.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
 import 'package:talk_it_out/features/profile/data/profile.dart' as api;
 import 'package:talk_it_out/features/profile/data/profile_repository.dart';
@@ -289,9 +290,8 @@ class UserProfileNotifier extends Notifier<UserProfile> {
   Future<void> setCoverImage(String? url) =>
       _setImage(api.ProfileImageKind.cover, url);
 
-  /// A picked file arrives as a data URL and is uploaded. An empty value
-  /// removes the image. A preset web address has no bytes to upload, so it
-  /// is shown on this device only.
+  /// Uploads a picked file (data URL) or a preset picture (downloaded first).
+  /// An empty value removes the image.
   Future<void> _setImage(api.ProfileImageKind kind, String? url) {
     final isAvatar = kind == api.ProfileImageKind.avatar;
     UserProfile withUrl(String? value) => isAvatar
@@ -302,12 +302,17 @@ class UserProfileNotifier extends Notifier<UserProfile> {
     if (value == null) {
       return _optimistic(withUrl(null), () => _repo.removeImage(kind));
     }
-    final bytes = _decodeDataUrl(value);
-    if (bytes == null) {
-      state = withUrl(value);
-      return Future.value();
-    }
     return _optimistic(withUrl(value), () async {
+      // A picked file arrives as a data URL; a preset is downloaded first.
+      final bytes =
+          _decodeDataUrl(value) ??
+          (value.startsWith('http') ? await downloadPresetImage(value) : null);
+      if (bytes == null) {
+        throw const RepositoryException(
+          code: 'unsupported_media_type',
+          message: AppStrings.imageUnsupported,
+        );
+      }
       final stored = await _repo.uploadImage(
         kind,
         bytes: bytes,
@@ -504,8 +509,8 @@ UserProfile _fromApi(api.Profile profile, {required UserProfile keep}) {
     headline: profile.headline,
     bio: profile.bio,
     location: profile.location,
-    avatarUrl: profile.avatarUrl ?? _localOnly(keep.avatarUrl),
-    coverImageUrl: profile.coverUrl ?? _localOnly(keep.coverImageUrl),
+    avatarUrl: profile.avatarUrl,
+    coverImageUrl: profile.coverUrl,
     linkedinUrl: profile.linkedinUrl,
     githubUrl: profile.githubHandle.isEmpty
         ? ''
@@ -519,12 +524,6 @@ UserProfile _fromApi(api.Profile profile, {required UserProfile keep}) {
     skills: profile.skills,
   );
 }
-
-/// Keeps a preset image chosen on this device; server images win otherwise.
-String? _localOnly(String? url) =>
-    url != null && url.startsWith('http') && !url.contains('/media/')
-    ? url
-    : null;
 
 /// "github.com/priya" or "https://github.com/priya/" → "priya".
 String githubHandleFrom(String value) {

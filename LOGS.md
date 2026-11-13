@@ -13,11 +13,11 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-13 (IST)
-**Current phase:** Real-model pipeline live (Run 072). The app, backend and Python worker now run end to end with real AI rewrites from Qwen2.5-3B-Instruct served on a Kaggle GPU through an authenticated Cloudflare tunnel. Branch `temp/project-completion-run070`.
+**Current phase:** Complete for v1 scope (Run 073). App, backend and NLP worker run end to end with real rewrites; open product decisions D4, D10, D20–D22 are decided and built. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
-**Next step:** Product decisions D4, D10, D20–D22. For each new Kaggle session, rerun the launcher cell and update `MODEL_ENDPOINT`/`MODEL_API_KEY` in `pipeline/.env` (Run 072 notes). Consider a larger model if rewrite fidelity on complaints matters (Run 072 issues).
-**Blockers:** None for the build. Operational: the model endpoint lives only as long as the Kaggle session (free GPU quota about 30 h/week); the dev Mac cannot host the model. D4 and D10 remain open product decisions.
+**Next step:** Review and merge the temp branch when ready. Remaining open rows (D1–D3, D5, D7–D9, D11–D14, D16, D18) record defaults already in use and only need confirming. Optional: a larger model for rewrite fidelity; an account-deletion endpoint that reuses `handOverControl`.
+**Blockers:** None. Operational only: real rewrites need a running Kaggle session (rerun the launcher and update `pipeline/.env` per session).
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
 8. Run 060 assessed the current repository: the Flutter frontend retains the intended feature-first/Riverpod/repository structure and privacy test boundary, but the latest visual screens bypass their repository models with fixed demo content. Flutter verification was attempted but produced no output for 90 seconds and was stopped, so no current analysis or test pass is claimed.
@@ -49,10 +49,11 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 | 20 | Backend additions: profiles, media, reactions, read-all, refresh tokens | Done | 067 |
 | 21 | Real-model connection (Kaggle tunnel + external worker) | Done | 072 |
 | 22 | Frontend–backend wiring (design unchanged) | Done | 071 |
+| 23 | Decided items D4, D10, D20–D22 and refresh tokens | Done | 073 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
-**Quality gates (latest known):** Flutter: format clean, analyze 0 issues, 43 tests passed (Run 071). Backend: 156 passed (Run 071). Pipeline: 148 passed (Run 072). Model smoke: functional PASS; adversarial 3/4 PASS automatically, the 4th (append_token) PASS on manual review (Run 072). Live end-to-end with the real model: submit → rewrite (4 s) → accept → published anonymously → status-only for the contributor (Run 072).
+**Quality gates (latest known):** Flutter: format clean, analyze 0 issues, 49 tests passed (Run 073). Backend: lint and typecheck pass, 157 tests passed (Run 073). Pipeline: 148 passed (Run 073). Live: sign-in issues a refresh token; controller hand-over and `last_member` verified against the running backend; real-model rewrite end to end (Run 072).
 
 **Pipeline notebook handoff:** Kaggle GPU environment verified with vLLM serving Qwen2.5-3B-Instruct (0 hijacks on adversarial probes). End-to-end claim/rewrite/result cycle against live backend verified (Run 057).
 
@@ -67,13 +68,13 @@ Items the user should confirm. Agents add rows here when they make an assumption
 | D1 | Pipeline failure handling ("Rewrite unavailable" shown, controller still sees original) | Implemented as proposed | Open | |
 | D2 | Team 12 contract for Pipeline 2 (payload and result schema) | Flags rendered extensibly (`nsfw_flag` + `other_flags`) | Open | |
 | D3 | Relevance labels and thresholds | relevant / borderline / off-topic (labels come from backend) | Open | |
-| D4 | Controller transfer if controller leaves or deletes account | Not implemented (`TODO(open-item)`) | Open | |
+| D4 | Controller transfer if controller leaves or deletes account | Not implemented (`TODO(open-item)`) | Resolved | Oldest member takes over (user, 2026-11-13). `POST /groups/:id/leave` by a controller promotes the earliest-joined member in one transaction; a sole member gets `409 last_member`. Account deletion does not exist yet; it should reuse `handOverControl`. Run 073 |
 | D5 | Groups have no `name` in the schema | UI uses agenda as the group title | Open | |
 | D6 | Can the controller send messages in their own group? | Controller can post official announcements directly and delete messages | Resolved | Controller can post announcements directly (without anonymity checkbox) and delete accepted messages. Contributors use standard proposal queue. |
 | D7 | Can one post spawn multiple groups, and who may trigger it? | Only the post author is offered the action | Open | |
 | D8 | Login/profile fields (PRD says only "profile fields") | `id`, `name`, `email` | Open | |
 | D9 | Reaction types | Single `like`, extensible | Open | |
-| D10 | Notification delivery (polling vs push) | Polling on app resume + pull-to-refresh; FCM later | Open | |
+| D10 | Notification delivery (polling vs push) | Polling on app resume + pull-to-refresh; FCM later | Resolved | Polling, no push (user, 2026-11-13): unread count re-checked on resume and every 30 s in the foreground; the Alerts list reloads when it changes. Run 073 |
 | D11 | Sender sees status of their own messages ("My messages") | Yes, status only, no reason | Open | |
 | D12 | API contract in `API.md` is proposed, not confirmed by backend | Used as written | Open | |
 | D13 | `CURSOR_FRONTEND_BRIEF.md` was missing (Run 000 said it existed). Reconstructed this run from the other docs and PRD v1. | Brief section 7 copy and section 9 prompts used as written | Open | |
@@ -82,9 +83,9 @@ Items the user should confirm. Agents add rows here when they make an assumption
 | D16 | Backend list orderings and small response defaults not pinned by the client contract | Backend orders: groups & notifications newest-first, `/messages/mine` newest-first, members / chat / review-queue oldest-first; `POST /notifications/:id/read` returns 204 with no body; a notification not owned by the caller is 404 (no existence leak); invalid `limit`/`cursor` → 400 envelope; `limit` clamped to 100 | Open | |
 | D17 | How the real NLP pipeline replaces the stub worker | `backend/src/worker/stubWorker.ts` is a labeled placeholder (prefix "rewrite", constant scores) behind the `jobs` outbox; swap the `processJob` body, keep the pending-only guards | Resolved | External Python worker under `pipeline/` claims via the internal HTTP API with `PIPELINE_MODE=external`; foundation implemented in Run 046 |
 | D18 | Pipeline scoring method (contract requires scores; no calibrated confidence exists) | Deterministic heuristics in `pipeline/talkitout_pipeline/scoring.py` (length/digit-loss penalties; agenda-word overlap for relevance); thresholds provisional and advisory only | Open | |
-| D20 | Preset avatar/cover pictures (fixed web addresses) have no file to upload | Picked files upload to `/users/me/avatar` and `/users/me/cover`; a preset is shown on that device only and is not saved | Open | |
-| D21 | Screen controls with no backend or v1 behind them were kept to preserve the design | Kept but inert: review queue relevance slider and priority order (relevance must never hide messages), Forgot password, Keep active session, profile Share, Approved/Rejected review tabs (the API lists pending only, shown with "–") | Open | |
-| D22 | Descriptive copy that overstates the product ("end-to-end encrypted", "Zero-Knowledge", "cryptographic", "AI Rewrite: Active" on feed comments) | Left unchanged because the user asked for no frontend changes; only invented data was replaced | Open | |
+| D20 | Preset avatar/cover pictures (fixed web addresses) have no file to upload | Picked files upload to `/users/me/avatar` and `/users/me/cover`; a preset is shown on that device only and is not saved | Resolved | Preset pictures are downloaded (Unsplash asked for JPEG) and uploaded like picked files, so they are saved on the server. Run 073 |
+| D21 | Screen controls with no backend or v1 behind them were kept to preserve the design | Kept but inert: review queue relevance slider and priority order (relevance must never hide messages), Forgot password, Keep active session, profile Share, Approved/Rejected review tabs (the API lists pending only, shown with "–") | Resolved | Fix wording only (user, 2026-11-13). Profile Share now copies a profile summary; comment Copy really copies; the comment "Inspect Tone Stack" item was removed and Report says it is not available yet. Forgot password stays inert (needs an email service). Run 073 |
+| D22 | Descriptive copy that overstates the product ("end-to-end encrypted", "Zero-Knowledge", "cryptographic", "AI Rewrite: Active" on feed comments) | Left unchanged because the user asked for no frontend changes; only invented data was replaced | Resolved | Fix wording only (user, 2026-11-13). Encryption, zero-knowledge, cryptographic, telemetry and "AI pre-screening/eliminate toxicity" claims replaced in place with accurate text; the login screen's invented "live rooms" card now explains the three steps. Run 073 |
 | D19 | Prompt-injection defense for the model layer | Delimiters + system-prompt data rule + deterministic validation; verified on Kaggle with Qwen2.5-3B-Instruct (0 hijacks across all 4 synthetic probes; manual review confirmed safe) | Resolved | Delimiters and data-only system prompt verified empirically against real model |
 
 ---
@@ -2500,4 +2501,51 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] Relevance stayed advisory; nothing auto-rejected on relevance
   - [x] No frontend change in this run
 - **Next steps:** Decide D4, D10, D20–D22. Optionally evaluate a larger model for complaint fidelity.
+
+
+### Run 073: Off-repo open-source work (NumPy einsum bug), no project change
+- **Date/time:** 2026-11-13 (IST)
+- **Agent/tool:** Claude Code (Claude Fable 5.2)
+- **Phase:** none (unrelated to the build phases)
+- **Prompt / task:** The user asked for an open-source contribution to a well-known library (pandas / scikit-learn / NumPy), with nothing posted without their approval.
+- **Result:** Completed locally. Nothing pushed, posted or filed.
+- **Summary:** All work happened outside this repo in `/Users/oscar/Projects/oss-contrib/`. Found by differential fuzzing that `np.einsum(..., optimize=True)` returns wrong values for mixed-dtype operands (bool reduced with logical-or, small ints overflow) in NumPy 2.4.4–2.5.4 and nightly; 2.3.5 is correct. Root cause is `bmm_einsum` in `numpy/_core/einsumfunc.py` summing single-term indices in the term's own dtype. Fix and regression tests committed locally on branch `fix-einsum-optimize-intermediate-dtype` (commit 6fcc2df) in the NumPy clone. Study notes in `/Users/oscar/Projects/oss-contrib/NOTES-einsum-bug.md`.
+- **Files created:** none in this repo
+- **Files modified:** `LOGS.md` (this entry only)
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:** none against this project; quality gates not run because no project code changed. In the NumPy clone: `test_einsum.py` 99 passed with the patch (21 new cases fail without it); `ruff check` clean. A from-source NumPy build failed with "No space left on device".
+- **Docs updated:** `LOGS.md` (this entry)
+- **Assumptions / decisions:** NumPy's AI policy requires the contributor to write issue/PR text themselves and to disclose AI use, so no issue or PR text was drafted for posting.
+- **Issues / blockers / known bugs:** The dev Mac's disk is about 98% full (about 5 GB free).
+- **Hard-rules check:**
+  - [x] No frontend, backend, pipeline or schema change; no new dependency; nothing pushed
+- **Next steps:** Unchanged from Run 072 for this project.
+
+### Run 073: Decided items D4, D10, D20–D22, plus refresh tokens
+- **Date/time:** 2026-11-13 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 23
+- **Prompt / task:** "Complete what is remaining." The user decided D4 (oldest member takes over), D10 (keep polling, every 30 s) and D21/D22 (fix wording only).
+- **Result:** Completed. Not pushed; `main` untouched.
+- **Summary:** D4: `POST /groups/:id/leave` now lets a controller leave; `handOverControl` promotes the earliest-joined member inside one transaction (row lock on the group; the old controller row is deleted first because of `one_controller_per_group`), and a sole member gets `409 last_member`. The app's two Leave buttons now catch errors, and controllers see who takes over in the confirm dialog; the mock mirrors the rule. D10: the unread count is re-checked every 30 s while the app is in the foreground (paused in the background) and reloads the Alerts list on change. D20: preset pictures are downloaded and uploaded, so they persist. D21/D22: overstated wording replaced in place on login, register, chat, profile, feed, post detail, review and groups screens; Share copies a profile summary and comment Copy really copies. Refresh tokens (API 35): issued after sign-in, stored in secure storage, exchanged once on a 401 through a single shared in-flight call (reuse would revoke the family), request replayed, revoked on sign-out.
+- **Summary:** Earlier this run: committed Run 072 pipeline fix as `18d77c4`.
+- **Files created:** `lib/core/utils/image_download.dart`, `test/session_and_handover_test.dart`
+- **Files modified:** `backend/src/routes/groups.ts`, `backend/test/group-ops.test.ts`, `lib/core/api/{dio_provider,endpoints}.dart`, `lib/core/storage/token_store.dart`, `lib/features/auth/{session_controller,login_screen,register_screen}.dart`, `lib/features/auth/data/{auth_repository,api_auth_repository,mock_auth_repository}.dart`, `lib/features/notifications/notification_providers.dart`, `lib/features/groups/{group_chat_screen,members_screen,groups_screen}.dart`, `lib/features/groups/data/mock_group_repository.dart`, `lib/features/profile/{profile_state,profile_screen}.dart`, `lib/features/feed/{feed_screen,post_detail_screen}.dart`, `lib/features/review/{review_queue_screen,review_detail_screen}.dart`, `API.md` (section 10: endpoint 35 use, new 36 leave/hand-over, D10 note), `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - backend `npx tsc --noEmit` pass; `npm run lint` pass; `npm test` 21 files, 157 passed (156 + hand-over test)
+  - `dart format` clean; `flutter analyze` 0 issues; `flutter test` 49 passed (43 + 6 new: shared refresh, failed refresh, 401 refresh-and-replay, mock hand-over, `last_member`, preset JPEG download)
+  - pipeline unit tests 148 passed
+  - `flutter build web` (live) and a browser sign-in: Priya's active refresh tokens went from 1 to 2
+  - live API: sole controller leave -> 409 `last_member`; add member, controller leaves -> 204, old controller 403, member is now controller with review-queue access
+- **Docs updated:** `API.md` §10, `LOGS.md` Status Snapshot, Open Decisions D4, D10, D20, D21, D22 resolved
+- **Assumptions / decisions:** A new controller's own pending messages appear in their queue; anonymous senders of still-pending messages become visible to the new controller, consistent with "visible to the controller" (the role). A new test found and fixed a real bug: editing Dart's read-only `queryParameters` made every preset download fail silently.
+- **Issues / blockers / known bugs:** Forgot password remains inert (needs an email service). No account-deletion endpoint exists.
+- **Hard-rules check:**
+  - [x] No rewrite editing, rejection reasons, audit log or relevance-based hiding added
+  - [x] Tokens only in secure storage; no secrets committed
+  - [x] Feed still shows authors; `RawMessage` still confined to `features/review`
+- **Next steps:** Review and merge the branch; confirm the remaining default-in-use decisions.
 

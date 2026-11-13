@@ -85,6 +85,9 @@ class MockAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<String?> issueRefreshToken() async => null;
+
+  @override
   Future<void> logout() {
     return runMock(_controls, () {});
   }

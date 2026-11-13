@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talk_it_out/app/repository_providers.dart';
@@ -56,16 +58,35 @@ final notificationsProvider =
       NotificationsNotifier.new,
     );
 
+/// How often the unread count is re-checked while the app is in the
+/// foreground (D10, decided 2026-11-13: polling, no push service).
+const notificationPollInterval = Duration(seconds: 30);
+
 class UnreadCountNotifier extends AsyncNotifier<int> {
   @override
   Future<int> build() async {
+    // Re-check when the app returns to the foreground and every
+    // [notificationPollInterval] while it stays there. No polling while the
+    // app is in the background.
     final observer = _ResumeObserver(() {
       if (!ref.mounted) return;
       ref.invalidateSelf();
     });
     WidgetsBinding.instance.addObserver(observer);
-    ref.onDispose(() => WidgetsBinding.instance.removeObserver(observer));
+    final timer = Timer.periodic(notificationPollInterval, (_) {
+      if (!ref.mounted || !observer.inForeground) return;
+      ref.invalidateSelf();
+    });
+    ref.onDispose(() {
+      timer.cancel();
+      WidgetsBinding.instance.removeObserver(observer);
+    });
+    final previous = state.value;
     final count = await ref.watch(notificationRepositoryProvider).unreadCount();
+    // Something new (or newly read elsewhere): refresh the Alerts list too.
+    if (previous != null && previous != count.count && ref.mounted) {
+      ref.invalidate(notificationsProvider);
+    }
     return count.count;
   }
 }
@@ -78,9 +99,11 @@ class _ResumeObserver extends WidgetsBindingObserver {
   _ResumeObserver(this.onResume);
 
   final VoidCallback onResume;
+  var inForeground = true;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) onResume();
+    inForeground = state == AppLifecycleState.resumed;
+    if (inForeground) onResume();
   }
 }

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:talk_it_out/core/models/enums.dart';
+import 'package:talk_it_out/core/models/group.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/core/ui/screen_async.dart';
 import 'package:talk_it_out/core/utils/image_picker_helper.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/core/widgets/safe_image.dart';
-import 'package:talk_it_out/core/models/enums.dart';
-import 'package:talk_it_out/core/models/group.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
 import 'package:talk_it_out/features/feed/data/post.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
@@ -282,7 +283,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     _EditProfileTextField(
                       label: 'Professional Headline',
                       controller: headlineCtrl,
-                      hint: 'Staff Privacy Architect • Zero-Knowledge Systems',
+                      hint: 'e.g. Product designer',
                       icon: Icons.subtitles_outlined,
                       maxLines: 2,
                     ),
@@ -873,7 +874,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               _EditProfileTextField(
                 label: 'Details & Focus',
                 controller: detailsCtrl,
-                hint: 'Specialization in Applied Cryptography & Distributed Systems',
+                hint: 'e.g. Focus on machine learning',
                 icon: Icons.menu_book_outlined,
                 maxLines: 2,
               ),
@@ -950,7 +951,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           controller: skillCtrl,
           autofocus: true,
           decoration: const InputDecoration(
-            hintText: 'e.g. Zero-Knowledge Proofs, Flutter, Rust',
+            hintText: 'e.g. Flutter, Research, Design',
           ),
         ),
         actions: [
@@ -1062,11 +1063,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.share_outlined, size: 18),
-                    tooltip: 'Share Public Profile',
-                    onPressed: () {
+                    tooltip: 'Copy profile summary',
+                    onPressed: () async {
+                      final summary = [
+                        profile.name,
+                        if (profile.headline.isNotEmpty) profile.headline,
+                        if (profile.location.isNotEmpty) profile.location,
+                        'on Talk It Out',
+                      ].join(' · ');
+                      await Clipboard.setData(ClipboardData(text: summary));
+                      if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Public Profile Link copied!'),
+                          content: Text('Profile summary copied.'),
                           duration: Duration(seconds: 1),
                         ),
                       );
@@ -1406,7 +1415,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: const Text(
-                                      'ZK-SHIELDED',
+                                      'MEMBER',
                                       style: TextStyle(
                                         fontSize: 9,
                                         fontFamily: 'monospace',
@@ -1839,7 +1848,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       ),
                                     ),
                                     Text(
-                                      'Ephemeral mask active',
+                                      'Anonymous option available',
                                       style: TextStyle(
                                         fontSize: 11,
                                         color: _kTextSecondary,
@@ -1892,7 +1901,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               Row(
                                 children: [
                                   const Text(
-                                    'SALT: ',
+                                    'DISPLAY ID: ',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontFamily: 'monospace',
@@ -2076,7 +2085,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Cryptographic Decoupling Active',
+                                'How anonymity works',
                                 style: TextStyle(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w700,
@@ -2085,7 +2094,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ),
                               SizedBox(height: 2),
                               Text(
-                                'Your true identity is cryptographically separated from group submissions. Only you and designated controllers see designated audit metadata.',
+                                'Anonymous messages are hidden from the group but visible to the controller, who reviews every message before it is published.',
                                 style: TextStyle(
                                   fontSize: 11,
                                   height: 1.35,

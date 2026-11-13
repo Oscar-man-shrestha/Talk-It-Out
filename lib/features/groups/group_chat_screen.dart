@@ -39,12 +39,17 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
   }
 
   Future<void> _leaveGroup() async {
+    final isController =
+        ref.read(groupDetailProvider(widget.groupId)).value?.myRole ==
+        GroupRole.controller;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Leave Group?'),
-        content: const Text(
-          'Are you sure you want to leave this deliberation? You will no longer receive updates or be able to contribute.',
+        content: Text(
+          isController
+              ? 'Are you sure you want to leave this deliberation? You will no longer receive updates or be able to contribute. The member who joined earliest will become the controller.'
+              : 'Are you sure you want to leave this deliberation? You will no longer receive updates or be able to contribute.',
         ),
         actions: [
           TextButton(
@@ -61,7 +66,15 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
     );
 
     if (confirmed == true && mounted) {
-      await ref.read(groupRepositoryProvider).leaveGroup(widget.groupId);
+      try {
+        await ref.read(groupRepositoryProvider).leaveGroup(widget.groupId);
+      } on RepositoryException catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(error.message)));
+        }
+        return;
+      }
       ref.invalidate(groupsProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -145,7 +158,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                       ],
                     ),
                     content: const Text(
-                      'Zero-Knowledge Identity Decoupling is active.\n\nAnonymous submissions are mathematically shielded from peers and signed with ephemeral blinded keys. Controllers only see the neutral rephrase proposal.',
+                      'Anonymous messages are hidden from the group but visible to the controller.\n\nEvery message is rewritten for tone, then the controller reviews the original next to the rewrite and decides whether to publish it. Other members never see your original wording.',
                       style: TextStyle(fontSize: 13, height: 1.4),
                     ),
                     actions: [

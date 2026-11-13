@@ -382,7 +382,7 @@ Response `200`: `{ "count": 2 }`
 
 ## 10. Backend additions (migrations 005–007)
 
-These endpoints are covered by backend tests. Since Run 071 the app calls endpoints 27–31 through `ApiProfileRepository`, 33 through `ApiGroupRepository.getReactions`/`toggleReaction`, and 34 through `ApiNotificationRepository.markAllRead`. Endpoint 35 (refresh tokens) is not called yet: the app keeps the stateless access token only. Endpoints 1–26 above are unchanged; in particular, login/register still return exactly `{ token, user }`. Same conventions as section 1: snake_case JSON, `{ "error": { "code", "message" } }` envelope, everything except `GET /media/:mediaId` needs `Authorization: Bearer`.
+These endpoints are covered by backend tests. Since Run 071 the app calls endpoints 27–31 through `ApiProfileRepository`, 33 through `ApiGroupRepository.getReactions`/`toggleReaction`, and 34 through `ApiNotificationRepository.markAllRead`. Since Run 073 the app also uses endpoint 35: it requests a refresh token after sign-in, keeps it in secure storage, exchanges it once on a `401` (a single shared exchange, because reuse revokes the family) and replays the request; sign-out revokes it. Endpoints 1–26 above are unchanged; in particular, login/register still return exactly `{ token, user }`. Same conventions as section 1: snake_case JSON, `{ "error": { "code", "message" } }` envelope, everything except `GET /media/:mediaId` needs `Authorization: Bearer`.
 
 ### 27. GET `/users/:userId/profile` (also `/users/me/profile`)
 Response `200`:
@@ -433,4 +433,9 @@ Marks all of the caller's unread notifications as read. Response `200`: `{ "mark
 
 Only SHA-256 hashes of refresh tokens are stored. Access tokens stay stateless, exactly as before.
 
-**Still not built:** WebSockets or other real-time push (the app polls, see D10), and controller transfer (D4, a product decision).
+### 36. POST `/groups/:groupId/leave` (controller hand-over, D4)
+Unchanged for contributors (`204`). Since Run 073 a **controller** may leave too: the member who joined the group earliest (ties broken by user id) becomes the controller in the same transaction and takes over the review queue; the response is `204`. A controller who is the only member gets `409` `{ "error": { "code": "last_member", "message": "You are the only member, so there is nobody to take over this group." } }`. The old `409 controller_must_transfer` response no longer exists.
+
+**Notifications (D10, decided):** no push service. The app re-checks the unread count when it returns to the foreground and every 30 seconds while it stays there, and reloads the list when the count changes.
+
+**Still not built:** account deletion (when added, it should call the same hand-over for every group the user controls).

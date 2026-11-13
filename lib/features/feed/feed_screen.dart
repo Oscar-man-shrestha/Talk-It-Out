@@ -212,7 +212,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 if (!compactHeader) ...[
                   const SizedBox(width: 6),
                   const Text(
-                    'Verified AI',
+                    'Public',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
@@ -740,7 +740,7 @@ class _Leaderboard extends StatelessWidget {
               const SizedBox(width: 6),
               const Expanded(
                 child: Text(
-                  'TOP SYNTHESIZERS & CONSENSUS LEADERS',
+                  'MOST ACTIVE AUTHORS',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

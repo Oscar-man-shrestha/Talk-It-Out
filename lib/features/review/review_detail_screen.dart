@@ -561,7 +561,7 @@ class _SectionToggleBar extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         const Text(
-          'COMPARATIVE TONE STACKS',
+          'ORIGINAL AND REWRITE',
           style: TextStyle(
             fontFamily: 'monospace',
             fontSize: 12,

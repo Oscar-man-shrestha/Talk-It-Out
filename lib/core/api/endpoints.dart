@@ -4,6 +4,8 @@ abstract final class Endpoints {
   static const login = '/auth/login';
   static const me = '/me';
   static const logout = '/auth/logout';
+  static const refreshTokens = '/auth/refresh-tokens';
+  static const refresh = '/auth/refresh';
   static const groups = '/groups';
   static const posts = '/posts';
   static const notifications = '/notifications';

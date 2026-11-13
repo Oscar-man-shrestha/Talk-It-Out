@@ -496,10 +496,19 @@ export function createGroupsRouter(
     const role = await memberRole(pool, groupId, req.user!.id);
     if (role === null) throw forbidden();
     if (role === 'controller') {
-      throw conflict(
-        'controller_must_transfer',
-        'Controllers must transfer ownership before leaving.',
+      // D4 (decided 2026-11-13): the longest-standing remaining member takes
+      // over. A controller who is the only member has nobody to hand to.
+      const handedTo = await withTransaction(pool, (client) =>
+        handOverControl(client, groupId, req.user!.id),
       );
+      if (handedTo === null) {
+        throw conflict(
+          'last_member',
+          'You are the only member, so there is nobody to take over this group.',
+        );
+      }
+      res.status(204).end();
+      return;
     }
     await pool.query('DELETE FROM group_members WHERE group_id = $1 AND user_id = $2', [
       groupId,
@@ -510,3 +519,40 @@ export function createGroupsRouter(
 
   return router;
 }
+
+/**
+ * Removes the controller [leavingId] from [groupId] and promotes the member
+ * who joined earliest (ties broken by user id, so the choice is stable).
+ * Returns the new controller's id, or null when nobody else is a member; in
+ * that case nothing is changed. Run inside a transaction: the
+ * one_controller_per_group index requires the old controller row to be gone
+ * before the new one is promoted. Reusable by a future account-deletion flow.
+ */
+export async function handOverControl(
+  client: PoolClient,
+  groupId: string,
+  leavingId: string,
+): Promise<string | null> {
+  // Lock the group row so two concurrent leaves cannot both promote.
+  await client.query('SELECT id FROM groups WHERE id = $1 FOR UPDATE', [groupId]);
+  const { rows } = await client.query<{ user_id: string }>(
+    `SELECT user_id FROM group_members
+     WHERE group_id = $1 AND user_id <> $2
+     ORDER BY joined_at ASC, user_id ASC
+     LIMIT 1`,
+    [groupId, leavingId],
+  );
+  const next = rows[0]?.user_id;
+  if (!next) return null;
+  await client.query('DELETE FROM group_members WHERE group_id = $1 AND user_id = $2', [
+    groupId,
+    leavingId,
+  ]);
+  await client.query(
+    `UPDATE group_members SET role = 'controller' WHERE group_id = $1 AND user_id = $2`,
+    [groupId, next],
+  );
+  await client.query('UPDATE groups SET controller_id = $2 WHERE id = $1', [groupId, next]);
+  return next;
+}
+

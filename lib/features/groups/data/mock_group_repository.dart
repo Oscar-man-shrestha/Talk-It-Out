@@ -296,13 +296,23 @@ class MockGroupRepository implements GroupRepository {
   @override
   Future<void> leaveGroup(String groupId) {
     return runMock(_controls, () {
-      _requireGroup(groupId);
-      final currentMembers = _board.membersByGroup[groupId];
-      if (currentMembers != null) {
-        _board.membersByGroup[groupId] = currentMembers
-            .where((m) => m.userId != MockIds.priya)
-            .toList();
+      final group = _requireGroup(groupId);
+      final currentMembers = _board.membersByGroup[groupId] ?? const [];
+      final others = currentMembers
+          .where((m) => m.userId != MockIds.priya)
+          .toList();
+      // D4: a controller hands over to the earliest remaining member; with
+      // nobody left there is nobody to take over (backend `last_member`).
+      if (group.myRole == GroupRole.controller && others.isEmpty) {
+        throw const RepositoryException(
+          code: 'last_member',
+          message: 'You are the only member, so there is nobody to take over this group.',
+        );
       }
+      if (group.myRole == GroupRole.controller) {
+        others[0] = others[0].copyWith(role: GroupRole.controller);
+      }
+      _board.membersByGroup[groupId] = others;
       _board.groups.removeWhere((g) => g.id == groupId);
     });
   }

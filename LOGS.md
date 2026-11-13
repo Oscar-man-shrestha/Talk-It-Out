@@ -2678,3 +2678,15 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] No secret committed; client secret not stored anywhere
   - [x] The user performed the Google sign-in; `main` untouched
 - **Next steps:** Optional Gmail app password; review and merge the branch.
+
+### Run 080: Whole-stack integration sweep (partial; usage limit reached)
+- **Date/time:** 2026-11-13 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Verification
+- **Prompt / task:** Make sure every part of the stack is integrated and working.
+- **Result:** Partial
+- **Summary:** Added `npm run check:live` (`backend/scripts/live-check.mjs`): 41 checks against a running backend and database with throwaway accounts, cleaned up at the end. Result 39/41: everything passes (auth, groups, privacy, review, notifications, reactions, feed, profile and media, refresh, change password, logout-all, reset request, hand-over, CORS) except (1) the rewrite step, because `backend/.env` has `PIPELINE_MODE=external` but no Python worker is running and the Kaggle tunnel in `pipeline/.env` has expired, so new messages stay queued; (2) one cleanup sign-in hit the 10-per-15-minute login limit (script now reports this; leftover empty account removed). App walkthrough in live mode: Groups, chat (controller post and reaction), Alerts and Profile load with only expected 2xx/4xx responses.
+- **Open findings (not fixed yet):** (a) real AI needs a new Kaggle session + worker, or `PIPELINE_MODE=stub` meanwhile; (b) Alerts header showed "1 new" while the list was empty (the database has no notifications for that user; likely stale state, needs a look); (c) Feed defaults to the "Unanswered / Awaiting Consensus" filter, so posts with comments are hidden on first view.
+- **Files created:** `backend/scripts/live-check.mjs`
+- **Files modified:** `backend/package.json` (`check:live`), `LOGS.md`
+- **Next steps:** Restart Kaggle model and worker (blocked while a stale Google popup is open in the browser pane); fix (b) and (c); rerun `npm run check:live`.

@@ -11,6 +11,7 @@
     "migrate": "tsx src/migrate-cli.ts",
     "migrate:dist": "node dist/migrate-cli.js",
     "mail:test": "tsx src/mail-test-cli.ts",
+    "check:live": "node scripts/live-check.mjs",
     "test": "vitest run",
     "lint": "eslint ."
   },

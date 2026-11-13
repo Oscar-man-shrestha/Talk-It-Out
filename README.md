@@ -90,7 +90,8 @@ Controllers are room leaders. They have:
 
 | Feature | Description | Screen / Component |
 |---|---|---|
-| **🔐 Authentication & Session Lifecycle** | Login and registration. Access and rotating refresh tokens live only in `flutter_secure_storage`; on a `401` the app refreshes once and replays the request. "Forgot?" resets the password with an emailed 6-digit code (API.md 38); "Keep active session" decides whether a refresh token is kept. | [LoginScreen](lib/features/auth/login_screen.dart), [RegisterScreen](lib/features/auth/register_screen.dart) |
+| **🔐 Authentication & Session Lifecycle** | Login and registration. Access and rotating refresh tokens live only in `flutter_secure_storage`; on a `401` the app refreshes once and replays the request. **Sign in with Google** (API.md 40). "Forgot?" resets the password with an emailed 6-digit code (API.md 38); "Keep active session" decides whether a refresh token is kept. | [LoginScreen](lib/features/auth/login_screen.dart), [RegisterScreen](lib/features/auth/register_screen.dart), [ForgotPasswordScreen](lib/features/auth/forgot_password_screen.dart) |
+| **🛡️ Account Security** | Change password and "Sign out of all devices": every token carries a version, so ending sessions works instantly on every device. | [ProfileScreen](lib/features/profile/profile_screen.dart) |
 | **👥 Deliberation Groups** | Agenda-anchored rooms. The creator becomes `Controller`. | [GroupsScreen](lib/features/groups/groups_screen.dart), [CreateGroupScreen](lib/features/groups/create_group_screen.dart) |
 | **💬 Modern Bubble Group Chat** | Chat bubbles with left/right alignment, timestamps, and role badges. | [GroupChatScreen](lib/features/groups/group_chat_screen.dart) |
 | **👻 Per-Message Anonymity** | "Anonymous message" checkbox just before Send, with the disclosure that the controller can still see the sender. | [GroupChatScreen (Composer)](lib/features/groups/group_chat_screen.dart) |
@@ -121,6 +122,7 @@ Controllers are room leaders. They have:
 | **[backend/README.md](backend/README.md)** | **Backend:** setup, migrations, tests, deployment, and production checklist. |
 | **[backend/docs/groups-pipeline-contract.md](backend/docs/groups-pipeline-contract.md)** | **Worker contract:** the internal API between the backend and the rewrite worker. |
 | **[pipeline/README.md](pipeline/README.md)** | **Rewrite worker:** configuration, scoring, validation, and privacy rules. |
+| **[docs/SETUP_GOOGLE_AND_EMAIL.md](docs/SETUP_GOOGLE_AND_EMAIL.md)** | **Google sign-in and Gmail:** getting the Google Client ID and a Gmail app password, step by step. |
 | **[pipeline/KAGGLE_ENDPOINT_RUNBOOK.md](pipeline/KAGGLE_ENDPOINT_RUNBOOK.md)** | **Model hosting:** serving the model on a Kaggle GPU behind an API key and tunnel. |
 | **[PRD.md](PRD.md)** | **Product requirements:** vision, personas, role permissions, and feature requirements. |
 | **[DATA.md](DATA.md)** | **Frontend data:** models, serialization contracts, and mock seed data. |
@@ -162,7 +164,14 @@ Then open `http://127.0.0.1:52000/#/login` in your browser.
 - **Password:** `secret123`
 - *Role details:* Priya is a **Contributor** in *"Making NLP notes"* (try anonymous submission) and the **Controller** of *"Dashboard improvements"* (try the review queue, accepting rewrites, and announcements).
 
-### Running the Full Stack
+### Running Everything with Docker (one command)
+```bash
+cp .env.stack.example .env    # set POSTGRES_PASSWORD and JWT_SECRET (openssl rand -hex 32)
+docker compose up -d --build
+```
+Open `http://localhost:8080` (app) — the API is on `http://localhost:3000`. Migrations run automatically once in the `migrate` service before the API starts. Gmail and Google sign-in are switched on from the same `.env` ([setup guide](docs/SETUP_GOOGLE_AND_EMAIL.md)). The `stack-ci` workflow boots this exact stack on every relevant push.
+
+### Running the Full Stack (without Docker)
 1. **Backend** (see [backend/README.md](backend/README.md)):
    ```bash
    cd backend
@@ -182,7 +191,7 @@ Then open `http://127.0.0.1:52000/#/login` in your browser.
 
 ## 🧪 Quality Gates & Automated Tests
 
-GitHub Actions runs three workflows: `backend-ci`, `flutter-ci`, and `pipeline-ci`. Locally:
+GitHub Actions runs four workflows: `backend-ci` (lint, build, tests, blocking dependency audit, and an end-to-end run against a live server), `flutter-ci`, `pipeline-ci`, and `stack-ci` (the whole Docker stack). Locally:
 
 ```bash
 # Flutter app

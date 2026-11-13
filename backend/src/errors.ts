@@ -1,4 +1,18 @@
-import { ZodError } from 'zod';
+import { z, ZodError } from 'zod';
+
+// Friendly defaults for zod 4's generic messages. Messages written on a
+// schema (for example 'Enter your name.') still take precedence.
+z.config({
+  customError: (issue) => {
+    if (issue.code === 'invalid_type') {
+      return issue.input === undefined ? 'This field is required.' : `Expected ${issue.expected}.`;
+    }
+    if (issue.code === 'unrecognized_keys') {
+      return `Unexpected field: ${issue.keys.join(', ')}.`;
+    }
+    return undefined;
+  },
+});
 
 /**
  * Every non-2xx response uses the envelope {"error":{"code","message"}} —

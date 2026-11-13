@@ -26,7 +26,7 @@ const commentContentSchema = z.object({
 
 const reactionSchema = z.object({
   type: z.literal('like', {
-    errorMap: () => ({ message: 'Only "like" reactions are supported.' }),
+    error: () => 'Only "like" reactions are supported.',
   }),
 });
 

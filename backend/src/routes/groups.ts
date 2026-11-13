@@ -22,9 +22,7 @@ const addMemberSchema = z.object({
     .pipe(z.string().min(1, 'Enter a username.').max(100, 'Username is too long.')),
   role: z
     .enum(['contributor'], {
-      errorMap: () => ({
-        message: 'Members can only be added as contributors.',
-      }),
+      error: () => 'Members can only be added as contributors.',
     })
     .default('contributor'),
 });

@@ -21,7 +21,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const toggleSchema = z
   .object({
     emoji: z.enum(REACTION_EMOJIS, {
-      errorMap: () => ({ message: `Choose one of ${REACTION_EMOJIS.join(' ')}.` }),
+      error: () => `Choose one of ${REACTION_EMOJIS.join(' ')}.`,
     }),
   })
   .strict();

@@ -57,14 +57,33 @@ jobs:
       - run: npm run build
       - run: npm run migrate
       - run: npm test
-      # Non-blocking: the only known runtime finding is zod <4.6.6
-      # (GHSA-mrhx-c7xc-m3w5, memory exhaustion on oversized constrained
-      # collections). It has no non-breaking fix on zod 3, and exposure is
-      # mitigated by JSON_BODY_LIMIT capping every request body before zod
-      # sees it (see LOGS.md Run 040). Tracked for a deliberate zod 4 upgrade.
+      # Blocking since Run 078 (zod 4 upgrade cleared GHSA-mrhx-c7xc-m3w5).
       - name: npm audit (runtime dependencies only)
         run: npm audit --omit=dev --audit-level=high
-        continue-on-error: true
+      # End to end: the real server plus the 13-step moderation demo
+      # (register, group, anonymous submit, stub rewrite, accept, chat,
+      # notifications, reject, announcement, feed, post-to-group).
+      - name: End-to-end demo flow against a running server
+        env:
+          RUN_STUB_WORKER: "true"
+          PIPELINE_MODE: stub
+          RUN_FEED_WORKER: "true"
+          FEED_PROVIDER: fake
+          PORT: "3000"
+        run: |
+          set -euo pipefail
+          node dist/server.js > server.log 2>&1 &
+          SERVER_PID=$!
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/ready >/dev/null && break
+            sleep 1
+          done
+          curl -sf http://localhost:3000/ready
+          bash scripts/demo-flow.sh > demo.log 2>&1 || { cat demo.log; cat server.log; exit 1; }
+          grep -q '"display_sender":null' demo.log
+          grep -q '"status":"accepted"' demo.log
+          grep -q '^done\.$' demo.log
+          kill $SERVER_PID
 
   docker:
     runs-on: ubuntu-latest

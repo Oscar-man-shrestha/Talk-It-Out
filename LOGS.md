@@ -16,7 +16,7 @@ Rules for this file:
 **Current phase:** Complete for v1 scope (Run 073). App, backend and NLP worker run end to end with real rewrites; open product decisions D4, D10, D20–D22 are decided and built. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
-**Next step:** Review and merge the temp branch when ready. Remaining open rows (D1–D3, D5, D7–D9, D11–D14, D16, D18) record defaults already in use and only need confirming. Optional: a larger model for rewrite fidelity; an account-deletion endpoint that reuses `handOverControl`.
+**Next step:** Review and merge `temp/project-completion-run070` when ready. Remaining open rows (D1–D3, D5, D7–D9, D11–D14, D16, D18) record defaults already in use and only need confirming. Optional: a larger model for rewrite fidelity; password reset once an email service is chosen.
 **Blockers:** None. Operational only: real rewrites need a running Kaggle session (rerun the launcher and update `pipeline/.env` per session).
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
@@ -53,7 +53,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
-**Quality gates (latest known):** Flutter: format clean, analyze 0 issues, 49 tests passed (Run 073). Backend: lint and typecheck pass, 157 tests passed (Run 073). Pipeline: 148 passed (Run 073). Live: sign-in issues a refresh token; controller hand-over and `last_member` verified against the running backend; real-model rewrite end to end (Run 072).
+**Quality gates (latest known):** Run 074: Flutter `dart format` clean, `flutter analyze` 0 issues, `flutter test` 53 passed; backend lint, typecheck and build pass, `npm test` 160 passed; pipeline 148 passed. CI now runs all three (`backend-ci`, `flutter-ci`, `pipeline-ci`).
 
 **Pipeline notebook handoff:** Kaggle GPU environment verified with vLLM serving Qwen2.5-3B-Instruct (0 hijacks on adversarial probes). End-to-end claim/rewrite/result cycle against live backend verified (Run 057).
 
@@ -2549,3 +2549,28 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] Feed still shows authors; `RawMessage` still confined to `features/review`
 - **Next steps:** Review and merge the branch; confirm the remaining default-in-use decisions.
 
+### Run 074: Account deletion (finished) and CI for the app and the worker
+- **Date/time:** 2026-11-13 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 23 (v1 completion)
+- **Prompt / task:** Review the recent branch, find what is left, and continue to finish the project.
+- **Result:** Completed. Branch `temp/project-completion-run070`; `main` untouched.
+- **Summary:** Finished the account-deletion work left uncommitted after Run 073. `DELETE /users/me` (API.md §37) re-checks the password (a typo is `403 wrong_password`, never a sign-out `401`) and in one transaction hands every controlled group to its earliest-joined member (D4, `handOverControl`), removes groups nobody else is in, keeps published group messages but makes them anonymous, and deletes drafts, jobs, notifications, feed posts (with others' comments and likes on them), the user's comments and likes, and the user row (profile, media, reactions and refresh tokens cascade). Added during review: pending feed-analysis jobs for the deleted posts and comments are removed too (they reference content without a foreign key; the worker already discarded them safely, but no trace is left now). The app's Profile → Account section has a Delete account row in the existing style; the dialog asks for the password, stays open on a wrong one, and signs out on success.
+- **Summary:** CI previously covered only the backend. Added `flutter-ci` (pub get, generated code is up to date, format, analyze, test on Flutter 3.47.4) and `pipeline-ci` (compileall plus the 148-test suite on Python 3.10 and 3.13; stdlib only).
+- **Files created:** `backend/src/routes/account.ts`, `backend/test/account.test.ts`, `test/delete_account_test.dart`, `.github/workflows/flutter-ci.yml`, `.github/workflows/pipeline-ci.yml`
+- **Files modified:** `backend/src/routes/index.ts`, `lib/core/api/endpoints.dart`, `lib/core/strings/app_strings.dart`, `lib/features/auth/{session_controller,data/auth_repository,data/api_auth_repository,data/mock_auth_repository}.dart`, `lib/features/profile/profile_screen.dart`, `API.md` (§37), `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - backend: `npx tsc --noEmit` pass; `npm run lint` pass; `npm test` 22 files, 160 passed (account tests re-run after the job-cleanup change: pass)
+  - Flutter: `dart format` clean; `flutter analyze` 0 issues; `flutter test` 53 passed (49 + 4 new: wrong password keeps the session, right password signs out and removes the account, API request shape, 403 message)
+  - CI steps run locally: `build_runner build` leaves `lib/` unchanged; `dart format --set-exit-if-changed` pass; pipeline `compileall` and 148 tests pass
+  - live check (release web build against the local backend, throwaway account `delete-me@example.com`): wrong password shows "That password is not correct." with the dialog open; correct password returns to the login screen; that account can no longer sign in; no refresh tokens are left without an owner
+- **Docs updated:** `API.md` §37 (replaces "Still not built: account deletion"); `LOGS.md` Status Snapshot (next step, quality gates)
+- **Assumptions / decisions:** Deleting an account removes the user's feed posts together with other people's comments on them (the feed has no "deleted user" author). Published group messages are kept but anonymized, so group history survives.
+- **Issues / blockers / known bugs:** Password reset still needs an email service. Real rewrites still need a running Kaggle session per use.
+- **Hard-rules check:**
+  - [x] No rewrite editing, rejection reasons, audit log or relevance-based hiding added
+  - [x] Anonymized messages store `author_id = NULL`, consistent with the published-message CHECK constraint
+  - [x] No secrets committed; `main` untouched
+- **Next steps:** Review and merge the branch; confirm the remaining default-in-use decisions.

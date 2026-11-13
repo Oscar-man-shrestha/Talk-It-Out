@@ -58,6 +58,13 @@ class ApiAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<void> deleteAccount({required String password}) {
+    return guardApi(() async {
+      await _dio.delete(Endpoints.myAccount, data: {'password': password});
+    });
+  }
+
+  @override
   Future<void> logout() {
     return guardApi(() async {
       try {

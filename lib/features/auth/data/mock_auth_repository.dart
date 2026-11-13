@@ -88,6 +88,20 @@ class MockAuthRepository implements AuthRepository {
   Future<String?> issueRefreshToken() async => null;
 
   @override
+  Future<void> deleteAccount({required String password}) {
+    return runMock(_controls, () {
+      final account = _accounts[_currentEmail];
+      if (account == null || account.password != password) {
+        throw const RepositoryException(
+          code: 'wrong_password',
+          message: AppStrings.wrongPassword,
+        );
+      }
+      _accounts.remove(_currentEmail);
+    });
+  }
+
+  @override
   Future<void> logout() {
     return runMock(_controls, () {});
   }

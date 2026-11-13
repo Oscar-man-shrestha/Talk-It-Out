@@ -1,3 +1,4 @@
+import { createAccountRouter } from './account';
 import { Router, RequestHandler } from 'express';
 import { Pool } from 'pg';
 import { Config } from '../config';
@@ -64,6 +65,7 @@ export function createApiRouter(
   router.use('/groups', createReactionsRouter(pool, requireAuth));
   router.use('/notifications', createNotificationsReadAllRouter(pool, requireAuth));
   router.use('/users', createProfilesRouter(pool, requireAuth));
+  router.use('/users', createAccountRouter(pool, requireAuth));
   router.use('/media', createMediaRouter(pool));
 
   return router;

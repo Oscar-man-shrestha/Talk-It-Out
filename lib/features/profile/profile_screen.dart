@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talk_it_out/core/models/enums.dart';
 import 'package:talk_it_out/core/models/group.dart';
+import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/core/ui/screen_async.dart';
 import 'package:talk_it_out/core/utils/image_picker_helper.dart';
@@ -972,6 +973,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => const _DeleteAccountDialog(),
     );
   }
 
@@ -2159,6 +2167,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             ref.read(sessionProvider.notifier).logout();
                           },
                         ),
+                        const Divider(height: 1, color: _kBorderSubtle),
+                        _PreferenceTile(
+                          icon: Icons.delete_outline,
+                          title: AppStrings.deleteAccount,
+                          subtitle: AppStrings.deleteAccountSubtitle,
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 13,
+                            color: _kTextTertiary,
+                          ),
+                          onTap: _confirmDeleteAccount,
+                        ),
                       ],
                     ),
                   ),
@@ -2712,4 +2732,102 @@ String _userInitials(String name) {
     return parts.first.substring(0, 1).toUpperCase();
   }
   return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+}
+
+/// Asks for the password, then deletes the account. Stays open with the
+/// error when the server refuses, so a typo never signs the user out.
+class _DeleteAccountDialog extends ConsumerStatefulWidget {
+  const _DeleteAccountDialog();
+
+  @override
+  ConsumerState<_DeleteAccountDialog> createState() =>
+      _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
+  final _password = TextEditingController();
+  var _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _delete() async {
+    if (_password.text.isEmpty) {
+      setState(() => _error = AppStrings.missingCredentials);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref
+          .read(sessionProvider.notifier)
+          .deleteAccount(password: _password.text);
+      if (mounted) Navigator.of(context).pop();
+    } on RepositoryException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = AppStrings.errorGeneric);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text(
+        AppStrings.deleteAccount,
+        style: TextStyle(fontSize: 17),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            AppStrings.deleteAccountBody,
+            style: TextStyle(fontSize: 13, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _password,
+            obscureText: true,
+            enabled: !_busy,
+            autofillHints: const [AutofillHints.password],
+            decoration: InputDecoration(
+              labelText: AppStrings.passwordLabel,
+              errorText: _error,
+              border: const OutlineInputBorder(),
+            ),
+            onSubmitted: (_) => _delete(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _busy ? null : _delete,
+          style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+          child: _busy
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text(AppStrings.deleteAccount),
+        ),
+      ],
+    );
+  }
 }

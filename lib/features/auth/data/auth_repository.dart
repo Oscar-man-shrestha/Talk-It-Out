@@ -17,4 +17,8 @@ abstract class AuthRepository {
   Future<String?> issueRefreshToken();
 
   Future<void> logout();
+
+  /// Permanently deletes the signed-in account (`API.md` 37). The password
+  /// is required again.
+  Future<void> deleteAccount({required String password});
 }

@@ -230,4 +230,13 @@ abstract final class AppStrings {
   static String removeSkill(String skill) => 'Remove $skill';
   static const profileDatesInvalid =
       'Enter dates as years, like "2021 - Present" or "2019 - 2021".';
+  static const wrongPassword = 'That password is not correct.';
+  static const deleteAccount = 'Delete account';
+  static const deleteAccountSubtitle =
+      'Permanently remove your account and personal data';
+  static const deleteAccountBody =
+      'This cannot be undone. Your profile, posts, comments and unsent '
+      'messages are deleted. Messages already published in groups stay but '
+      'show as "Anonymous user". Groups you control pass to the member who '
+      'joined earliest. Enter your password to confirm.';
 }

@@ -56,6 +56,15 @@ class SessionNotifier extends AsyncNotifier<User?> {
     state = AsyncData(session.user);
   }
 
+  /// Deletes the account on the server, then clears the local session.
+  /// Throws [RepositoryException] (for example a wrong password) and keeps
+  /// the user signed in when the server refuses.
+  Future<void> deleteAccount({required String password}) async {
+    await ref.read(authRepositoryProvider).deleteAccount(password: password);
+    await ref.read(tokenStoreProvider).clear();
+    state = const AsyncData(null);
+  }
+
   Future<void> logout() async {
     try {
       await ref.read(authRepositoryProvider).logout();

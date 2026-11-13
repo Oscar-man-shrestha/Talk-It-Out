@@ -438,4 +438,13 @@ Unchanged for contributors (`204`). Since Run 073 a **controller** may leave too
 
 **Notifications (D10, decided):** no push service. The app re-checks the unread count when it returns to the foreground and every 30 seconds while it stays there, and reloads the list when the count changes.
 
-**Still not built:** account deletion (when added, it should call the same hand-over for every group the user controls).
+### 37. DELETE `/users/me` (delete account)
+Body: `{ "password": "..." }` (required again, so a stolen access token alone cannot erase an account). Response `204`. A wrong password returns `403 wrong_password`, deliberately not `401`, so clients do not treat a typo as an expired session. Everything happens in one transaction:
+- every group the user controls is handed to its earliest-joined member (same rule as endpoint 36); a group with no other member is removed with its content;
+- the user's published group messages stay, so other members' history is intact, but they are re-marked anonymous (`display_sender: null`, shown as "Anonymous user");
+- the user's original drafts, with their jobs and review notifications, their feed posts (with comments and likes on them), their own comments, likes and notifications are deleted;
+- profile, images, reactions and refresh tokens go with the user row.
+
+The old access token stops working immediately (`401`), because the auth check looks the user up on every request.
+
+**Still not built:** password reset ("Forgot password" needs an email service).

@@ -471,3 +471,25 @@ Body: `{ "id_token": "<Google ID token>" }`. Response `200` is exactly the login
 - `503 google_not_configured` when `GOOGLE_CLIENT_ID` is unset. Shares the login rate limit.
 - Setup steps: [`docs/SETUP_GOOGLE_AND_EMAIL.md`](docs/SETUP_GOOGLE_AND_EMAIL.md).
 - Email delivery is configured in `backend/.env`: `MAIL_TRANSPORT=smtp` plus `SMTP_URL` works with any email provider; `MAIL_TRANSPORT=log` prints the code to the server console for local development and is refused when `NODE_ENV=production`.
+
+### 41. Live updates (`/events`, Server-Sent Events)
+Screens update without reloading: a published message, a new review item, a decision on your draft, a reaction, a notification, a membership change or a feed change shows up within about a second.
+
+1. `POST /events/ticket` (Bearer) → `200 { "ticket": "...", "expires_in": 60 }`. The ticket is signed with a key derived from `JWT_SECRET`: it is **not** an access token, and an access token is not a ticket. It carries the user's `token_version`.
+2. `GET /events?ticket=<ticket>` → `text/event-stream`. It starts with `retry: 3000` and `event: ready`, then sends events and a `: ping` comment every 25 s. A bad or expired ticket, or one from before "sign out everywhere", is `401`. Max 5 open streams per user (the oldest is closed).
+
+Events carry **ids only** (never text, never who sent an anonymous message); the app refetches through the normal endpoints, which enforce every privacy rule:
+
+| `event:` | `data` | Sent to |
+|---|---|---|
+| `chat` | `{ "group_id" }` | members of the group: a message was published, anonymized or deleted |
+| `reaction` | `{ "group_id", "message_id" }` | members of the group |
+| `review` | `{ "group_id" }` | **only that group's controller**: a draft was submitted, rewritten or decided |
+| `mine` | `{ "group_id" }` | **only the draft's author**: their own draft changed status |
+| `members` | `{ "group_id" }` | members of the group |
+| `groups` | `{}` | users whose groups list changed (added, removed, hand-over, pending count) |
+| `notifications` | `{}` | the recipient |
+| `feed` | `{ "post_id" }` | everyone connected |
+| `resync` | `{}` | everyone, if the server's database listener reconnected: refetch everything |
+
+Signing out everywhere (endpoint 39) closes the user's streams. How it works: database triggers (migration 011) `NOTIFY` id-only signals after each commit, so every write path (API, rewrite worker, stub) is covered and data is always visible by the time the event arrives; each API instance `LISTEN`s on its own connection, so several instances need no Redis or sticky sessions. The app reconnects with backoff (1–30 s, fresh ticket each time), refetches everything after a gap, and keeps the 30 s unread-count poll as a fallback.

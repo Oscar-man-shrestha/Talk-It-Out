@@ -3,11 +3,17 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talk_it_out/app/repository_providers.dart';
+import 'package:talk_it_out/core/realtime/realtime_client.dart';
 import 'package:talk_it_out/features/notifications/data/app_notification.dart';
 
 class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
   @override
   Future<List<AppNotification>> build() async {
+    refreshOnLiveEvents(
+      ref,
+      (e) => e.type == 'notifications',
+      refresh: ref.invalidateSelf,
+    );
     final page = await ref.watch(notificationRepositoryProvider).list();
     return page.items;
   }
@@ -68,6 +74,13 @@ class UnreadCountNotifier extends AsyncNotifier<int> {
     // Re-check when the app returns to the foreground and every
     // [notificationPollInterval] while it stays there. No polling while the
     // app is in the background.
+    // Live: refetch the moment a notification arrives (API 41); the 30 s
+    // poll below stays as the fallback when the stream is unavailable.
+    refreshOnLiveEvents(
+      ref,
+      (e) => e.type == 'notifications',
+      refresh: ref.invalidateSelf,
+    );
     final observer = _ResumeObserver(() {
       if (!ref.mounted) return;
       ref.invalidateSelf();

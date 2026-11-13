@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/core/models/group.dart';
 import 'package:talk_it_out/core/models/group_member.dart';
+import 'package:talk_it_out/core/realtime/realtime_client.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
 import 'package:talk_it_out/features/groups/data/message_reactions.dart';
 import 'package:talk_it_out/features/groups/data/my_message_status.dart';
@@ -10,6 +11,11 @@ import 'package:talk_it_out/features/groups/data/published_message.dart';
 class GroupsNotifier extends AsyncNotifier<List<Group>> {
   @override
   Future<List<Group>> build() async {
+    refreshOnLiveEvents(
+      ref,
+      (e) => e.type == 'groups',
+      refresh: ref.invalidateSelf,
+    );
     final page = await ref.watch(groupRepositoryProvider).listGroups();
     return page.items;
   }
@@ -26,6 +32,12 @@ class GroupDetailNotifier extends AsyncNotifier<Group> {
 
   @override
   Future<Group> build() {
+    refreshOnLiveEvents(
+      ref,
+      (e) =>
+          (e.type == 'members' || e.type == 'review') && e.groupId == groupId,
+      refresh: ref.invalidateSelf,
+    );
     return ref.watch(groupRepositoryProvider).getGroup(groupId);
   }
 }
@@ -42,6 +54,11 @@ class GroupMessagesNotifier extends AsyncNotifier<List<PublishedMessage>> {
 
   @override
   Future<List<PublishedMessage>> build() async {
+    refreshOnLiveEvents(
+      ref,
+      (e) => e.type == 'chat' && e.groupId == groupId,
+      refresh: ref.invalidateSelf,
+    );
     final page = await ref.watch(groupRepositoryProvider).listMessages(groupId);
     return page.items;
   }
@@ -61,6 +78,11 @@ class MyMessagesNotifier extends AsyncNotifier<List<MyMessageStatus>> {
 
   @override
   Future<List<MyMessageStatus>> build() async {
+    refreshOnLiveEvents(
+      ref,
+      (e) => e.type == 'mine' && e.groupId == groupId,
+      refresh: ref.invalidateSelf,
+    );
     final page = await ref
         .watch(groupRepositoryProvider)
         .listMyMessages(groupId);
@@ -82,6 +104,11 @@ class MembersNotifier extends AsyncNotifier<List<GroupMember>> {
 
   @override
   Future<List<GroupMember>> build() async {
+    refreshOnLiveEvents(
+      ref,
+      (e) => e.type == 'members' && e.groupId == groupId,
+      refresh: ref.invalidateSelf,
+    );
     final page = await ref.watch(groupRepositoryProvider).listMembers(groupId);
     return page.items;
   }
@@ -159,6 +186,7 @@ class MessageReactionsState {
 
 class MessageReactionsNotifier extends Notifier<MessageReactionsState> {
   final Set<String> _requested = {};
+  final Map<String, String> _groupOf = {};
 
   @override
   MessageReactionsState build() {
@@ -166,7 +194,27 @@ class MessageReactionsNotifier extends Notifier<MessageReactionsState> {
     ref.watch(sessionProvider.select((session) => session.value?.id));
     ref.watch(groupRepositoryProvider);
     _requested.clear();
+    _groupOf.clear();
+    // Live: someone reacted to a message on screen, or the stream was down.
+    final sub = ref.read(realtimeClientProvider).events.listen((event) {
+      if (event.isResync) {
+        for (final entry in [..._groupOf.entries]) {
+          refresh(entry.value, entry.key);
+        }
+      } else if (event.type == 'reaction' &&
+          event.messageId != null &&
+          _groupOf.containsKey(event.messageId)) {
+        refresh(_groupOf[event.messageId]!, event.messageId!);
+      }
+    });
+    ref.onDispose(sub.cancel);
     return const MessageReactionsState();
+  }
+
+  /// Reloads a message's reactions even if already loaded.
+  Future<void> refresh(String groupId, String messageId) async {
+    _requested.remove(messageId);
+    await load(groupId, messageId);
   }
 
   void _put(MessageReactions reactions) {
@@ -179,6 +227,7 @@ class MessageReactionsNotifier extends Notifier<MessageReactionsState> {
   /// Fetches a message's reactions once. Failures are silent: reactions are
   /// decoration and must never block reading the chat.
   Future<void> load(String groupId, String messageId) async {
+    _groupOf[messageId] = groupId;
     if (!_requested.add(messageId)) return;
     try {
       final loaded = await ref

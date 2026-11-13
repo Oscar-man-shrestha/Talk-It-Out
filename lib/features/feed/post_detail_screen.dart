@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:talk_it_out/features/feed/data/post_topic.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -380,7 +381,40 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                             ),
                             const SizedBox(height: 14),
 
-                            // Post Content (high-fidelity sample matching image4)
+                            if (PostTopic.byId(post.topic)
+                                case final topic?) ...[
+                              Row(
+                                children: [
+                                  Icon(
+                                    topic.icon,
+                                    size: 14,
+                                    color: _kTextSecondary,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    topic.label,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: _kTextSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                            ],
+                            if (post.title != null) ...[
+                              Text(
+                                post.title!,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.3,
+                                  color: _kTextPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
                             Text(
                               post.content,
                               style: const TextStyle(

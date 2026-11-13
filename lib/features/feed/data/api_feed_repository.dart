@@ -25,11 +25,19 @@ class ApiFeedRepository implements FeedRepository {
   }
 
   @override
-  Future<Post> createPost({required String content}) {
+  Future<Post> createPost({
+    required String content,
+    String? title,
+    String? topic,
+  }) {
     return guardApi(() async {
       final response = await _dio.post(
         Endpoints.posts,
-        data: {'content': content},
+        data: {
+          'content': content,
+          if (title != null && title.trim().isNotEmpty) 'title': title.trim(),
+          'topic': ?topic,
+        },
       );
       return Post.fromJson(asJsonMap(response.data));
     });

@@ -9,6 +9,8 @@ part of 'post.dart';
 _Post _$PostFromJson(Map<String, dynamic> json) => _Post(
   id: json['id'] as String,
   author: Author.fromJson(json['author'] as Map<String, dynamic>),
+  title: json['title'] as String?,
+  topic: json['topic'] as String?,
   content: json['content'] as String,
   nsfwFlag: json['nsfw_flag'] as bool,
   otherFlags: json['other_flags'] == null
@@ -23,6 +25,8 @@ _Post _$PostFromJson(Map<String, dynamic> json) => _Post(
 Map<String, dynamic> _$PostToJson(_Post instance) => <String, dynamic>{
   'id': instance.id,
   'author': instance.author.toJson(),
+  'title': instance.title,
+  'topic': instance.topic,
   'content': instance.content,
   'nsfw_flag': instance.nsfwFlag,
   'other_flags': instance.otherFlags,

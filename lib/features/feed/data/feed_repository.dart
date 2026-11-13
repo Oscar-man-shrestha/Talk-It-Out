@@ -7,7 +7,12 @@ import 'package:talk_it_out/features/feed/data/reaction_result.dart';
 abstract class FeedRepository {
   Future<PageResult<Post>> listPosts({int? limit, String? cursor});
 
-  Future<Post> createPost({required String content});
+  /// [title] and [topic] are optional (`API.md` 42).
+  Future<Post> createPost({
+    required String content,
+    String? title,
+    String? topic,
+  });
 
   Future<Post> getPost(String postId);
 

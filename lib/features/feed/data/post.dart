@@ -10,6 +10,12 @@ abstract class Post with _$Post {
   const factory Post({
     required String id,
     required Author author,
+
+    /// Question title (`API.md` 42); null for posts made without one.
+    String? title,
+
+    /// One of [PostTopic] ids, or null.
+    String? topic,
     required String content,
     required bool nsfwFlag,
     @JsonKey(fromJson: flagsFromJson)

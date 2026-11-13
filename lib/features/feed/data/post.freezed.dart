@@ -16,7 +16,9 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Post {
 
- String get id; Author get author; String get content; bool get nsfwFlag;@JsonKey(fromJson: flagsFromJson) Map<String, dynamic> get otherFlags; int get reactionCount; String? get myReaction; int get commentCount; DateTime get createdAt;
+ String get id; Author get author;/// Question title (`API.md` 42); null for posts made without one.
+ String? get title;/// One of [PostTopic] ids, or null.
+ String? get topic; String get content; bool get nsfwFlag;@JsonKey(fromJson: flagsFromJson) Map<String, dynamic> get otherFlags; int get reactionCount; String? get myReaction; int get commentCount; DateTime get createdAt;
 /// Create a copy of Post
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +32,20 @@ $PostCopyWith<Post> get copyWith => _$PostCopyWithImpl<Post>(this as Post, _$ide
 @override
 bool operator ==(Object other) {
   final _this = this as Post;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Post&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.author, _this.author) || other.author == _this.author)&&(identical(other.content, _this.content) || other.content == _this.content)&&(identical(other.nsfwFlag, _this.nsfwFlag) || other.nsfwFlag == _this.nsfwFlag)&&const DeepCollectionEquality().equals(other.otherFlags, _this.otherFlags)&&(identical(other.reactionCount, _this.reactionCount) || other.reactionCount == _this.reactionCount)&&(identical(other.myReaction, _this.myReaction) || other.myReaction == _this.myReaction)&&(identical(other.commentCount, _this.commentCount) || other.commentCount == _this.commentCount)&&(identical(other.createdAt, _this.createdAt) || other.createdAt == _this.createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Post&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.author, _this.author) || other.author == _this.author)&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.topic, _this.topic) || other.topic == _this.topic)&&(identical(other.content, _this.content) || other.content == _this.content)&&(identical(other.nsfwFlag, _this.nsfwFlag) || other.nsfwFlag == _this.nsfwFlag)&&const DeepCollectionEquality().equals(other.otherFlags, _this.otherFlags)&&(identical(other.reactionCount, _this.reactionCount) || other.reactionCount == _this.reactionCount)&&(identical(other.myReaction, _this.myReaction) || other.myReaction == _this.myReaction)&&(identical(other.commentCount, _this.commentCount) || other.commentCount == _this.commentCount)&&(identical(other.createdAt, _this.createdAt) || other.createdAt == _this.createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as Post;
-  return Object.hash(runtimeType,_this.id,_this.author,_this.content,_this.nsfwFlag,const DeepCollectionEquality().hash(_this.otherFlags),_this.reactionCount,_this.myReaction,_this.commentCount,_this.createdAt);
+  return Object.hash(runtimeType,_this.id,_this.author,_this.title,_this.topic,_this.content,_this.nsfwFlag,const DeepCollectionEquality().hash(_this.otherFlags),_this.reactionCount,_this.myReaction,_this.commentCount,_this.createdAt);
 }
 
 @override
 String toString() {
   final _this = this as Post;
-  return 'Post(id: ${_this.id}, author: ${_this.author}, content: ${_this.content}, nsfwFlag: ${_this.nsfwFlag}, otherFlags: ${_this.otherFlags}, reactionCount: ${_this.reactionCount}, myReaction: ${_this.myReaction}, commentCount: ${_this.commentCount}, createdAt: ${_this.createdAt})';
+  return 'Post(id: ${_this.id}, author: ${_this.author}, title: ${_this.title}, topic: ${_this.topic}, content: ${_this.content}, nsfwFlag: ${_this.nsfwFlag}, otherFlags: ${_this.otherFlags}, reactionCount: ${_this.reactionCount}, myReaction: ${_this.myReaction}, commentCount: ${_this.commentCount}, createdAt: ${_this.createdAt})';
 }
 
 
@@ -54,7 +56,7 @@ abstract mixin class $PostCopyWith<$Res>  {
   factory $PostCopyWith(Post value, $Res Function(Post) _then) = _$PostCopyWithImpl;
 @useResult
 $Res call({
- String id, Author author, String content, bool nsfwFlag,@JsonKey(fromJson: flagsFromJson) Map<String, dynamic> otherFlags, int reactionCount, String? myReaction, int commentCount, DateTime createdAt
+ String id, Author author, String? title, String? topic, String content, bool nsfwFlag,@JsonKey(fromJson: flagsFromJson) Map<String, dynamic> otherFlags, int reactionCount, String? myReaction, int commentCount, DateTime createdAt
 });
 
 
@@ -71,11 +73,13 @@ class _$PostCopyWithImpl<$Res>
 
 /// Create a copy of Post
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? author = null,Object? content = null,Object? nsfwFlag = null,Object? otherFlags = null,Object? reactionCount = null,Object? myReaction = freezed,Object? commentCount = null,Object? createdAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? author = null,Object? title = freezed,Object? topic = freezed,Object? content = null,Object? nsfwFlag = null,Object? otherFlags = null,Object? reactionCount = null,Object? myReaction = freezed,Object? commentCount = null,Object? createdAt = null,}) {
   return _then(Post(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,author: null == author ? _self.author : author // ignore: cast_nullable_to_non_nullable
-as Author,content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
+as Author,title: freezed == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
+as String?,topic: freezed == topic ? _self.topic : topic // ignore: cast_nullable_to_non_nullable
+as String?,content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
 as String,nsfwFlag: null == nsfwFlag ? _self.nsfwFlag : nsfwFlag // ignore: cast_nullable_to_non_nullable
 as bool,otherFlags: null == otherFlags ? _self.otherFlags : otherFlags // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>,reactionCount: null == reactionCount ? _self.reactionCount : reactionCount // ignore: cast_nullable_to_non_nullable
@@ -176,10 +180,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  Author author,  String content,  bool nsfwFlag, @JsonKey(fromJson: flagsFromJson)  Map<String, dynamic> otherFlags,  int reactionCount,  String? myReaction,  int commentCount,  DateTime createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  Author author,  String? title,  String? topic,  String content,  bool nsfwFlag, @JsonKey(fromJson: flagsFromJson)  Map<String, dynamic> otherFlags,  int reactionCount,  String? myReaction,  int commentCount,  DateTime createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Post() when $default != null:
-return $default(_that.id,_that.author,_that.content,_that.nsfwFlag,_that.otherFlags,_that.reactionCount,_that.myReaction,_that.commentCount,_that.createdAt);case _:
+return $default(_that.id,_that.author,_that.title,_that.topic,_that.content,_that.nsfwFlag,_that.otherFlags,_that.reactionCount,_that.myReaction,_that.commentCount,_that.createdAt);case _:
   return orElse();
 
 }
@@ -197,10 +201,10 @@ return $default(_that.id,_that.author,_that.content,_that.nsfwFlag,_that.otherFl
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  Author author,  String content,  bool nsfwFlag, @JsonKey(fromJson: flagsFromJson)  Map<String, dynamic> otherFlags,  int reactionCount,  String? myReaction,  int commentCount,  DateTime createdAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  Author author,  String? title,  String? topic,  String content,  bool nsfwFlag, @JsonKey(fromJson: flagsFromJson)  Map<String, dynamic> otherFlags,  int reactionCount,  String? myReaction,  int commentCount,  DateTime createdAt)  $default,) {final _that = this;
 switch (_that) {
 case _Post():
-return $default(_that.id,_that.author,_that.content,_that.nsfwFlag,_that.otherFlags,_that.reactionCount,_that.myReaction,_that.commentCount,_that.createdAt);case _:
+return $default(_that.id,_that.author,_that.title,_that.topic,_that.content,_that.nsfwFlag,_that.otherFlags,_that.reactionCount,_that.myReaction,_that.commentCount,_that.createdAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -217,10 +221,10 @@ return $default(_that.id,_that.author,_that.content,_that.nsfwFlag,_that.otherFl
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  Author author,  String content,  bool nsfwFlag, @JsonKey(fromJson: flagsFromJson)  Map<String, dynamic> otherFlags,  int reactionCount,  String? myReaction,  int commentCount,  DateTime createdAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  Author author,  String? title,  String? topic,  String content,  bool nsfwFlag, @JsonKey(fromJson: flagsFromJson)  Map<String, dynamic> otherFlags,  int reactionCount,  String? myReaction,  int commentCount,  DateTime createdAt)?  $default,) {final _that = this;
 switch (_that) {
 case _Post() when $default != null:
-return $default(_that.id,_that.author,_that.content,_that.nsfwFlag,_that.otherFlags,_that.reactionCount,_that.myReaction,_that.commentCount,_that.createdAt);case _:
+return $default(_that.id,_that.author,_that.title,_that.topic,_that.content,_that.nsfwFlag,_that.otherFlags,_that.reactionCount,_that.myReaction,_that.commentCount,_that.createdAt);case _:
   return null;
 
 }
@@ -232,11 +236,15 @@ return $default(_that.id,_that.author,_that.content,_that.nsfwFlag,_that.otherFl
 @JsonSerializable()
 
 class _Post implements Post {
-  const _Post({required this.id, required this.author, required this.content, required this.nsfwFlag, @JsonKey(fromJson: flagsFromJson)  Map<String, dynamic> otherFlags = const <String, dynamic>{}, required this.reactionCount, this.myReaction, required this.commentCount, required this.createdAt}): _otherFlags = otherFlags;
+  const _Post({required this.id, required this.author, this.title, this.topic, required this.content, required this.nsfwFlag, @JsonKey(fromJson: flagsFromJson)  Map<String, dynamic> otherFlags = const <String, dynamic>{}, required this.reactionCount, this.myReaction, required this.commentCount, required this.createdAt}): _otherFlags = otherFlags;
   factory _Post.fromJson(Map<String, dynamic> json) => _$PostFromJson(json);
 
 @override final  String id;
 @override final  Author author;
+/// Question title (`API.md` 42); null for posts made without one.
+@override final  String? title;
+/// One of [PostTopic] ids, or null.
+@override final  String? topic;
 @override final  String content;
 @override final  bool nsfwFlag;
  final  Map<String, dynamic> _otherFlags;
@@ -264,18 +272,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Post&&(identical(other.id, id) || other.id == id)&&(identical(other.author, author) || other.author == author)&&(identical(other.content, content) || other.content == content)&&(identical(other.nsfwFlag, nsfwFlag) || other.nsfwFlag == nsfwFlag)&&const DeepCollectionEquality().equals(other.otherFlags, _otherFlags)&&(identical(other.reactionCount, reactionCount) || other.reactionCount == reactionCount)&&(identical(other.myReaction, myReaction) || other.myReaction == myReaction)&&(identical(other.commentCount, commentCount) || other.commentCount == commentCount)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Post&&(identical(other.id, id) || other.id == id)&&(identical(other.author, author) || other.author == author)&&(identical(other.title, title) || other.title == title)&&(identical(other.topic, topic) || other.topic == topic)&&(identical(other.content, content) || other.content == content)&&(identical(other.nsfwFlag, nsfwFlag) || other.nsfwFlag == nsfwFlag)&&const DeepCollectionEquality().equals(other.otherFlags, _otherFlags)&&(identical(other.reactionCount, reactionCount) || other.reactionCount == reactionCount)&&(identical(other.myReaction, myReaction) || other.myReaction == myReaction)&&(identical(other.commentCount, commentCount) || other.commentCount == commentCount)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,author,content,nsfwFlag,const DeepCollectionEquality().hash(_otherFlags),reactionCount,myReaction,commentCount,createdAt);
+    return Object.hash(runtimeType,id,author,title,topic,content,nsfwFlag,const DeepCollectionEquality().hash(_otherFlags),reactionCount,myReaction,commentCount,createdAt);
 }
 
 @override
 String toString() {
-    return 'Post(id: $id, author: $author, content: $content, nsfwFlag: $nsfwFlag, otherFlags: $otherFlags, reactionCount: $reactionCount, myReaction: $myReaction, commentCount: $commentCount, createdAt: $createdAt)';
+    return 'Post(id: $id, author: $author, title: $title, topic: $topic, content: $content, nsfwFlag: $nsfwFlag, otherFlags: $otherFlags, reactionCount: $reactionCount, myReaction: $myReaction, commentCount: $commentCount, createdAt: $createdAt)';
 }
 
 
@@ -286,7 +294,7 @@ abstract mixin class _$PostCopyWith<$Res> implements $PostCopyWith<$Res> {
   factory _$PostCopyWith(_Post value, $Res Function(_Post) _then) = __$PostCopyWithImpl;
 @override @useResult
 $Res call({
- String id, Author author, String content, bool nsfwFlag,@JsonKey(fromJson: flagsFromJson) Map<String, dynamic> otherFlags, int reactionCount, String? myReaction, int commentCount, DateTime createdAt
+ String id, Author author, String? title, String? topic, String content, bool nsfwFlag,@JsonKey(fromJson: flagsFromJson) Map<String, dynamic> otherFlags, int reactionCount, String? myReaction, int commentCount, DateTime createdAt
 });
 
 
@@ -303,11 +311,13 @@ class __$PostCopyWithImpl<$Res>
 
 /// Create a copy of Post
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? author = null,Object? content = null,Object? nsfwFlag = null,Object? otherFlags = null,Object? reactionCount = null,Object? myReaction = freezed,Object? commentCount = null,Object? createdAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? author = null,Object? title = freezed,Object? topic = freezed,Object? content = null,Object? nsfwFlag = null,Object? otherFlags = null,Object? reactionCount = null,Object? myReaction = freezed,Object? commentCount = null,Object? createdAt = null,}) {
   return _then(_Post(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,author: null == author ? _self.author : author // ignore: cast_nullable_to_non_nullable
-as Author,content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
+as Author,title: freezed == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
+as String?,topic: freezed == topic ? _self.topic : topic // ignore: cast_nullable_to_non_nullable
+as String?,content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
 as String,nsfwFlag: null == nsfwFlag ? _self.nsfwFlag : nsfwFlag // ignore: cast_nullable_to_non_nullable
 as bool,otherFlags: null == otherFlags ? _self._otherFlags : otherFlags // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>,reactionCount: null == reactionCount ? _self.reactionCount : reactionCount // ignore: cast_nullable_to_non_nullable

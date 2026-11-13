@@ -41,7 +41,11 @@ class MockFeedRepository implements FeedRepository {
   }
 
   @override
-  Future<Post> createPost({required String content}) {
+  Future<Post> createPost({
+    required String content,
+    String? title,
+    String? topic,
+  }) {
     return runMock(_controls, () {
       final clean = content.trim();
       if (clean.isEmpty) {
@@ -53,6 +57,8 @@ class MockFeedRepository implements FeedRepository {
       final post = Post(
         id: 'p$_nextPost',
         author: _priya,
+        title: (title == null || title.trim().isEmpty) ? null : title.trim(),
+        topic: topic,
         content: clean,
         nsfwFlag: false,
         reactionCount: 0,

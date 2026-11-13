@@ -9,6 +9,7 @@ import 'package:talk_it_out/core/ui/stitch_chrome.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
 import 'package:talk_it_out/features/feed/data/post.dart';
+import 'package:talk_it_out/features/feed/data/post_topic.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
 import 'package:talk_it_out/features/profile/profile_state.dart';
 
@@ -19,43 +20,14 @@ const _faint = Color(0xFFA1A1AA);
 const _chip = Color(0xFFF4F4F5);
 const _low = Color(0xFFFAFAFA);
 
-const _topics = <(IconData, String, List<String>?)>[
+/// "All Topics" plus the fixed feed topics (`API.md` 42).
+final _topics = <(IconData, String, PostTopic?)>[
   (Icons.apps_rounded, 'All Topics', null),
-  (
-    Icons.policy_outlined,
-    'Workplace Policy',
-    ['policy', 'workplace', 'remote'],
-  ),
-  (
-    Icons.terminal_rounded,
-    'Engineering & Tech',
-    ['engineer', 'tech', 'dashboard', 'estimate', 'nlp'],
-  ),
-  (Icons.supervisor_account_outlined, 'Leadership & Exec', ['lead', 'exec']),
-  (
-    Icons.monetization_on_outlined,
-    'Compensation & Equity',
-    ['pay', 'equity', 'compensation'],
-  ),
-  (
-    Icons.health_and_safety_outlined,
-    'Psychological Safety',
-    ['safety', 'retro', 'psych'],
-  ),
-  (
-    Icons.diversity_3_outlined,
-    'Ethics & Culture',
-    ['ethic', 'culture', 'offsite'],
-  ),
+  for (final topic in PostTopic.all) (topic.icon, topic.label, topic),
 ];
 
-const _levels = [
-  'All levels',
-  'Individual Contributor',
-  'Controller / Moderator',
-  'Staff & Principal',
-  'Executive',
-];
+/// Ordering of the visible questions.
+const _sorts = ['Newest', 'Most liked', 'Most discussed'];
 
 // Index 0 shows everything, so a first visit never hides posts that
 // already have comments.
@@ -77,7 +49,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   final _search = TextEditingController();
   final _boardKey = GlobalKey();
   var _topic = 0;
-  var _level = 0;
+  var _sort = 0;
   var _status = 0;
   var _weekly = true;
   String? _creatingId;
@@ -90,18 +62,30 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
   List<Post> _visible(List<Post> items) {
     final query = _search.text.trim().toLowerCase();
-    final words = _topics[_topic].$3;
-    return [
+    final topic = _topics[_topic].$3;
+    final visible = [
       for (final post in items)
-        if (_matches(post, query, words) && _statusMatches(post)) post,
+        if (_matches(post, query, topic) && _statusMatches(post)) post,
     ];
+    switch (_sort) {
+      case 1:
+        visible.sort((a, b) => b.reactionCount.compareTo(a.reactionCount));
+      case 2:
+        visible.sort((a, b) => b.commentCount.compareTo(a.commentCount));
+      default:
+        visible.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+    return visible;
   }
 
-  bool _matches(Post post, String query, List<String>? words) {
-    final haystack = '${post.content} ${post.author.name}'.toLowerCase();
+  bool _matches(Post post, String query, PostTopic? topic) {
+    final haystack = '${post.title ?? ''} ${post.content} ${post.author.name}'
+        .toLowerCase();
     if (query.isNotEmpty && !haystack.contains(query)) return false;
-    if (words == null) return true;
-    return words.any(haystack.contains);
+    if (topic == null) return true;
+    // Questions carry a topic; older posts fall back to keywords.
+    if (post.topic != null) return post.topic == topic.id;
+    return topic.keywords.any(haystack.contains);
   }
 
   bool _statusMatches(Post post) {
@@ -119,11 +103,12 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
   List<_Voice> _leaders(List<Post> posts) {
     final byAuthor = <String, _Voice>{};
-    final cutoff = _weekly
-        ? null
-        : DateTime.now().toUtc().subtract(const Duration(days: 1));
+    // Weekly = the last 7 days, daily = the last 24 hours.
+    final cutoff = DateTime.now().toUtc().subtract(
+      _weekly ? const Duration(days: 7) : const Duration(days: 1),
+    );
     for (final post in posts) {
-      if (cutoff != null && post.createdAt.isBefore(cutoff)) continue;
+      if (post.createdAt.isBefore(cutoff)) continue;
       final voice = byAuthor.putIfAbsent(
         post.author.id,
         () => _Voice(post.author.name),
@@ -365,9 +350,9 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 children: [
                   Flexible(
                     child: _MenuPill(
-                      value: _level,
-                      options: _levels,
-                      onChanged: (value) => setState(() => _level = value),
+                      value: _sort,
+                      options: _sorts,
+                      onChanged: (value) => setState(() => _sort = value),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1094,13 +1079,46 @@ class PostCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
+              if (PostTopic.byId(post.topic) case final topic?) ...[
+                Row(
+                  children: [
+                    Icon(topic.icon, size: 13, color: _muted),
+                    const SizedBox(width: 4),
+                    Text(
+                      topic.label,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: _muted,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+              ],
+              if (post.title != null) ...[
+                Text(
+                  post.title!,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                    color: _ink,
+                  ),
+                ),
+                const SizedBox(height: 4),
+              ],
               Text(
                 post.content,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  height: 1.35,
-                  color: _ink,
+                maxLines: post.title != null ? 4 : null,
+                overflow: post.title != null ? TextOverflow.ellipsis : null,
+                style: TextStyle(
+                  fontSize: post.title != null ? 13.5 : 14,
+                  fontWeight: post.title != null
+                      ? FontWeight.w400
+                      : FontWeight.w700,
+                  height: 1.4,
+                  color: post.title != null ? _muted : _ink,
                 ),
               ),
               const SizedBox(height: 8),

@@ -61,6 +61,36 @@ abstract final class AppStrings {
   static const relevanceOffTopic = 'Off topic';
 
   static const feedEmpty = 'No posts yet.';
+
+  static const askTitle = 'Ask a question';
+  static const askPublicNotice =
+      'Your name is shown with your question: the feed is public and never '
+      'anonymous. For anonymous feedback, write in a group instead.';
+  static const askTitleLabel = 'Question';
+  static const askTitleHint = 'What do you want to ask?';
+  static const askTopicLabel = 'Topic';
+  static const askDetailsLabel = 'Details';
+  static const askDetailsHint =
+      'Give the context: what is happening, what you have tried, and what '
+      'kind of answer would help.';
+  static const askTipsTitle = 'What makes a good question';
+  static const askTips = [
+    'Be specific: one situation, one question.',
+    'Describe the problem, not the people. Leave names out.',
+    'Say what a useful answer looks like.',
+  ];
+  static const askSubmit = 'Post question';
+  static const askPosted = 'Question posted.';
+  static const askTitleRequired = 'Write your question.';
+  static const askTitleTooShort = 'Make the question a little longer.';
+  static const askTitleTooLong = 'Keep the question under 150 characters.';
+  static const askTopicRequired = 'Choose a topic.';
+  static const askDetailsRequired = 'Add some details.';
+  static const askDetailsTooLong = 'Details can be at most 5000 characters.';
+  static const askDiscardTitle = 'Discard this question?';
+  static const askDiscardBody = 'What you have written will be lost.';
+  static const askKeepEditing = 'Keep editing';
+  static const askDiscard = 'Discard';
   static const newPost = 'New post';
   static const postHint = 'Share an agenda or idea';
   static const publishPost = 'Post';

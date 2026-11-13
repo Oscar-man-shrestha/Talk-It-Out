@@ -52,6 +52,9 @@ abstract final class Endpoints {
   static String rejectMessage(String messageId) =>
       '/messages/$messageId/reject';
 
+  static String rewriteMessage(String messageId) =>
+      '/messages/$messageId/rewrite';
+
   static String post(String postId) => '/posts/$postId';
 
   static String postReactions(String postId) => '/posts/$postId/reactions';

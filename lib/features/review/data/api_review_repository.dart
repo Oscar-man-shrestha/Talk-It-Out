@@ -51,4 +51,11 @@ class ApiReviewRepository implements ReviewRepository {
       return RejectResult.fromJson(asJsonMap(response.data));
     });
   }
+
+  @override
+  Future<void> requestRewrite(String messageId) {
+    return guardApi(() async {
+      await _dio.post(Endpoints.rewriteMessage(messageId));
+    });
+  }
 }

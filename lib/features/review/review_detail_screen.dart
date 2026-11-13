@@ -72,6 +72,33 @@ class _ReviewDetailScreenState extends ConsumerState<ReviewDetailScreen> {
     if (waiting) ref.invalidate(reviewDetailProvider(_key));
   }
 
+  bool _rewriting(RawMessage message) =>
+      message.pipelineStatus == PipelineStatus.queued ||
+      message.pipelineStatus == PipelineStatus.processing;
+
+  Future<void> _requestRewrite() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref.read(reviewRepositoryProvider).requestRewrite(widget.messageId);
+      ref.invalidate(reviewDetailProvider(_key));
+      ref.invalidate(reviewQueueProvider(widget.groupId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.rewriteRequested)),
+        );
+      }
+    } on RepositoryException catch (error) {
+      setState(() => _error = error.message);
+    } catch (_) {
+      setState(() => _error = AppStrings.errorGeneric);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _decide({required bool accept}) async {
     setState(() {
       _busy = true;
@@ -107,7 +134,11 @@ class _ReviewDetailScreenState extends ConsumerState<ReviewDetailScreen> {
 
     return Scaffold(
       backgroundColor: _kSurface,
-      appBar: const _ReviewDetailAppBar(),
+      appBar: _ReviewDetailAppBar(
+        onNewRewrite: message == null || _busy || _rewriting(message)
+            ? null
+            : _requestRewrite,
+      ),
       body: AsyncBody(
         status: asyncStatus(detail, isEmpty: false),
         errorMessage: errorText(detail.error),
@@ -132,7 +163,10 @@ class _ReviewDetailScreenState extends ConsumerState<ReviewDetailScreen> {
 
 class _ReviewDetailAppBar extends StatelessWidget
     implements PreferredSizeWidget {
-  const _ReviewDetailAppBar();
+  const _ReviewDetailAppBar({this.onNewRewrite});
+
+  /// Null while a rewrite is already being prepared or a decision is busy.
+  final VoidCallback? onNewRewrite;
 
   @override
   Size get preferredSize => const Size.fromHeight(56);
@@ -212,7 +246,9 @@ class _ReviewDetailAppBar extends StatelessWidget
                 ],
               ),
               const Spacer(),
-              IconButton(
+              PopupMenuButton<String>(
+                key: const ValueKey('review-menu'),
+                tooltip: 'More',
                 icon: const Icon(
                   Icons.more_vert,
                   size: 20,
@@ -220,7 +256,20 @@ class _ReviewDetailAppBar extends StatelessWidget
                 ),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                onPressed: () {},
+                onSelected: (_) => onNewRewrite?.call(),
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'rewrite',
+                    enabled: onNewRewrite != null,
+                    child: const Row(
+                      children: [
+                        Icon(Icons.cached, size: 18),
+                        SizedBox(width: 10),
+                        Text(AppStrings.newRewrite),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(width: 4),
               Container(

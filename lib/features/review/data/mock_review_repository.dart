@@ -96,6 +96,22 @@ class MockReviewRepository implements ReviewRepository {
     });
   }
 
+  @override
+  Future<void> requestRewrite(String messageId) {
+    return runMock(_controls, () {
+      final message = _requireById(messageId);
+      _requirePending(message);
+      final index = _messages.indexWhere((item) => item.id == message.id);
+      if (index >= 0) {
+        // The mock "pipeline" answers at once with a tidied rewrite.
+        _messages[index] = message.copyWith(
+          pipelineStatus: PipelineStatus.done,
+          rewrittenText: (message.rewrittenText ?? message.originalText).trim(),
+        );
+      }
+    });
+  }
+
   RawMessage _fromOutgoing(MockOutgoing item) {
     return RawMessage(
       id: item.id,

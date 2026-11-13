@@ -199,8 +199,9 @@ class _NewPostScreenState extends ConsumerState<NewPostScreen> {
                     label: Text(topic.label),
                     selected: _topic == topic.id,
                     showCheckmark: false,
-                    selectedColor: Colors.black,
-                    backgroundColor: Colors.white,
+                    color: WidgetStatePropertyAll(
+                      _topic == topic.id ? Colors.black : Colors.white,
+                    ),
                     side: BorderSide(
                       color: _topic == topic.id ? Colors.black : _border,
                     ),

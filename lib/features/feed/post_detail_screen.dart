@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:talk_it_out/features/feed/data/post_topic.dart';
 import 'package:flutter/services.dart';
@@ -11,7 +12,9 @@ import 'package:talk_it_out/core/utils/relative_time.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
 import 'package:talk_it_out/features/feed/data/comment.dart';
+import 'package:talk_it_out/features/feed/data/post.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
+import 'package:talk_it_out/features/feed/saved_posts.dart';
 
 // Stitch Monochrome Precision tokens
 const _kPrimary = Color(0xFF09090B);
@@ -35,7 +38,6 @@ class PostDetailScreen extends ConsumerStatefulWidget {
 class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   final _comment = TextEditingController();
   var _busy = false;
-  var _isBookmarked = false;
   var _postPublicly = true;
   String? _error;
   String _sortMode = 'TOP FIRST';
@@ -106,6 +108,43 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     }
   }
 
+  /// A link to this question on the web; elsewhere the question itself.
+  String _shareText(Post post) {
+    if (kIsWeb) {
+      final base = Uri.base;
+      return '${base.origin}${base.path}#/feed/${post.id}';
+    }
+    final title = post.title;
+    return title == null ? post.content : '$title\n\n${post.content}';
+  }
+
+  Future<void> _copy(String text, String done) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(done)));
+    }
+  }
+
+  Future<void> _onMenu(String action, Post post) async {
+    switch (action) {
+      case 'link':
+        await _copy(
+          _shareText(post),
+          kIsWeb ? AppStrings.linkCopied : AppStrings.questionCopied,
+        );
+      case 'text':
+        final title = post.title;
+        await _copy(
+          title == null ? post.content : '$title\n\n${post.content}',
+          AppStrings.questionCopied,
+        );
+      case 'save':
+        await ref.read(savedPostsProvider.notifier).toggle(post.id);
+      case 'group':
+        await _createGroup();
+    }
+  }
+
   Future<void> _createGroup() async {
     setState(() {
       _busy = true;
@@ -132,6 +171,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     final post = postState.value;
     final liveComments = comments.value ?? const <Comment>[];
     final userId = ref.watch(sessionProvider).value?.id;
+    final saved = ref.watch(savedPostsProvider).contains(widget.postId);
     final screenWidth = MediaQuery.sizeOf(context).width;
     final hPad = screenWidth > 860 ? (screenWidth - 800) / 2 : 16.0;
 
@@ -173,7 +213,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                         ),
                       ),
                       Text(
-                        'Talk It Out Post Detail',
+                        'Question',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -184,14 +224,45 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                     ],
                   ),
                   const Spacer(),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.more_vert,
-                      size: 20,
-                      color: _kTextSecondary,
+                  if (post != null)
+                    PopupMenuButton<String>(
+                      key: const ValueKey('post-menu'),
+                      tooltip: 'More',
+                      icon: const Icon(
+                        Icons.more_vert,
+                        size: 20,
+                        color: _kTextSecondary,
+                      ),
+                      onSelected: (action) => _onMenu(action, post),
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'link',
+                          child: Text(
+                            kIsWeb
+                                ? AppStrings.copyLink
+                                : AppStrings.copyQuestion,
+                          ),
+                        ),
+                        if (kIsWeb)
+                          const PopupMenuItem(
+                            value: 'text',
+                            child: Text(AppStrings.copyQuestion),
+                          ),
+                        PopupMenuItem(
+                          value: 'save',
+                          child: Text(
+                            saved
+                                ? AppStrings.unsaveQuestion
+                                : AppStrings.saveQuestion,
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'group',
+                          enabled: !_busy,
+                          child: const Text(AppStrings.createGroupFromPost),
+                        ),
+                      ],
                     ),
-                    onPressed: () {},
-                  ),
                 ],
               ),
             ),
@@ -252,17 +323,16 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                               ),
                               padding: EdgeInsets.zero,
                               icon: Icon(
-                                _isBookmarked
-                                    ? Icons.bookmark
-                                    : Icons.bookmark_border,
+                                saved ? Icons.bookmark : Icons.bookmark_border,
                                 size: 18,
-                                color: _isBookmarked
-                                    ? _kPrimary
-                                    : _kTextSecondary,
+                                color: saved ? _kPrimary : _kTextSecondary,
                               ),
-                              onPressed: () => setState(
-                                () => _isBookmarked = !_isBookmarked,
-                              ),
+                              tooltip: saved
+                                  ? AppStrings.unsaveQuestion
+                                  : AppStrings.saveQuestion,
+                              onPressed: () => ref
+                                  .read(savedPostsProvider.notifier)
+                                  .toggle(widget.postId),
                             ),
                             const SizedBox(width: 8),
                             IconButton(
@@ -276,7 +346,15 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                 size: 18,
                                 color: _kTextSecondary,
                               ),
-                              onPressed: () {},
+                              tooltip: kIsWeb
+                                  ? AppStrings.copyLink
+                                  : AppStrings.copyQuestion,
+                              onPressed: () => _copy(
+                                _shareText(post),
+                                kIsWeb
+                                    ? AppStrings.linkCopied
+                                    : AppStrings.questionCopied,
+                              ),
                             ),
                           ],
                         ),

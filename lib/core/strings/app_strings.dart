@@ -62,6 +62,20 @@ abstract final class AppStrings {
 
   static const feedEmpty = 'No posts yet.';
 
+  static const emojiTooltip = 'Emoji';
+  static const attachTooltip = 'Attachments';
+  static const attachTextOnly =
+      'Group chats are text only, so nothing in a file can reveal who '
+      'wrote a message.';
+  static const copyLink = 'Copy link';
+  static const copyQuestion = 'Copy question';
+  static const linkCopied = 'Link copied.';
+  static const questionCopied = 'Question copied.';
+  static const saveQuestion = 'Save question';
+  static const unsaveQuestion = 'Remove from saved';
+  static const newRewrite = 'Ask the AI for a new rewrite';
+  static const rewriteRequested =
+      'Asked for a fresh rewrite. It will appear here when ready.';
   static const askTitle = 'Ask a question';
   static const askPublicNotice =
       'Your name is shown with your question: the feed is public and never '

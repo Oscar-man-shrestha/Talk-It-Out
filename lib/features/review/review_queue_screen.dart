@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
+import 'package:talk_it_out/core/models/enums.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/core/ui/labels.dart';
 import 'package:talk_it_out/core/ui/screen_async.dart';
@@ -96,7 +97,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'Minimum Relevance Score',
+                        'Mark messages under this relevance',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -231,15 +232,19 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                         items: const [
                           DropdownMenuItem(
                             value: 'Normal FIFO',
-                            child: Text('Normal FIFO (Chronological)'),
+                            child: Text('Oldest first (chronological)'),
                           ),
                           DropdownMenuItem(
-                            value: 'High Tension First',
-                            child: Text('High Tension / Escalations First'),
+                            value: 'Newest first',
+                            child: Text('Newest first'),
                           ),
                           DropdownMenuItem(
-                            value: 'Consensus Blockers First',
-                            child: Text('Consensus Blockers First'),
+                            value: 'Most relevant first',
+                            child: Text('Most relevant first'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Ready first',
+                            child: Text('Rewrite ready first'),
                           ),
                         ],
                         onChanged: (val) {
@@ -336,14 +341,37 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
     final pending = queue.value ?? const <RawMessage>[];
     final ready = pending.where((m) => m.rewrittenText != null).length;
     // The queue endpoint lists pending messages only. Relevance is advisory
-    // and never hides a message, so only the identity filter narrows this.
+    // and never hides a message: the mark only labels, the order only sorts.
+    // Only the identity filter narrows the list.
     final items = _activeTab != 0
-        ? const <RawMessage>[]
+        ? <RawMessage>[]
         : pending.where((m) {
             if (_anonymityFilter == 1) return m.isAnonymous;
             if (_anonymityFilter == 2) return !m.isAnonymous;
             return true;
           }).toList();
+    int byAge(RawMessage a, RawMessage b) => a.createdAt.compareTo(b.createdAt);
+    switch (_priorityMode) {
+      case 'Newest first':
+        items.sort((a, b) => byAge(b, a));
+      case 'Most relevant first':
+        items.sort((a, b) {
+          final byScore = (b.relevanceScore ?? -1).compareTo(
+            a.relevanceScore ?? -1,
+          );
+          return byScore != 0 ? byScore : byAge(a, b);
+        });
+      case 'Ready first':
+        int ready(RawMessage m) =>
+            m.pipelineStatus == PipelineStatus.done ? 0 : 1;
+        items.sort((a, b) {
+          final byReady = ready(a).compareTo(ready(b));
+          return byReady != 0 ? byReady : byAge(a, b);
+        });
+      default:
+        items.sort(byAge);
+    }
+    final mark = _relevanceThreshold.round();
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isDesktop = screenWidth >= 900;
     final isMobile = screenWidth < 600;
@@ -714,6 +742,11 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
               _QueueCard(
                 message: message,
                 groupId: widget.groupId,
+                belowMark:
+                    message.relevanceScore != null &&
+                        message.relevanceScore! * 100 < mark
+                    ? mark
+                    : null,
                 onReject: () async {
                   try {
                     await ref.read(reviewRepositoryProvider).reject(message.id);
@@ -723,6 +756,22 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                       ScaffoldMessenger.of(context)
                           .showSnackBar(SnackBar(content: Text(e.message)));
                     }
+                  }
+                },
+                onRerun: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    await ref
+                        .read(reviewRepositoryProvider)
+                        .requestRewrite(message.id);
+                    ref.invalidate(reviewQueueProvider(widget.groupId));
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text(AppStrings.rewriteRequested),
+                      ),
+                    );
+                  } on RepositoryException catch (e) {
+                    messenger.showSnackBar(SnackBar(content: Text(e.message)));
                   }
                 },
               ),
@@ -816,20 +865,33 @@ class _QueueCard extends StatelessWidget {
     required this.message,
     required this.groupId,
     required this.onReject,
+    required this.onRerun,
+    this.belowMark,
   });
+
+  /// The controller's relevance mark when this message scores under it.
+  /// Only a label: the message stays in the queue either way.
+  final int? belowMark;
 
   final RawMessage message;
   final String groupId;
   final VoidCallback onReject;
+  final VoidCallback onRerun;
+
+  bool get _rewriting =>
+      message.pipelineStatus == PipelineStatus.queued ||
+      message.pipelineStatus == PipelineStatus.processing;
 
   @override
   Widget build(BuildContext context) {
     final isAnon = message.isAnonymous;
     // Controllers see who sent every message, including anonymous ones.
     final senderTitle = message.senderName;
-    final relevance = message.relevanceScore != null
-        ? '${(message.relevanceScore! * 100).round()}% Relevance'
-        : 'Relevance pending';
+    final relevance = message.relevanceScore == null
+        ? 'Relevance pending'
+        : belowMark != null
+        ? '${(message.relevanceScore! * 100).round()}% · under $belowMark%'
+        : '${(message.relevanceScore! * 100).round()}% Relevance';
     final label = message.relevanceLabel;
     final tag = label == null
         ? (isAnon ? 'SENT AS ANONYMOUS' : 'SENT WITH NAME')
@@ -1074,7 +1136,8 @@ class _QueueCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   InkWell(
-                    onTap: () {},
+                    key: ValueKey('rerun-${message.id}'),
+                    onTap: _rewriting ? null : onRerun,
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
                       width: 36,

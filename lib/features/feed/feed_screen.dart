@@ -11,6 +11,7 @@ import 'package:talk_it_out/features/auth/session_controller.dart';
 import 'package:talk_it_out/features/feed/data/post.dart';
 import 'package:talk_it_out/features/feed/data/post_topic.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
+import 'package:talk_it_out/features/feed/saved_posts.dart';
 import 'package:talk_it_out/features/profile/profile_state.dart';
 
 const _border = Color(0xFFE4E4E7);
@@ -36,6 +37,7 @@ const _statuses = [
   'Unanswered',
   'Peer solved',
   'Active debate',
+  'Saved',
 ];
 
 class FeedScreen extends ConsumerStatefulWidget {
@@ -96,6 +98,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
         return post.commentCount > 0;
       case 3:
         return post.commentCount >= 2;
+      case 4:
+        return ref.read(savedPostsProvider).contains(post.id);
       default:
         return true;
     }
@@ -165,6 +169,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   @override
   Widget build(BuildContext context) {
     final feed = ref.watch(feedProvider);
+    ref.watch(savedPostsProvider);
     final items = feed.value ?? const <Post>[];
     final visible = _visible(items);
     final userId = ref.watch(sessionProvider).value?.id;
@@ -471,7 +476,7 @@ class _Hero extends StatelessWidget {
               const Spacer(),
               if (openCount > 0)
                 _OutlinePill(
-                  label: '+$openCount New Question',
+                  label: '$openCount unanswered',
                   leadingDot: true,
                   mono: true,
                 ),
@@ -490,7 +495,7 @@ class _Hero extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Anonymous queries synthesized by AI • Answered and validated by verified peers & workplace controllers.',
+            'Questions are posted under your name • Answered by peers and workplace controllers.',
             style: TextStyle(fontSize: 13, height: 1.45, color: _muted),
           ),
           const SizedBox(height: 12),
@@ -1140,7 +1145,7 @@ class PostCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'AI SYNTHESIS & FRAMING GUARD',
+                            'NOT REWRITTEN BY AI',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,

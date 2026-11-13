@@ -102,5 +102,39 @@ export function createMessagesRouter(pool: Pool, requireAuth: RequireAuth): Rout
     res.json({ id: messageId, status: 'rejected' });
   });
 
+  // Ask the pipeline for a fresh rewrite of a pending message. The old
+  // rewrite and scores are cleared so nothing stale can be accepted while
+  // the new one is produced. Still no text in the job (outbox rule).
+  router.post('/:messageId/rewrite', async (req, res) => {
+    const messageId = req.params.messageId;
+    if (!UUID_RE.test(messageId)) throw notFound();
+    await withTransaction(pool, async (client) => {
+      const raw = await lockPendingMessageForController(client, messageId, req.user!.id);
+      const { rows: active } = await client.query(
+        `SELECT 1 FROM jobs
+         WHERE kind = 'process_raw_message' AND raw_message_id = $1
+           AND status IN ('pending', 'running')
+         LIMIT 1`,
+        [raw.id],
+      );
+      if (active.length > 0 || raw.pipeline_status === 'queued' || raw.pipeline_status === 'processing') {
+        throw conflict('rewrite_in_progress', 'A rewrite is already being prepared.');
+      }
+      await client.query(
+        `UPDATE raw_messages
+         SET pipeline_status = 'queued', rewritten_text = NULL,
+             intent_preservation_score = NULL, relevance_score = NULL,
+             relevance_label = NULL
+         WHERE id = $1`,
+        [raw.id],
+      );
+      await client.query(
+        `INSERT INTO jobs (kind, raw_message_id) VALUES ('process_raw_message', $1)`,
+        [raw.id],
+      );
+    });
+    res.status(202).json({ id: messageId, status: 'pending', pipeline_status: 'queued' });
+  });
+
   return router;
 }

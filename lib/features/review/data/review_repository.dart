@@ -14,4 +14,7 @@ abstract class ReviewRepository {
   Future<AcceptResult> accept(String messageId);
 
   Future<RejectResult> reject(String messageId);
+
+  /// Asks the AI for a fresh rewrite of a pending message (controller only).
+  Future<void> requestRewrite(String messageId);
 }

@@ -532,3 +532,24 @@ Author only (`403` otherwise, `404` if it is gone). Removes the question with it
 - The image is deleted when its message is rejected or deleted. The uploader is never returned.
 - **What stripping cannot hide:** what the photo itself shows. The app warns anonymous senders, and the controller checks the image before approving.
 
+### 50. Chat: replies, withdraw, rewrite preview, history, search, pins, polls
+Published messages now also carry:
+- `reply_to`: `{id, text, display_sender}` or null. It shows only what the group already sees; the sender is null when the quoted message was anonymous.
+- `pinned`: boolean.
+- `poll`: `{id, options: [{text, votes}], total_votes, my_vote}` or null.
+
+| Feature | Endpoint | Who | Behaviour |
+|---|---|---|---|
+| Reply | `reply_to_id` on `POST /groups/:id/messages` (and `/messages/controller`) | Members | Must point at a published message in the same group (`400 invalid_reply`). |
+| Withdraw | `POST /messages/:id/withdraw` | The author only | While the message is pending. It is deleted with its job, image and the controller's "waiting" notification. Already decided: `409`. |
+| Rewrite preview | `POST /groups/:id/messages/preview {text, is_anonymous}` | Contributors | `202 {id}`. `GET .../preview/:id` → `{pipeline_status, rewritten_text}` (author only). `POST .../preview/:id/send {is_anonymous, attachment_id?, reply_to_id?}` → the same response as a normal send. `DELETE .../preview/:id` discards it. |
+| History | `GET /groups/:id/messages?before=` | Members | `before=` empty gives the latest page, still oldest first. Response is `{items, prev_cursor}`; pass `prev_cursor` back as `before` for older pages. Without `before`, the v1 oldest-first contract is unchanged. |
+| Search | `GET /groups/:id/messages/search?q=` | Members | 2–100 characters, case-insensitive, newest first, at most 50 results. |
+| Pin | `POST` / `DELETE /groups/:id/messages/:mid/pin` | Controller | |
+| Polls | `POST /groups/:id/polls {question, options[2..6]}` | Controller | Creates a published message with a poll. |
+| Vote | `POST /groups/:id/polls/:pollId/vote {option_index}` (`DELETE` removes your vote) | Members | Votes are counted; who voted is never returned. |
+
+**Previews and the controller.** A preview goes through the normal worker path. Until it is sent it never shows in the review queue, counts, notifications or review detail, and it cannot be accepted. Unsent previews are deleted after an hour. If the anonymity choice changes on send, the message is rewritten again with the right tone.
+
+**Not built on purpose.** "My messages" stays status only (D11). Editing after sending would show the sender their text again, so a message is withdrawn and written again instead.
+

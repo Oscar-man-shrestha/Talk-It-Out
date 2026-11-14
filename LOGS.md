@@ -13,7 +13,7 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-14 (IST)
-**Current phase:** Complete and verified end to end (Run 091): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 64/64 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Current phase:** Complete and verified end to end (Run 092): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
 **Next step:** Review and merge `temp/project-completion-run070`. Optional: Gmail app password in `backend/.env` for real reset emails (user enters it); a larger model for higher rewrite fidelity.
@@ -58,6 +58,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 | 29 | Site walk-through fixes, palette tokens | Done | 088 |
 | 30 | Final palette: black, white and light cream | Done | 089 |
 | 31 | Photos in group chats with metadata stripping | Done | 091 |
+| 32 | Chat: replies, withdraw, preview, history, search, pins, polls | Done | 092 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -2894,4 +2895,23 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
 - **Files modified:** `groups.ts`, `messages.ts`, `routes/index.ts`, contract/flow/group-ops/reactions/validation-sweep tests, `live-check.mjs`, group and review data layers, `group_chat_screen.dart`, `review_detail_screen.dart`, `review_queue_screen.dart`, `app_strings.dart`, `API.md` (48, 49), `README.md`
 - **Commands run and results:** backend 223 passed, lint and type-check clean; Flutter 98 passed, analyze 0; `npm run check:live` 64/64 with real 3B rewrites. The live check uploads a JPEG with fake GPS and camera text, sends it anonymously, accepts it, and checks that the served bytes have no GPS or camera text and that an outsider gets 404. Chat screen checked in the browser. A photo was not posted into the user's real group.
 - **Next steps:** Review and merge `temp/project-completion-run070`. Possible later work: an automated NSFW check on images; other file types (PDF) only with document metadata removal.
+
+### Run 092: Chat upgrades (replies, withdraw, rewrite preview, history and search, pins and polls)
+- **Date/time:** 2026-11-14 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 32 (Feature)
+- **Prompt / task:** "Build the top 5" (from the agent's list of chat improvements).
+- **Result:** Completed. Two parts were adjusted to fit the hard rules (see Decisions).
+- **Summary:**
+  - **Replies:** `reply_to_id` on raw and published messages (migration 017). Published messages return a `reply_to` quote holding only what the group already sees. The app no longer pastes "> Replying to …" into the text, so the AI rewrites only what the sender wrote. Tapping a quote scrolls to the original.
+  - **Withdraw:** `POST /messages/:id/withdraw` (author, pending only). The pending card in chat has a Withdraw button with a confirm.
+  - **Rewrite preview (before sending):** a preview is a `raw_messages` row with `is_preview = true` that runs through the normal worker. The worker is unchanged and the payload still has no identity. Previews are excluded from the review queue, counts, review detail, decisions, notifications and My messages. "Send" turns the preview into the real message; the rewrite is already done, so the controller sees it ready at once.
+  - **History and search:** `?before=` pages back from the latest message (the v1 oldest-first call is unchanged). The chat opens at the newest message, has "Load earlier messages", and a search sheet that jumps to a result.
+  - **Pins and polls:** the controller pins from the message menu, and a pinned bar sits under the agenda. Polls are created from a new button in the controller's message box. Members vote by tapping and see live totals; voters are never returned.
+- **Decisions:**
+  - "My messages" stays status only (D11), so the preview happens before sending, never after.
+  - "Edit after sending" was not built: withdraw and write again instead.
+- **Files created:** `backend/migrations/017_chat_upgrades.sql`, `backend/test/chat-upgrades.test.ts`, `lib/features/groups/chat_extras.dart`, `test/chat_upgrades_test.dart`
+- **Files modified:** `groups.ts`, `messages.ts`, key-list tests, `live-check.mjs`, group data layer and providers, `group_chat_screen.dart`, mock review repository, `realtime_test.dart`, `app_strings.dart`, `API.md` 50, `README.md`
+- **Commands run and results:** backend 229 passed, lint and type-check clean; Flutter 104 passed, analyze 0; `npm run check:live` 75/75 with real qwen2.5:3b rewrites (preview wording, preview hidden from the controller, send, withdraw, pin, poll totals without voter ids, reply quote, search).
 

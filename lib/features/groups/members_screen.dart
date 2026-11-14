@@ -9,6 +9,7 @@ import 'package:talk_it_out/core/ui/labels.dart';
 import 'package:talk_it_out/core/ui/screen_async.dart';
 import 'package:talk_it_out/core/ui/stitch_chrome.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
+import 'package:talk_it_out/features/discovery/add_members_sheet.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 
@@ -109,174 +110,6 @@ class MembersScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _showAddMemberModal(BuildContext context, WidgetRef ref) async {
-    final usernameCtrl = TextEditingController();
-    var selectedRole = GroupRole.contributor;
-    String? error;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Brand.canvas,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (modalCtx, setModalState) => Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(modalCtx).viewInsets.bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Invite Member to Deliberation',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Brand.ink,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () => Navigator.of(modalCtx).pop(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Request a user to join this agenda room by entering their username or handle.',
-                style: TextStyle(fontSize: 12, color: Brand.inkSoft),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: usernameCtrl,
-                autofocus: true,
-                decoration: InputDecoration(
-                  prefixText: '@',
-                  hintText: 'username (e.g. alex_dev, sophia_ai)',
-                  filled: true,
-                  fillColor: Brand.canvas,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Brand.border),
-                  ),
-                  errorText: error,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Quick Suggestions:',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Brand.inkSoft,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final handle in [
-                    'alex_m',
-                    'kavita_r',
-                    'david_k',
-                    'sophia_ai',
-                    'marcus_nlp',
-                  ])
-                    ActionChip(
-                      label: Text(
-                        '@$handle',
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                      backgroundColor: Brand.muted,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      onPressed: () {
-                        setModalState(() {
-                          usernameCtrl.text = handle;
-                          error = null;
-                        });
-                      },
-                    ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Brand.ink,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: () async {
-                    final raw = usernameCtrl.text.trim();
-                    if (raw.isEmpty) {
-                      setModalState(() => error = 'Please enter a username');
-                      return;
-                    }
-                    Navigator.of(modalCtx).pop();
-                    try {
-                      await ref
-                          .read(groupRepositoryProvider)
-                          .addMember(
-                            groupId,
-                            username: raw,
-                            role: selectedRole,
-                          );
-                      ref.invalidate(membersProvider(groupId));
-                      ref.invalidate(groupDetailProvider(groupId));
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Invitation sent to @$raw. Added to group.',
-                            ),
-                            backgroundColor: Brand.ink,
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Failed to invite member: $e'),
-                            backgroundColor: Colors.red.shade800,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  child: const Text(
-                    'Send Invitation & Add',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final members = ref.watch(membersProvider(groupId));
@@ -356,9 +189,9 @@ class MembersScreen extends ConsumerWidget {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () => _showAddMemberModal(context, ref),
+                  onPressed: () => showAddMembersSheet(context, groupId),
                   icon: const Icon(Icons.person_add_alt_1, size: 16),
-                  label: const Text('Invite Member by Username'),
+                  label: const Text('Add members'),
                   style: FilledButton.styleFrom(
                     backgroundColor: Brand.ink,
                     foregroundColor: Colors.white,

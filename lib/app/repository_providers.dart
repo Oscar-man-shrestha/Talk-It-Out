@@ -6,6 +6,9 @@ import 'package:talk_it_out/core/mock/mock_controls.dart';
 import 'package:talk_it_out/features/auth/data/api_auth_repository.dart';
 import 'package:talk_it_out/features/auth/data/auth_repository.dart';
 import 'package:talk_it_out/features/auth/data/mock_auth_repository.dart';
+import 'package:talk_it_out/features/discovery/data/api_discovery_repository.dart';
+import 'package:talk_it_out/features/discovery/data/discovery_repository.dart';
+import 'package:talk_it_out/features/discovery/data/mock_discovery_repository.dart';
 import 'package:talk_it_out/features/feed/data/api_feed_repository.dart';
 import 'package:talk_it_out/features/feed/data/feed_repository.dart';
 import 'package:talk_it_out/features/feed/data/mock_feed_repository.dart';
@@ -67,6 +70,17 @@ final feedRepositoryProvider = Provider<FeedRepository>((ref) {
     );
   }
   return ApiFeedRepository(ref.watch(dioProvider));
+});
+
+final discoveryRepositoryProvider = Provider<DiscoveryRepository>((ref) {
+  if (_useMock(ref)) {
+    return MockDiscoveryRepository(
+      ref.watch(mockControlsProvider),
+      ref.watch(mockBoardProvider),
+      ref.watch(feedRepositoryProvider),
+    );
+  }
+  return ApiDiscoveryRepository(ref.watch(dioProvider));
 });
 
 final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {

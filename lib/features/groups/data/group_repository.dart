@@ -123,7 +123,8 @@ abstract class GroupRepository {
 
   Future<GroupMember> addMember(
     String groupId, {
-    required String username,
+    String? username,
+    String? userId,
     GroupRole role = GroupRole.contributor,
   });
 

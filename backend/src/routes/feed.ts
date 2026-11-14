@@ -47,7 +47,7 @@ const reactionSchema = z.object({
   }),
 });
 
-interface PostRow {
+export interface PostRow {
   id: string;
   title: string | null;
   topic: string | null;
@@ -90,7 +90,7 @@ function analysisFlags(status: string, nsfw: boolean | null, flags: Record<strin
   return { nsfw_flag: nsfw === true, other_flags: flags ?? {} };
 }
 
-function postJson(row: PostRow) {
+export function postJson(row: PostRow) {
   const flags = analysisFlags(row.analysis_status, row.analysis_nsfw, row.analysis_flags);
   return {
     id: row.id,
@@ -122,7 +122,7 @@ function commentJson(row: CommentRow) {
   };
 }
 
-const POST_SELECT = `
+export const POST_SELECT = `
   SELECT p.id, p.title, p.topic, p.content, p.analysis_status, p.analysis_nsfw, p.analysis_flags,
          date_trunc('milliseconds', p.created_at) AS created_at,
          u.id AS author_id, u.name AS author_name,

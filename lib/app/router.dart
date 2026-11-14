@@ -9,6 +9,7 @@ import 'package:talk_it_out/features/auth/forgot_password_screen.dart';
 import 'package:talk_it_out/features/auth/login_screen.dart';
 import 'package:talk_it_out/features/auth/register_screen.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
+import 'package:talk_it_out/features/discovery/interest_picker_screen.dart';
 import 'package:talk_it_out/features/feed/feed_screen.dart';
 import 'package:talk_it_out/features/feed/new_post_screen.dart';
 import 'package:talk_it_out/features/feed/post_detail_screen.dart';
@@ -120,6 +121,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'new',
                     parentNavigatorKey: rootNavigatorKey,
                     builder: (context, state) => const NewPostScreen(),
+                  ),
+                  GoRoute(
+                    path: 'interests',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) => InterestPickerScreen(
+                      firstRun: state.uri.queryParameters['first'] == '1',
+                    ),
                   ),
                   GoRoute(
                     path: ':postId',

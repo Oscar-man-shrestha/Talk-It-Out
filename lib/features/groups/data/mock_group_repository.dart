@@ -535,25 +535,32 @@ class MockGroupRepository implements GroupRepository {
   @override
   Future<GroupMember> addMember(
     String groupId, {
-    required String username,
+    String? username,
+    String? userId,
     GroupRole role = GroupRole.contributor,
   }) {
     return runMock(_controls, () {
       _requireGroup(groupId);
-      final clean = username.trim().replaceAll('@', '');
-      if (clean.isEmpty) {
+      final clean = (username ?? '').trim().replaceAll('@', '');
+      if (clean.isEmpty && userId == null) {
         throw const RepositoryException(
           code: 'validation',
           message: 'Username cannot be empty.',
         );
       }
-      final newMember = GroupMember(
-        userId: 'u_${DateTime.now().millisecondsSinceEpoch}',
-        name: clean,
-        role: role,
-      );
       final currentMembers =
           _board.membersByGroup[groupId] ?? const <GroupMember>[];
+      if (userId != null && currentMembers.any((m) => m.userId == userId)) {
+        throw const RepositoryException(
+          code: 'already_member',
+          message: 'That person is already in this group.',
+        );
+      }
+      final newMember = GroupMember(
+        userId: userId ?? 'u_${DateTime.now().millisecondsSinceEpoch}',
+        name: userId == null ? clean : (_mockNames[userId] ?? clean),
+        role: role,
+      );
       _board.membersByGroup[groupId] = [...currentMembers, newMember];
       return newMember;
     });
@@ -713,3 +720,18 @@ class MockGroupRepository implements GroupRepository {
     ];
   }
 }
+
+/// Names of the demo people search can add (see MockDiscoveryRepository).
+const _mockNames = <String, String>{
+  'u1': 'Priya',
+  'u2': 'Rohan Shrestha',
+  'u3': 'Rohan Basnet',
+  'u4': 'Anita Gurung',
+  'u5': 'Bikash Thapa',
+  'u6': 'Katherine Rai',
+  'u7': 'Sujan Karki',
+  'u8': 'Maya Tamang',
+  'u9': 'Arhat Bajracharya',
+  'u10': 'Alex Dev',
+  'u11': 'Sophia Lee',
+};

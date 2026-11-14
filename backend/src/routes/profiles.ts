@@ -90,7 +90,7 @@ function apiPrefix(req: Request): string {
   return req.baseUrl.replace(/\/users$/, '');
 }
 
-function mediaUrl(req: Request, mediaId: string | null): string | null {
+export function mediaUrl(req: Request, mediaId: string | null): string | null {
   if (!mediaId) return null;
   return `${req.protocol}://${req.get('host')}${apiPrefix(req)}/media/${mediaId}`;
 }
@@ -155,7 +155,7 @@ async function ensureProfileRow(client: Pool | PoolClient, userId: string): Prom
 
 async function loadProfile(pool: Pool, req: Request, userId: string, includeEmail: boolean) {
   const { rows } = await pool.query(
-    `SELECT u.id, u.name, u.username, u.email,
+    `SELECT u.id, u.name, u.username, u.username_chosen, u.email,
             p.headline, p.bio, p.location, p.website, p.github_handle,
             p.twitter_handle, p.linkedin_url, p.skills,
             p.avatar_media_id, p.cover_media_id, p.rewrite_tone
@@ -182,7 +182,10 @@ async function loadProfile(pool: Pool, req: Request, userId: string, includeEmai
     user: {
       id: row.id,
       name: row.name,
-      username: row.username,
+      // The derived username is the start of the email address, so others
+      // only see it once the person has chosen it as their @handle.
+      username: includeEmail || row.username_chosen ? row.username : null,
+      handle: row.username_chosen ? row.username : null,
       // Private settings only on your own profile.
       ...(includeEmail
         ? { email: row.email, rewrite_tone: row.rewrite_tone ?? 'professional' }

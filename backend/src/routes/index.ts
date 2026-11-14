@@ -7,6 +7,8 @@ import { createAuthMiddleware } from '../middleware/auth';
 import { createAuthRouter, createMeHandler } from './auth';
 import { createEventsRouter } from './events';
 import { createFeedRouter } from './feed';
+import { createFeedDiscoveryRouter } from './feedDiscovery';
+import { createPeopleRouter } from './people';
 import { createGoogleAuthRouter } from './googleAuth';
 import { createGroupsRouter } from './groups';
 import { createMessagesRouter } from './messages';
@@ -73,6 +75,8 @@ export function createApiRouter(
     createGroupsRouter(pool, requireAuth, appConfig.pipelineMaxInputChars),
   );
   router.use('/messages', createMessagesRouter(pool, requireAuth));
+  // Discovery paths first so GET /posts/:postId does not take them.
+  router.use('/posts', createFeedDiscoveryRouter(pool, requireAuth));
   router.use('/posts', createFeedRouter(pool, requireAuth));
   router.use('/notifications', createNotificationsRouter(pool, requireAuth));
 
@@ -85,6 +89,7 @@ export function createApiRouter(
   router.use('/groups', createReactionsRouter(pool, requireAuth));
   router.use('/groups', createAttachmentsRouter(pool, requireAuth));
   router.use('/notifications', createNotificationsReadAllRouter(pool, requireAuth));
+  router.use('/users', createPeopleRouter(pool, requireAuth));
   router.use('/users', createProfilesRouter(pool, requireAuth));
   router.use('/users', createAccountRouter(pool, requireAuth));
   router.use('/media', createMediaRouter(pool));

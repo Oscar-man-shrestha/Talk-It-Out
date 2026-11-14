@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +10,8 @@ import 'package:talk_it_out/core/ui/screen_async.dart';
 import 'package:talk_it_out/core/ui/stitch_chrome.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
+import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
+import 'package:talk_it_out/features/discovery/discovery_providers.dart';
 import 'package:talk_it_out/features/feed/data/post.dart';
 import 'package:talk_it_out/features/feed/data/post_topic.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
@@ -57,10 +61,192 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   var _weekly = true;
   String? _creatingId;
 
+  /// 0 = For you (ranked), 1 = Latest.
+  var _mode = 0;
+  Timer? _searchDebounce;
+  FeedSearchResult? _searchResult;
+  var _searching = false;
+  var _searchId = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // First visit: ask for interests once, like Pinterest.
+    ref.listenManual(
+      interestsProvider,
+      (previous, next) => _maybePromptInterests(),
+      fireImmediately: true,
+    );
+  }
+
+  /// Opens the interest picker for people who never saw it, but only while
+  /// the feed itself is on screen (not under "Ask" or a question).
+  void _maybePromptInterests() {
+    final value = ref.read(interestsProvider).value;
+    if (value == null || value.chosen) return;
+    if (ref.read(interestPromptShownProvider)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ref.read(interestPromptShownProvider)) return;
+      final router = GoRouter.maybeOf(context);
+      if (router == null || !(ModalRoute.of(context)?.isCurrent ?? false)) {
+        return;
+      }
+      ref.read(interestPromptShownProvider.notifier).set();
+      router.push('/feed/interests?first=1');
+    });
+  }
+
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _search.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    final q = value.trim();
+    setState(() {
+      if (q.isEmpty) {
+        _searchResult = null;
+        _searching = false;
+      }
+    });
+    if (q.isEmpty) return;
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 250),
+      () => _runSearch(q),
+    );
+  }
+
+  Future<void> _runSearch(String q) async {
+    final id = ++_searchId;
+    setState(() => _searching = true);
+    try {
+      final result = await ref.read(discoveryRepositoryProvider).searchPosts(q);
+      if (!mounted || id != _searchId) return;
+      setState(() {
+        _searchResult = result;
+        _searching = false;
+      });
+    } on RepositoryException {
+      if (!mounted || id != _searchId) return;
+      setState(() => _searching = false);
+    }
+  }
+
+  void _useCorrection(String text) {
+    _search.text = text;
+    _search.selection = TextSelection.collapsed(offset: text.length);
+    _onSearchChanged(text);
+  }
+
+  void _openPost(Post post) {
+    // A light signal for For You; never blocks opening the question.
+    unawaited(
+      ref
+          .read(discoveryRepositoryProvider)
+          .sendSignal(post.id, 'open')
+          .catchError((_) {}),
+    );
+    context.push('/feed/${post.id}');
+  }
+
+  Future<void> _notInterested(RankedPost item) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final undo = await ref
+          .read(forYouProvider.notifier)
+          .notInterested(item.post.id);
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: Brand.ink,
+          content: const Text("Got it. You'll see fewer posts like this."),
+          action: SnackBarAction(
+            label: 'Undo',
+            textColor: Colors.white,
+            onPressed: undo,
+          ),
+        ),
+      );
+    } on RepositoryException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  void _whyThisPost(RankedPost item, InterestState? interests) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Brand.canvas,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Why you're seeing this",
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: _ink,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                item.reason?.text ?? 'New in the community',
+                style: const TextStyle(fontSize: 14, color: _ink),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'For You uses the interests you picked, the questions you like, '
+                'answer and open, and what is popular now. It never uses group '
+                'or anonymous messages.',
+                style: TextStyle(fontSize: 12.5, height: 1.4, color: _muted),
+              ),
+              if (item.interests.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final id in item.interests)
+                      if (interests?.byId(id) case final option?)
+                        _InterestChip(
+                          option: option,
+                          active: interests!.picked.contains(id),
+                        ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.visibility_off_outlined),
+                title: const Text('Not interested'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _notInterested(item);
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.tune),
+                title: const Text('Edit your interests'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  context.push('/feed/interests');
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   List<Post> _visible(List<Post> items) {
@@ -135,6 +321,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
         await repo.removeReaction(post.id);
       }
       ref.invalidate(feedProvider);
+      ref.invalidate(forYouProvider);
     } on RepositoryException {
       // The list stays as it was. A later refresh can retry.
     }
@@ -170,6 +357,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   @override
   Widget build(BuildContext context) {
     final feed = ref.watch(feedProvider);
+    final forYou = _mode == 0 ? ref.watch(forYouProvider) : null;
+    final interests = ref.watch(interestsProvider).value;
+    if (interests != null && !interests.chosen) _maybePromptInterests();
+    final searchingText = _search.text.trim().isNotEmpty;
     ref.watch(savedPostsProvider);
     final items = feed.value ?? const <Post>[];
     final visible = _visible(items);
@@ -263,9 +454,14 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
         ),
       ),
       body: AsyncBody(
-        status: asyncStatus(feed, isEmpty: items.isEmpty),
-        errorMessage: errorText(feed.error),
-        onRetry: () => ref.invalidate(feedProvider),
+        status: forYou != null && !searchingText
+            ? asyncStatus(forYou, isEmpty: false)
+            : asyncStatus(feed, isEmpty: items.isEmpty && !searchingText),
+        errorMessage: errorText((forYou ?? feed).error),
+        onRetry: () {
+          ref.invalidate(feedProvider);
+          ref.invalidate(forYouProvider);
+        },
         empty: Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
@@ -305,91 +501,99 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           ),
         ),
         child: RefreshIndicator(
-          onRefresh: () async => ref.refresh(feedProvider.future),
+          onRefresh: () async {
+            ref.invalidate(forYouProvider);
+            ref.invalidate(feedProvider);
+            await Future.wait([
+              ref.read(feedProvider.future),
+              if (_mode == 0) ref.read(forYouProvider.future),
+            ]);
+          },
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 96),
             children: [
-              _Hero(
-                openCount: openCount,
-                onAsk: () => context.push('/feed/new'),
-                onRankings: _scrollToBoard,
+              _FeedTabs(
+                mode: _mode,
+                onChanged: (mode) => setState(() => _mode = mode),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               TextField(
                 controller: _search,
-                onChanged: (_) => setState(() {}),
+                key: const ValueKey('feed-search'),
+                onChanged: (value) {
+                  setState(() {});
+                  _onSearchChanged(value);
+                },
                 style: const TextStyle(fontSize: 13, color: _ink),
                 decoration: InputDecoration(
-                  hintText: 'Search honest dilemmas, rubrics, tags...',
+                  hintText: 'Search questions (typos are fine)',
                   hintStyle: const TextStyle(fontSize: 12, color: _faint),
                   filled: true,
                   fillColor: Colors.white,
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   prefixIcon: const Icon(Icons.search, size: 19, color: _faint),
-                  suffixIcon: const Icon(Icons.tune, size: 18, color: _muted),
+                  suffixIcon: searchingText
+                      ? IconButton(
+                          tooltip: 'Clear search',
+                          icon: const Icon(
+                            Icons.close,
+                            size: 18,
+                            color: _muted,
+                          ),
+                          onPressed: () {
+                            _search.clear();
+                            _onSearchChanged('');
+                          },
+                        )
+                      : null,
                   border: _fieldBorder(_border),
                   enabledBorder: _fieldBorder(_border),
                   focusedBorder: _fieldBorder(Brand.accent),
                 ),
               ),
-              const SizedBox(height: 10),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    for (var i = 0; i < _topics.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 6),
-                      _TopicChip(
-                        icon: _topics[i].$1,
-                        label: _topics[i].$2,
-                        active: _topic == i,
-                        onTap: () => setState(() => _topic = i),
+              if (searchingText) ...[
+                const SizedBox(height: 10),
+                if (_searching && _searchResult == null)
+                  const LinearProgressIndicator(minHeight: 2, color: _ink),
+                if (_searchResult?.didYouMean case final suggestion?)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text.rich(
+                      TextSpan(
+                        style: const TextStyle(fontSize: 13, color: _muted),
+                        children: [
+                          const TextSpan(text: 'Showing results for '),
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.baseline,
+                            baseline: TextBaseline.alphabetic,
+                            child: GestureDetector(
+                              onTap: () => _useCorrection(suggestion),
+                              child: Text(
+                                suggestion,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  fontStyle: FontStyle.italic,
+                                  color: _ink,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Flexible(
-                    child: _MenuPill(
-                      value: _sort,
-                      options: _sorts,
-                      onChanged: (value) => setState(() => _sort = value),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: _MenuPill(
-                      value: _status,
-                      options: _statuses,
-                      onChanged: (value) => setState(() => _status = value),
-                    ),
+                if (_searchResult != null && _searchResult!.items.isEmpty)
+                  _CaughtUp(
+                    title: 'No questions match "${_search.text.trim()}"',
+                    body: 'Try other words, or ask it yourself.',
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _Leaderboard(
-                key: _boardKey,
-                voices: _leaders(items),
-                weekly: _weekly,
-                onWeekly: () => setState(() => _weekly = true),
-                onDaily: () => setState(() => _weekly = false),
-              ),
-              const SizedBox(height: 12),
-              if (visible.isEmpty)
-                const _CaughtUp(
-                  title: 'No questions match',
-                  body: 'Try another topic, or clear the search to see the full feed.',
-                )
-              else
-                for (final post in visible) ...[
+                for (final post in _searchResult?.items ?? const <Post>[]) ...[
                   PostCard(
                     post: post,
-                    onOpen: () => context.push('/feed/${post.id}'),
+                    onOpen: () => _openPost(post),
                     onToggleLike: () => _toggleLike(post),
                     onCreateGroup: post.author.id == userId
                         ? () => _createGroup(post)
@@ -398,12 +602,118 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   ),
                   const SizedBox(height: 12),
                 ],
-              if (visible.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                const _CaughtUp(
-                  title: "You're caught up with community consensus!",
-                  body: 'Questions on this feed stay attributed to the person who wrote them.',
+              ] else if (_mode == 0) ...[
+                const SizedBox(height: 10),
+                _InterestBar(
+                  interests: interests,
+                  onEdit: () => context.push('/feed/interests'),
                 ),
+                const SizedBox(height: 12),
+                if ((forYou?.value ?? const <RankedPost>[]).isEmpty)
+                  const _CaughtUp(
+                    title: 'Nothing here yet',
+                    body: 'Be the first to ask a question, or check Latest.',
+                  ),
+                for (final item in forYou?.value ?? const <RankedPost>[]) ...[
+                  _ReasonLine(
+                    item: item,
+                    onMore: () => _whyThisPost(item, interests),
+                  ),
+                  PostCard(
+                    post: item.post,
+                    onOpen: () => _openPost(item.post),
+                    onToggleLike: () => _toggleLike(item.post),
+                    onCreateGroup: item.post.author.id == userId
+                        ? () => _createGroup(item.post)
+                        : null,
+                    creatingGroup: _creatingId == item.post.id,
+                  ),
+                  const SizedBox(height: 14),
+                ],
+                if ((forYou?.value ?? const <RankedPost>[]).isNotEmpty)
+                  const _CaughtUp(
+                    title: "You're all caught up",
+                    body: 'Like or answer questions and For You gets better.',
+                  ),
+              ] else ...[
+                const SizedBox(height: 12),
+                _Hero(
+                  openCount: openCount,
+                  onAsk: () => context.push('/feed/new'),
+                  onRankings: _scrollToBoard,
+                ),
+                const SizedBox(height: 12),
+                const SizedBox(height: 10),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < _topics.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 6),
+                        _TopicChip(
+                          icon: _topics[i].$1,
+                          label: _topics[i].$2,
+                          active: _topic == i,
+                          onTap: () => setState(() => _topic = i),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Flexible(
+                      child: _MenuPill(
+                        value: _sort,
+                        options: _sorts,
+                        onChanged: (value) => setState(() => _sort = value),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: _MenuPill(
+                        value: _status,
+                        options: _statuses,
+                        onChanged: (value) => setState(() => _status = value),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _Leaderboard(
+                  key: _boardKey,
+                  voices: _leaders(items),
+                  weekly: _weekly,
+                  onWeekly: () => setState(() => _weekly = true),
+                  onDaily: () => setState(() => _weekly = false),
+                ),
+                const SizedBox(height: 12),
+                if (visible.isEmpty)
+                  const _CaughtUp(
+                    title: 'No questions match',
+                    body: 'Try another topic, or clear the search to see the full feed.',
+                  )
+                else
+                  for (final post in visible) ...[
+                    PostCard(
+                      post: post,
+                      onOpen: () => _openPost(post),
+                      onToggleLike: () => _toggleLike(post),
+                      onCreateGroup: post.author.id == userId
+                          ? () => _createGroup(post)
+                          : null,
+                      creatingGroup: _creatingId == post.id,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                if (visible.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  const _CaughtUp(
+                    title: "You're caught up with community consensus!",
+                    body: 'Questions on this feed stay attributed to the person who wrote them.',
+                  ),
+                ],
               ],
             ],
           ),
@@ -1303,6 +1613,218 @@ class _CountButton extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Instagram-style text tabs: For you | Latest.
+class _FeedTabs extends StatelessWidget {
+  const _FeedTabs({required this.mode, required this.onChanged});
+
+  final int mode;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget tab(int index, String label) {
+      final active = mode == index;
+      return Expanded(
+        child: InkWell(
+          key: ValueKey('feed-tab-$index'),
+          onTap: () => onChanged(index),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Column(
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: active ? FontWeight.w800 : FontWeight.w500,
+                    color: active ? _ink : _faint,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  height: 2.5,
+                  width: active ? 56 : 0,
+                  decoration: BoxDecoration(
+                    color: _ink,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: _border)),
+      ),
+      child: Row(children: [tab(0, 'For you'), tab(1, 'Latest')]),
+    );
+  }
+}
+
+class _InterestChip extends StatelessWidget {
+  const _InterestChip({required this.option, this.active = true});
+
+  final InterestOption option;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: active ? Colors.white : _chip,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _border),
+      ),
+      child: Text(
+        '${option.emoji} ${option.label}',
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: _ink,
+        ),
+      ),
+    );
+  }
+}
+
+/// The interests For You is built from, with an edit button.
+class _InterestBar extends StatelessWidget {
+  const _InterestBar({required this.interests, required this.onEdit});
+
+  final InterestState? interests;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = interests;
+    if (state == null) return const SizedBox(height: 30);
+    if (state.picked.isEmpty) {
+      return Material(
+        color: Brand.accentSoft,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onEdit,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Brand.accentBorder),
+            ),
+            child: const Row(
+              children: [
+                Text('✨', style: TextStyle(fontSize: 22)),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Make For You yours',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: _ink,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Pick a few interests and we will put those questions first.',
+                        style: TextStyle(fontSize: 12.5, color: _muted),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: _muted),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return SizedBox(
+      height: 32,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          for (final id in state.picked)
+            if (state.byId(id) case final option?)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: _InterestChip(option: option),
+              ),
+          ActionChip(
+            key: const ValueKey('edit-interests'),
+            avatar: const Icon(Icons.tune, size: 15, color: _ink),
+            label: const Text('Edit'),
+            onPressed: onEdit,
+            backgroundColor: Colors.white,
+            side: const BorderSide(color: _border),
+            shape: const StadiumBorder(),
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Because you follow Career growth" above a For You post, with a menu.
+class _ReasonLine extends StatelessWidget {
+  const _ReasonLine({required this.item, required this.onMore});
+
+  final RankedPost item;
+  final VoidCallback onMore;
+
+  IconData get _icon => switch (item.reason?.kind) {
+    'interest' || 'learned' => Icons.favorite_border,
+    'similar' => Icons.auto_awesome_outlined,
+    'network' => Icons.groups_2_outlined,
+    'popular' => Icons.local_fire_department_outlined,
+    'explore' => Icons.explore_outlined,
+    _ => Icons.fiber_new_outlined,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 2),
+      child: Row(
+        children: [
+          Icon(_icon, size: 14, color: _muted),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              item.reason?.text ?? 'New in the community',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12,
+                color: _muted,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          IconButton(
+            key: ValueKey('post-more-${item.post.id}'),
+            tooltip: 'More',
+            visualDensity: VisualDensity.compact,
+            iconSize: 18,
+            icon: const Icon(Icons.more_horiz, color: _muted),
+            onPressed: onMore,
+          ),
+        ],
       ),
     );
   }

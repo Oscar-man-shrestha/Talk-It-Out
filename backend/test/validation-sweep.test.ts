@@ -174,6 +174,7 @@ describe('migrations', () => {
       '016_message_attachments.sql',
       '017_chat_upgrades.sql',
       '018_any_emoji_reactions.sql',
+      '019_discovery.sql',
     ]);
   });
 });

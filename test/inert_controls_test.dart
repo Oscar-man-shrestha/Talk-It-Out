@@ -81,7 +81,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('emoji-picker')), findsOneWidget);
     // Opens on Smileys (no recents yet); search finds the thumbs up.
-    await tester.enterText(find.byKey(const ValueKey('emoji-search')), 'thumbs');
+    await tester.enterText(
+      find.byKey(const ValueKey('emoji-search')),
+      'thumbs',
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('👍'));
     await tester.pumpAndSettle();

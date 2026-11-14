@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +11,8 @@ import 'package:talk_it_out/core/ui/stitch_chrome.dart';
 import 'package:talk_it_out/features/feed/data/post_topic.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
+import 'package:talk_it_out/features/discovery/discovery_providers.dart';
 
 const _ink = Brand.ink;
 const _muted = Brand.inkSoft;
@@ -38,6 +42,9 @@ class _NewPostScreenState extends ConsumerState<NewPostScreen> {
   var _busy = false;
   var _triedSubmit = false;
   String? _serverError;
+  Timer? _ideasTimer;
+  TopicIdeas? _ideas;
+  var _ideasFor = '';
 
   @override
   void initState() {
@@ -46,10 +53,33 @@ class _NewPostScreenState extends ConsumerState<NewPostScreen> {
     _details.addListener(_changed);
   }
 
-  void _changed() => setState(() {});
+  void _changed() {
+    setState(() {});
+    _scheduleIdeas();
+  }
+
+  /// Suggests a topic from the draft as the person writes.
+  void _scheduleIdeas() {
+    final text = '$_titleText\n$_detailsText';
+    if (text == _ideasFor) return;
+    _ideasTimer?.cancel();
+    if (text.trim().length < 12) return;
+    _ideasTimer = Timer(const Duration(milliseconds: 600), () async {
+      _ideasFor = text;
+      try {
+        final ideas = await ref
+            .read(discoveryRepositoryProvider)
+            .classifyDraft(title: _titleText, content: _detailsText);
+        if (mounted && _ideasFor == text) setState(() => _ideas = ideas);
+      } on RepositoryException {
+        // Suggestions are optional.
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _ideasTimer?.cancel();
     _title.dispose();
     _details.dispose();
     _detailsFocus.dispose();
@@ -91,6 +121,7 @@ class _NewPostScreenState extends ConsumerState<NewPostScreen> {
           .read(feedRepositoryProvider)
           .createPost(title: _titleText, topic: _topic, content: _detailsText);
       ref.invalidate(feedProvider);
+      ref.invalidate(forYouProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text(AppStrings.askPosted)));
@@ -217,6 +248,53 @@ class _NewPostScreenState extends ConsumerState<NewPostScreen> {
                   ),
               ],
             ),
+            if (_ideas?.topic case final suggested?)
+              if (suggested != _topic)
+                if (PostTopic.byId(suggested) case final topic?)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: InkWell(
+                      key: const ValueKey('ask-topic-suggestion'),
+                      onTap: _busy
+                          ? null
+                          : () => setState(() => _topic = topic.id),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.auto_awesome,
+                              size: 15,
+                              color: _ink,
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text.rich(
+                                TextSpan(
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    color: _muted,
+                                  ),
+                                  children: [
+                                    const TextSpan(text: 'Sounds like '),
+                                    TextSpan(
+                                      text: topic.label,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        color: _ink,
+                                      ),
+                                    ),
+                                    const TextSpan(text: '. Tap to use it.'),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
             if (_triedSubmit && _topicError != null) _ErrorLine(_topicError!),
             const SizedBox(height: 18),
             _Label(

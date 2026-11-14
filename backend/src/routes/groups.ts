@@ -1,7 +1,7 @@
 import { Request, Router } from 'express';
 import { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
-import { badRequest, conflict, forbidden, notFound, parseWith } from '../errors';
+import { ApiError, badRequest, conflict, forbidden, notFound, parseWith } from '../errors';
 import { buildPage, decodeCursor, encodeCursor, parseListQuery, PageCursor } from '../pagination';
 import { RequireAuth } from '../middleware/auth';
 import { uniqueConstraint, withTransaction } from '../db';
@@ -15,11 +15,17 @@ const createGroupSchema = z.object({
 });
 
 const addMemberSchema = z.object({
+  // Either a username (@handle) or a user id from people search.
   username: z
     .string()
     .trim()
     .transform((value) => value.replace(/^@+/, ''))
-    .pipe(z.string().min(1, 'Enter a username.').max(100, 'Username is too long.')),
+    .pipe(z.string().min(1, 'Enter a username.').max(100, 'Username is too long.'))
+    .optional(),
+  user_id: z
+    .string()
+    .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'Unknown person.')
+    .optional(),
   role: z
     .enum(['contributor'], {
       error: () => 'Members can only be added as contributors.',
@@ -358,12 +364,16 @@ export function createGroupsRouter(
     if (callerRole !== 'controller') throw forbidden();
     const body = parseWith(addMemberSchema, req.body);
 
-    const { rows: userRows } = await pool.query(
-      'SELECT id, name FROM users WHERE lower(username) = lower($1)',
-      [body.username],
-    );
+    if (!body.username && !body.user_id) {
+      throw new ApiError(422, 'validation_error', 'Choose someone to add.');
+    }
+    const { rows: userRows } = body.user_id
+      ? await pool.query('SELECT id, name FROM users WHERE id = $1', [body.user_id])
+      : await pool.query('SELECT id, name FROM users WHERE lower(username) = lower($1)', [
+          body.username,
+        ]);
     const user = userRows[0];
-    if (!user) throw notFound('No user has that username.');
+    if (!user) throw notFound(body.user_id ? 'We could not find that person.' : 'No user has that username.');
 
     try {
       await pool.query(

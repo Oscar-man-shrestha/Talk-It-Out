@@ -16,6 +16,7 @@ import 'package:talk_it_out/features/feed/data/post.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
 import 'package:talk_it_out/features/feed/saved_posts.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/features/discovery/discovery_providers.dart';
 
 // Stitch Monochrome Precision tokens
 const _kPrimary = Brand.accent;
@@ -102,6 +103,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
       ref.invalidate(commentsProvider(widget.postId));
       ref.invalidate(postDetailProvider(widget.postId));
       ref.invalidate(feedProvider);
+      ref.invalidate(forYouProvider);
     } on RepositoryException catch (error) {
       setState(() => _error = error.message);
     } catch (_) {
@@ -200,6 +202,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     ref.invalidate(commentsProvider(widget.postId));
     ref.invalidate(postDetailProvider(widget.postId));
     ref.invalidate(feedProvider);
+    ref.invalidate(forYouProvider);
   }
 
   Future<void> _report(Comment comment) async {
@@ -245,6 +248,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     try {
       await ref.read(feedRepositoryProvider).deletePost(widget.postId);
       ref.invalidate(feedProvider);
+      ref.invalidate(forYouProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -648,6 +652,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                             postDetailProvider(widget.postId),
                                           );
                                           ref.invalidate(feedProvider);
+                                          ref.invalidate(forYouProvider);
                                         } on RepositoryException catch (error) {
                                           if (mounted) {
                                             setState(

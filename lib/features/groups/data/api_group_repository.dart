@@ -349,13 +349,14 @@ class ApiGroupRepository implements GroupRepository {
   @override
   Future<GroupMember> addMember(
     String groupId, {
-    required String username,
+    String? username,
+    String? userId,
     GroupRole role = GroupRole.contributor,
   }) {
     return guardApi(() async {
       final response = await _dio.post(
         Endpoints.groupMembers(groupId),
-        data: {'username': username, 'role': role.name},
+        data: {'username': ?username, 'user_id': ?userId, 'role': role.name},
       );
       return GroupMember.fromJson(asJsonMap(response.data));
     });

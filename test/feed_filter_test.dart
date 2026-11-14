@@ -8,7 +8,7 @@ import 'package:talk_it_out/core/storage/token_store.dart';
 import 'package:talk_it_out/features/feed/feed_screen.dart';
 
 void main() {
-  testWidgets('the feed opens on all questions, including commented ones', (
+  testWidgets('Latest shows all questions, including commented ones', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 3000);
@@ -27,6 +27,11 @@ void main() {
         child: const MaterialApp(home: FeedScreen()),
       ),
     );
+    await tester.pumpAndSettle();
+
+    // The feed opens on For You; the filters live on Latest.
+    expect(find.text('For you'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('feed-tab-1')));
     await tester.pumpAndSettle();
 
     expect(find.text('All questions'), findsWidgets);

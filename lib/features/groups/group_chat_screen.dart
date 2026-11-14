@@ -22,6 +22,7 @@ import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/groups/chat_image.dart';
 import 'package:talk_it_out/features/groups/chat_extras.dart';
 import 'package:talk_it_out/features/groups/emoji_picker.dart';
+import 'package:talk_it_out/features/discovery/add_members_sheet.dart';
 
 class GroupChatScreen extends ConsumerStatefulWidget {
   const GroupChatScreen({required this.groupId, super.key});
@@ -205,7 +206,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
               if (value == 'members') {
                 context.push('/groups/${widget.groupId}/members');
               } else if (value == 'invite') {
-                context.push('/groups/${widget.groupId}/members');
+                showAddMembersSheet(context, widget.groupId);
               } else if (value == 'mine') {
                 context.push('/groups/${widget.groupId}/mine');
               } else if (value == 'leave') {
@@ -250,7 +251,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                     children: [
                       Icon(Icons.person_add_alt_1, size: 16),
                       SizedBox(width: 8),
-                      Text('Invite member by username'),
+                      Text('Add members'),
                     ],
                   ),
                 ),

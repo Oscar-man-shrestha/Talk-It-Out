@@ -10,6 +10,7 @@ import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/features/feed/data/post.dart';
 import 'package:talk_it_out/features/feed/feed_screen.dart';
 import 'package:talk_it_out/features/feed/new_post_screen.dart';
+import 'package:talk_it_out/features/discovery/discovery_providers.dart';
 
 Future<ProviderContainer> _pumpApp(WidgetTester tester) async {
   tester.view.physicalSize = const Size(1200, 3000);
@@ -26,6 +27,8 @@ Future<ProviderContainer> _pumpApp(WidgetTester tester) async {
     ],
   );
   addTearDown(container.dispose);
+  // This test is about asking; skip the first-run interest picker.
+  container.read(interestPromptShownProvider.notifier).set();
   final router = GoRouter(
     initialLocation: '/feed',
     routes: [

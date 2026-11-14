@@ -16,6 +16,10 @@ import 'package:talk_it_out/features/feed/saved_posts.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/profile/profile_state.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:go_router/go_router.dart';
+import 'package:talk_it_out/features/discovery/discovery_providers.dart';
+import 'package:talk_it_out/features/discovery/handle_editor.dart';
+import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
 
 // Stitch Monochrome Precision tokens
 const _kPrimary = Brand.accent;
@@ -1424,7 +1428,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ),
                               const SizedBox(height: 3),
 
-                              // Email
+                              // @handle (public) and email (private)
+                              _HandleLine(
+                                handle: ref.watch(handleProvider).value?.handle,
+                                onEdit: () => showHandleEditor(context),
+                              ),
+                              const SizedBox(height: 2),
                               Row(
                                 children: [
                                   Text(
@@ -1535,6 +1544,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  _FeedInterestsCard(
+                    interests: ref.watch(interestsProvider).value,
+                    onEdit: () => context.push('/feed/interests'),
                   ),
                   const SizedBox(height: 12),
 
@@ -2966,6 +2980,133 @@ class _LogoutAllDialogState extends ConsumerState<_LogoutAllDialog> {
               : const Text(AppStrings.logoutAll),
         ),
       ],
+    );
+  }
+}
+
+/// "@handle" under the name, or a prompt to choose one.
+class _HandleLine extends StatelessWidget {
+  const _HandleLine({required this.handle, required this.onEdit});
+
+  final String? handle;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      key: const ValueKey('profile-handle'),
+      onTap: onEdit,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              handle == null ? 'Choose your @handle' : '@$handle',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: handle == null ? Colors.blue.shade800 : _kTextPrimary,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              handle == null ? Icons.add_circle_outline : Icons.edit_outlined,
+              size: 13,
+              color: _kTextSecondary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The interests the For You feed starts from.
+class _FeedInterestsCard extends StatelessWidget {
+  const _FeedInterestsCard({required this.interests, required this.onEdit});
+
+  final InterestState? interests;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = interests;
+    final picked = [
+      for (final id in state?.picked ?? const <String>[]) ?state!.byId(id),
+    ];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _kSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _kBorderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Feed interests',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: _kTextPrimary,
+                  ),
+                ),
+              ),
+              TextButton(
+                key: const ValueKey('profile-edit-interests'),
+                onPressed: onEdit,
+                child: Text(picked.isEmpty ? 'Choose' : 'Edit'),
+              ),
+            ],
+          ),
+          Text(
+            picked.isEmpty
+                ? 'Pick topics you care about and For You shows those questions first.'
+                : 'For You starts from these and learns from what you like and answer. Only you see this list.',
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: _kTextSecondary,
+            ),
+          ),
+          if (picked.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final option in picked)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: _kBorderSubtle),
+                    ),
+                    child: Text(
+                      '${option.emoji} ${option.label}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _kTextPrimary,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

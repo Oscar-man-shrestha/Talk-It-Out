@@ -1429,6 +1429,12 @@ class _ControllerMessageComposerState
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           IconButton(
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 34,
+                              minHeight: 40,
+                            ),
                             icon: const Icon(
                               Icons.sentiment_satisfied_alt_outlined,
                               color: Color(0xFF8696A0),
@@ -1445,6 +1451,11 @@ class _ControllerMessageComposerState
                               textCapitalization: TextCapitalization.sentences,
                               decoration: const InputDecoration(
                                 hintText: 'Message',
+                                filled: false,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                disabledBorder: InputBorder.none,
+                                isDense: true,
                                 hintStyle: TextStyle(
                                   fontSize: 15,
                                   color: Color(0xFF8696A0),
@@ -1457,6 +1468,12 @@ class _ControllerMessageComposerState
                             ),
                           ),
                           IconButton(
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 34,
+                              minHeight: 40,
+                            ),
                             key: const ValueKey('new-poll'),
                             icon: const Icon(
                               Icons.poll_outlined,
@@ -1472,6 +1489,12 @@ class _ControllerMessageComposerState
                                   ),
                           ),
                           IconButton(
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 34,
+                              minHeight: 40,
+                            ),
                             icon: const Icon(
                               Icons.attach_file_rounded,
                               color: Color(0xFF8696A0),
@@ -1903,6 +1926,12 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           IconButton(
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 34,
+                              minHeight: 40,
+                            ),
                             icon: const Icon(
                               Icons.sentiment_satisfied_alt_outlined,
                               color: Color(0xFF8696A0),
@@ -1919,6 +1948,11 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                               textCapitalization: TextCapitalization.sentences,
                               decoration: const InputDecoration(
                                 hintText: 'Message',
+                                filled: false,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                disabledBorder: InputBorder.none,
+                                isDense: true,
                                 hintStyle: TextStyle(
                                   fontSize: 15,
                                   color: Color(0xFF8696A0),
@@ -1931,6 +1965,12 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                             ),
                           ),
                           IconButton(
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 34,
+                              minHeight: 40,
+                            ),
                             icon: const Icon(
                               Icons.attach_file_rounded,
                               color: Color(0xFF8696A0),

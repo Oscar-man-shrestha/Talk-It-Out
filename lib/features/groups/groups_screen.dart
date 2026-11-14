@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:talk_it_out/core/models/enums.dart';
 import 'package:talk_it_out/core/models/group.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
-import 'package:talk_it_out/core/ui/labels.dart';
 import 'package:talk_it_out/core/ui/screen_async.dart';
 import 'package:talk_it_out/core/ui/stitch_chrome.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
@@ -13,6 +12,7 @@ import 'package:talk_it_out/features/groups/data/published_message.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/profile/profile_state.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/features/groups/group_chat_screen.dart';
 
 const _border = Brand.border;
 const _ink = Brand.ink;
@@ -175,28 +175,6 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                         border: _fieldBorder(_border),
                         enabledBorder: _fieldBorder(_border),
                         focusedBorder: _fieldBorder(Brand.accent),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: () => context.push('/groups/new'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Brand.accent,
-                      foregroundColor: Colors.white,
-                      fixedSize: const Size.fromHeight(36),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text(
-                      'New Group',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -604,14 +582,17 @@ class _GroupCard extends ConsumerWidget {
       }
     }
 
+    final preview = latest == null ? null : _previewText(latest);
+
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
+        key: ValueKey('group-${group.id}'),
         onTap: () => context.push('/groups/${group.id}'),
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: _border),
@@ -620,33 +601,56 @@ class _GroupCard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   _Avatar(
                     letters: _initials(group.agenda),
                     filled: controller,
                     live: controller && pending > 0,
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                group.agenda,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 15.5,
+                                  fontWeight: unread > 0
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
+                                  letterSpacing: -0.2,
+                                  color: _ink,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            _RoleTag(controller: controller),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
                         Text(
-                          group.agenda,
+                          preview ??
+                              (members == null
+                                  ? AppStrings.noMessagesYet
+                                  : '${members.length} '
+                                        '${members.length == 1 ? 'member' : 'members'}'
+                                        ' · ${AppStrings.noMessagesYet}'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.2,
-                            color: _ink,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: unread > 0 ? _ink : _muted,
+                            fontWeight: unread > 0
+                                ? FontWeight.w500
+                                : FontWeight.w400,
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        _MetaLine(
-                          memberCount: members?.length,
-                          activeLabel: 'Active ${_ago(activity)}',
                         ),
                       ],
                     ),
@@ -655,40 +659,27 @@ class _GroupCard extends ConsumerWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: controller ? Brand.accent : _low,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: controller ? Brand.accent : _border,
-                          ),
-                        ),
-                        child: Text(
-                          roleLabel(group.myRole).toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.4,
-                            color: controller ? Colors.white : _ink,
-                          ),
+                      Text(
+                        listTimeLabel(activity),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: unread > 0
+                              ? FontWeight.w700
+                              : FontWeight.w400,
+                          color: unread > 0 ? _ink : _faint,
                         ),
                       ),
-                      if (unread > 0) ...[
-                        const SizedBox(height: 8),
-                        _UnreadBadge(count: unread),
-                      ],
+                      const SizedBox(height: 6),
+                      if (unread > 0)
+                        _UnreadBadge(count: unread)
+                      else
+                        const SizedBox(height: 20),
                     ],
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              const Divider(height: 1, color: _border),
-              const SizedBox(height: 10),
-              if (pending > 0 && controller)
+              if (pending > 0 && controller) ...[
+                const SizedBox(height: 10),
                 Row(
                   children: [
                     const _LiveDot(),
@@ -705,7 +696,7 @@ class _GroupCard extends ConsumerWidget {
                     ),
                     InkWell(
                       onTap: () => context.push('/groups/${group.id}/review'),
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(6),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -713,7 +704,7 @@ class _GroupCard extends ConsumerWidget {
                         ),
                         decoration: BoxDecoration(
                           color: _low,
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(6),
                           border: Border.all(color: _border),
                         ),
                         child: const Row(
@@ -734,22 +725,19 @@ class _GroupCard extends ConsumerWidget {
                       ),
                     ),
                   ],
-                )
-              else if (pending > 0)
+                ),
+              ] else if (pending > 0) ...[
+                const SizedBox(height: 10),
                 Row(
                   children: [
-                    const Icon(Icons.hourglass_top, size: 16, color: _muted),
-                    const SizedBox(width: 8),
+                    const Icon(Icons.hourglass_top, size: 15, color: _muted),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         pending == 1
-                            ? '1 message pending approval'
-                            : '$pending messages pending approval',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: _ink,
-                        ),
+                            ? 'Your message is waiting for review'
+                            : '$pending of your messages are waiting for review',
+                        style: const TextStyle(fontSize: 12, color: _muted),
                       ),
                     ),
                     if (pendingSince != null)
@@ -758,36 +746,6 @@ class _GroupCard extends ConsumerWidget {
                         style: const TextStyle(fontSize: 11, color: _faint),
                       ),
                   ],
-                )
-              else
-                const Row(
-                  children: [
-                    Icon(Icons.task_alt, size: 16, color: _ink),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'All messages published',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: _ink,
-                        ),
-                      ),
-                    ),
-                    _Dot(),
-                  ],
-                ),
-              if (latest != null) ...[
-                const SizedBox(height: 8),
-                _PreviewLine(
-                  icon: !controller && pending > 0
-                      ? Icons.check_circle_outline
-                      : Icons.chat_outlined,
-                  prefix: !controller && pending > 0
-                      ? 'Accepted: '
-                      : '${latest.displaySender?.name ?? AppStrings.anonymousUser}: ',
-                  quote: !controller && pending > 0,
-                  text: latest.text,
                 ),
               ],
             ],
@@ -796,90 +754,58 @@ class _GroupCard extends ConsumerWidget {
       ),
     );
   }
+
+  /// One line, like a chat list: who said it, or what kind of message.
+  String _previewText(PublishedMessage m) {
+    final who = m.displaySender?.name ?? AppStrings.anonymousUser;
+    final first = who.split(' ').first;
+    final body = m.poll != null
+        ? '📊 ${m.text}'
+        : m.attachmentId != null
+        ? '📷 ${m.text}'
+        : m.text;
+    return '$first: ${body.replaceAll('\n', ' ')}';
+  }
 }
 
-class _MetaLine extends StatelessWidget {
-  const _MetaLine({required this.memberCount, required this.activeLabel});
+/// Small role marker next to the group name.
+class _RoleTag extends StatelessWidget {
+  const _RoleTag({required this.controller});
 
-  final int? memberCount;
-  final String activeLabel;
+  final bool controller;
 
   @override
   Widget build(BuildContext context) {
-    final members = memberCount == null
-        ? null
-        : memberCount == 1
-        ? '1 member'
-        : '$memberCount members';
-    return Row(
-      children: [
-        if (members != null) ...[
-          const Icon(Icons.group_outlined, size: 14, color: _muted),
-          const SizedBox(width: 4),
-          Text(members, style: const TextStyle(fontSize: 11, color: _muted)),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 6),
-            child: Text('•', style: TextStyle(fontSize: 10, color: _faint)),
-          ),
-        ],
-        Flexible(
-          child: Text(
-            activeLabel,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 11, color: _muted),
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+      decoration: BoxDecoration(
+        color: controller ? Brand.accent : _low,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: controller ? Brand.accent : _border),
+      ),
+      child: Text(
+        controller ? 'CONTROLLER' : 'MEMBER',
+        style: TextStyle(
+          fontSize: 8.5,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.4,
+          color: controller ? Colors.white : _muted,
         ),
-      ],
+      ),
     );
   }
 }
 
-class _PreviewLine extends StatelessWidget {
-  const _PreviewLine({
-    required this.icon,
-    required this.prefix,
-    required this.text,
-    required this.quote,
-  });
-
-  final IconData icon;
-  final String prefix;
-  final String text;
-  final bool quote;
-
-  @override
-  Widget build(BuildContext context) {
-    final body = quote ? '"$text"' : text;
-    return Row(
-      children: [
-        Icon(icon, size: 15, color: quote ? _ink : _faint),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: prefix,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: _ink,
-                  ),
-                ),
-                TextSpan(
-                  text: body,
-                  style: const TextStyle(fontSize: 12, color: _muted),
-                ),
-              ],
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
+/// Today: the time. Otherwise the day label used in chat.
+String listTimeLabel(DateTime date, {DateTime? now}) {
+  final d = date.toLocal();
+  final today = (now ?? DateTime.now()).toLocal();
+  if (d.year == today.year && d.month == today.month && d.day == today.day) {
+    final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
+    final m = d.minute.toString().padLeft(2, '0');
+    return '$h:$m ${d.hour >= 12 ? 'PM' : 'AM'}';
   }
+  return dayLabel(date, now: now);
 }
 
 class _Avatar extends StatelessWidget {

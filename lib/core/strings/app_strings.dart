@@ -421,4 +421,5 @@ abstract final class AppStrings {
   static const olderMessageHint =
       'That message is further back. Tap "Load earlier messages" first.';
   static const jumpToLatest = 'Jump to latest';
+  static const noMessagesYet = 'No messages yet';
 }

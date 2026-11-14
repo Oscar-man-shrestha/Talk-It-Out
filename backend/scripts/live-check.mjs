@@ -117,6 +117,11 @@ async function main() {
 
     const r1 = await call('POST', `/groups/${gid}/messages/${pub.id}/reactions`, { token: M.token, body: { emoji: '👍' } });
     check('reaction toggle (counts only)', r1.status === 200 && r1.body.reactions['👍'] === 1 && !JSON.stringify(r1.body).includes(M.id));
+    const rFlag = await call('POST', `/groups/${gid}/messages/${pub.id}/reactions`, { token: M.token, body: { emoji: '🇳🇵' } });
+    const rZwj = await call('POST', `/groups/${gid}/messages/${pub.id}/reactions`, { token: M.token, body: { emoji: '❤️‍🔥' } });
+    check('reaction with any emoji (flag, ZWJ)', rFlag.status === 200 && rZwj.status === 200 && rZwj.body.reactions['🇳🇵'] === 1 && rZwj.body.reactions['❤️‍🔥'] === 1);
+    const rText = await call('POST', `/groups/${gid}/messages/${pub.id}/reactions`, { token: M.token, body: { emoji: 'ok' } });
+    check('reaction with plain text is refused', rText.status === 422);
   }
 
   // Photo with hidden details: stripped on upload, shown after approval.

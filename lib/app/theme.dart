@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 
 /// Colors for the Stitch "Monochrome Precision" design system, with the
-/// warm cream and latte palette from [Brand] for interactive and selected elements.
+/// black, white and light cream palette from [Brand] for interactive and selected elements.
 const _black = Brand.ink;
 const _pureBlack = Color(0xFF000000);
 const _pureWhite = Color(0xFFFFFFFF);
@@ -38,7 +38,7 @@ ThemeData _buildTheme(Brightness brightness) {
     brightness: brightness,
     primary: primary,
     onPrimary: onPrimary,
-    primaryContainer: isDark ? const Color(0xFF4A3B2C) : Brand.accentSoft,
+    primaryContainer: isDark ? const Color(0xFF27272A) : Brand.accentSoft,
     onPrimaryContainer: isDark ? Brand.accentSoft : Brand.accentInk,
     secondary: isDark ? _zinc400 : _zinc500,
     onSecondary: isDark ? _pureBlack : _pureWhite,
@@ -58,7 +58,7 @@ ThemeData _buildTheme(Brightness brightness) {
     surfaceContainerLowest: isDark ? _zinc950 : _pureWhite,
     surfaceContainerLow: isDark ? _zinc900 : _zinc50,
     surfaceContainer: card,
-    surfaceContainerHigh: isDark ? _zinc800 : const Color(0xFFEFE6D8),
+    surfaceContainerHigh: isDark ? _zinc800 : const Color(0xFFECECEE),
     surfaceContainerHighest: isDark ? _zinc800 : _zinc200,
   );
 

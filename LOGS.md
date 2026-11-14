@@ -13,7 +13,7 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-14 (IST)
-**Current phase:** Complete and verified end to end (Run 088): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history and comment moderation. `npm run check:live` passes 57/57 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Current phase:** Complete and verified end to end (Run 089): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history and comment moderation. `npm run check:live` passes 57/57 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
 **Next step:** Review and merge `temp/project-completion-run070`. Optional: Gmail app password in `backend/.env` for real reset emails (user enters it); a larger model for higher rewrite fidelity.
@@ -55,7 +55,8 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 | 26 | Review history, comment reports and removal, delete question | Done | 085 |
 | 27 | Model comparison (3B kept), English gate fix, offline message | Done | 086 |
 | 28 | Three-step password reset, designed email, AI injection fix | Done | 087 |
-| 29 | Cream and latte palette, site walk-through fixes | Done | 088 |
+| 29 | Site walk-through fixes, palette tokens | Done | 088 |
+| 30 | Final palette: black, white and light cream | Done | 089 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -2843,4 +2844,17 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
     - The Alerts header uses a groups icon instead of a chat bubble.
 - **Commands run and results:** Flutter 95 passed, analyze 0; live build checked on desktop and phone sizes (Groups, Feed, chat, Profile).
 - **Next steps:** Review and merge `temp/project-completion-run070`. Optional: remove the local test posts ("ok", "nsfw-test").
+
+### Run 089: Final palette, black and white with light cream
+- **Date/time:** 2026-11-14 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 30 (Design)
+- **Prompt / task:** "Bad colour combo. I want black, white and some light cream somewhere." (After Indigo was "too dark blue" and the all-cream/latte look of Run 088.)
+- **Result:** Completed
+- **Summary:** Only `lib/core/ui/brand.dart` changed value; the screens already read it.
+  - Black `#0A0A0A` is back for buttons, selected chips, avatars and your own chat bubbles. Cards are white. Text is the original zinc greys.
+  - Light cream appears only in three places: the page background (`#FCFAF6`), quiet fills such as inputs, inactive chips and the profile cover (`#F6F2EA`), and highlight boxes such as the About prompt (`#F7F1E6`). Borders are a warm light grey.
+  - Two local test posts were deleted with the user's OK ("ok", "nsfw-test"); the group started from the second keeps running.
+- **Commands run and results:** Flutter 95 passed, analyze 0; live build checked (Feed, Profile).
+- **Next steps:** Review and merge `temp/project-completion-run070`.
 

@@ -1,56 +1,57 @@
 import 'package:flutter/material.dart';
 
-/// Talk It Out's warm "cream and latte" palette (Run 088).
+/// Talk It Out's palette: black and white, with light cream touches
+/// (Run 089, chosen by the user over indigo and an all-cream look).
 ///
-/// Cream surfaces, espresso text, and a soft caramel accent for what you
-/// can act on or what is active: primary buttons, selected chips and tabs,
-/// avatars, badges, and your own chat bubbles. Use these tokens instead of
-/// raw hex values.
+/// Black marks what you can act on or what is active: primary buttons,
+/// selected chips and tabs, avatars, badges, and your own chat bubbles.
+/// Cream is used sparingly: the page background, quiet fills (inputs,
+/// inactive chips) and highlight boxes. Cards stay white. Use these
+/// tokens instead of raw hex values.
 abstract final class Brand {
   // Accent ---------------------------------------------------------------
 
-  /// Filled buttons, selected states, active indicators. White text on it
-  /// meets WCAG AA (4.8:1).
-  static const accent = Color(0xFF8F6B45);
+  /// Filled buttons, selected states, active indicators.
+  static const accent = Color(0xFF0A0A0A);
 
   /// Pressed / hover shade of [accent].
-  static const accentStrong = Color(0xFF7A5A38);
+  static const accentStrong = Color(0xFF262626);
 
-  /// Quiet tinted surfaces: info banners, highlighted rows, soft chips.
-  static const accentSoft = Color(0xFFF5ECDD);
+  /// Light cream highlight surfaces: info boxes, prompts, soft chips.
+  static const accentSoft = Color(0xFFF7F1E6);
 
   /// Border for [accentSoft] surfaces.
-  static const accentBorder = Color(0xFFE6D5BB);
+  static const accentBorder = Color(0xFFEADFCC);
 
-  /// Text and icons placed on [accentSoft] (6.6:1).
-  static const accentInk = Color(0xFF6B4E2E);
+  /// Text and icons placed on [accentSoft].
+  static const accentInk = Color(0xFF2A2218);
 
   /// The accent used on dark backgrounds.
-  static const accentOnDark = Color(0xFFE3C9A3);
+  static const accentOnDark = Color(0xFFFFFFFF);
 
   // Neutrals -------------------------------------------------------------
 
-  /// Page background: soft cream.
-  static const canvas = Color(0xFFFBF8F2);
+  /// Page background: a whisper of cream.
+  static const canvas = Color(0xFFFCFAF6);
 
-  /// Cards and sheets, a touch lighter than the page.
-  static const card = Color(0xFFFFFDF9);
+  /// Cards and sheets.
+  static const card = Color(0xFFFFFFFF);
 
-  /// Muted fills: inputs, inactive chips, quiet panels.
-  static const muted = Color(0xFFF3ECE1);
+  /// Muted fills: inputs, inactive chips, quiet panels (light cream).
+  static const muted = Color(0xFFF6F2EA);
 
-  /// Hairline borders.
-  static const border = Color(0xFFE8DECF);
+  /// Hairline borders (warm light grey).
+  static const border = Color(0xFFE7E3DC);
 
   /// Strong borders (inputs).
-  static const borderStrong = Color(0xFF4A3F35);
+  static const borderStrong = Color(0xFF27272A);
 
-  /// Primary text: warm espresso.
-  static const ink = Color(0xFF2B2520);
+  /// Primary text.
+  static const ink = Color(0xFF09090B);
 
   /// Secondary text.
-  static const inkSoft = Color(0xFF786C60);
+  static const inkSoft = Color(0xFF71717A);
 
   /// Tertiary text, placeholders, disabled icons.
-  static const inkFaint = Color(0xFFA79B8E);
+  static const inkFaint = Color(0xFFA1A1AA);
 }

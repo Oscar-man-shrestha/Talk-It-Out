@@ -745,7 +745,7 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                         decoration: BoxDecoration(
                           color: isMe
                               ? (isDark
-                                    ? const Color(0xFF4A3B2C)
+                                    ? const Color(0xFF27272A)
                                     : Brand.accent) // Your messages: indigo
                               : (isDark
                                     ? const Color(0xFF18181B)
@@ -1061,7 +1061,7 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                                       decoration: BoxDecoration(
                                         color: userReacted
                                             ? (isDark
-                                                  ? const Color(0xFF4A3B2C)
+                                                  ? const Color(0xFF27272A)
                                                   : Brand.accent)
                                             : (isDark
                                                   ? const Color(0xFF18181B)

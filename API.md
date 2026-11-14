@@ -553,3 +553,11 @@ Published messages now also carry:
 
 **Not built on purpose.** "My messages" stays status only (D11). Editing after sending would show the sender their text again, so a message is withdrawn and written again instead.
 
+### 51. Reactions with any emoji
+`POST /groups/:id/messages/:mid/reactions {emoji}` accepts any single emoji:
+- a pictograph, with a skin tone, a variation selector or a ZWJ sequence;
+- a flag;
+- a keycap.
+
+Plain text or several emoji in one reaction give `422`. One person can add at most 10 different reactions to a message (`400 too_many_reactions`). Responses list emoji in the order they were first used. They are still counts only, plus your own reactions, and never say who reacted (migration 018 drops the old six-emoji check).
+

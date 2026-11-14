@@ -13,7 +13,7 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-14 (IST)
-**Current phase:** Complete and verified end to end (Run 092): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Current phase:** Complete and verified end to end (Run 093): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
 **Next step:** Review and merge `temp/project-completion-run070`. Optional: Gmail app password in `backend/.env` for real reset emails (user enters it); a larger model for higher rewrite fidelity.
@@ -59,6 +59,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 | 30 | Final palette: black, white and light cream | Done | 089 |
 | 31 | Photos in group chats with metadata stripping | Done | 091 |
 | 32 | Chat: replies, withdraw, preview, history, search, pins, polls | Done | 092 |
+| 33 | Emoji keyboard, any-emoji reactions, chat polish, chat-list groups page | Done | 093 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -2914,4 +2915,21 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
 - **Files created:** `backend/migrations/017_chat_upgrades.sql`, `backend/test/chat-upgrades.test.ts`, `lib/features/groups/chat_extras.dart`, `test/chat_upgrades_test.dart`
 - **Files modified:** `groups.ts`, `messages.ts`, key-list tests, `live-check.mjs`, group data layer and providers, `group_chat_screen.dart`, mock review repository, `realtime_test.dart`, `app_strings.dart`, `API.md` 50, `README.md`
 - **Commands run and results:** backend 229 passed, lint and type-check clean; Flutter 104 passed, analyze 0; `npm run check:live` 75/75 with real qwen2.5:3b rewrites (preview wording, preview hidden from the controller, send, withdraw, pin, poll totals without voter ids, reply quote, search).
+
+### Run 093: WhatsApp-style emoji and chat, groups page as a chat list
+- **Date/time:** 2026-11-14 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 33 (Feature / Design)
+- **Prompt / task:** "In chat emoji I want everything like WhatsApp; make the groups page best; make everything ready."
+- **Result:** Completed
+- **Summary:**
+  - **Emoji keyboard** (`emoji_picker.dart`, `emoji_data.dart`): about 450 emoji in 9 categories plus Recent (kept on the device), search by name, and ⌫ that deletes a whole emoji. It stays open while you type, like a phone keyboard.
+  - **Reactions with any emoji** (migration 018, API.md 51): the 6 quick reactions plus "+" for the full keyboard. The server validates one emoji at a time and allows at most 10 per person per message. Counts only, as before.
+  - **Chat polish:**
+    - "Today / Yesterday / weekday / date" dividers.
+    - Messages of 1–3 emoji alone are shown big.
+    - A jump-to-latest button appears when scrolled up.
+  - **Groups page:** compact chat-list rows. Each shows the avatar, name, a role tag and the last message ("Name: text", 📷 for photos, 📊 for polls), with the time (clock time today, then Yesterday or a date) and the unread count on the right; unread rows are bold. The review/pending line shows only when something is waiting. The duplicate "New Group" button is removed; the floating "Create Group" stays.
+  - **Disk:** the Mac ran out of space during the run. With the user's OK, Flutter build folders, `~/Library/Caches` and unused `~/.npm/_npx` folders were cleared (kept: the live web build and the npx folder of a running tool). This freed about 3 GB. The Claude app's own data (16 GB) was left alone.
+- **Commands run and results:** backend 230 passed, lint clean; Flutter 106 passed (including new date and emoji helper tests), analyze 0; live check 75/75 against the local backend; groups list, date divider, jump button and emoji keyboard checked in the browser at phone width.
 

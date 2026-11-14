@@ -35,6 +35,33 @@ class GroupChatScreen extends ConsumerStatefulWidget {
 class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
   PublishedMessage? _replyingTo;
   final _keys = <String, GlobalKey>{};
+  final _scroll = ScrollController();
+  var _awayFromLatest = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // The list is reversed, so offset 0 is the newest message.
+    _scroll.addListener(() {
+      final away = _scroll.hasClients && _scroll.offset > 320;
+      if (away != _awayFromLatest) setState(() => _awayFromLatest = away);
+    });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _jumpToLatest() {
+    if (!_scroll.hasClients) return;
+    _scroll.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
 
   GlobalKey _keyFor(String id) => _keys.putIfAbsent(id, GlobalKey.new);
 
@@ -362,47 +389,77 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                 ),
                 // Starts at the newest message; every loaded message is
                 // built so a reply quote or search result can jump to it.
-                child: SingleChildScrollView(
-                  key: const ValueKey('chat-scroll'),
-                  reverse: true,
-                  padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (ref
-                          .watch(groupMessagesProvider(widget.groupId).notifier)
-                          .hasEarlier)
-                        Center(
-                          child: TextButton.icon(
-                            key: const ValueKey('load-earlier'),
-                            onPressed: () => ref
-                                .read(
-                                  groupMessagesProvider(widget.groupId)
-                                      .notifier,
-                                )
-                                .loadEarlier(),
-                            icon: const Icon(Icons.history, size: 16),
-                            label: const Text(AppStrings.loadEarlier),
-                          ),
+                child: Stack(
+                  children: [
+                    SingleChildScrollView(
+                      key: const ValueKey('chat-scroll'),
+                      controller: _scroll,
+                      reverse: true,
+                      padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (ref
+                              .watch(
+                                groupMessagesProvider(widget.groupId).notifier,
+                              )
+                              .hasEarlier)
+                            Center(
+                              child: TextButton.icon(
+                                key: const ValueKey('load-earlier'),
+                                onPressed: () => ref
+                                    .read(
+                                      groupMessagesProvider(widget.groupId)
+                                          .notifier,
+                                    )
+                                    .loadEarlier(),
+                                icon: const Icon(Icons.history, size: 16),
+                                label: const Text(AppStrings.loadEarlier),
+                              ),
+                            ),
+                          for (var i = 0; i < items.length; i++) ...[
+                            if (i == 0 ||
+                                !sameDay(
+                                  items[i - 1].publishedAt,
+                                  items[i].publishedAt,
+                                ))
+                              DateDivider(date: items[i].publishedAt),
+                            KeyedSubtree(
+                              key: _keyFor(items[i].id),
+                              child: PublishedMessageTile(
+                                message: items[i],
+                                groupId: widget.groupId,
+                                isController: isController,
+                                currentUserId: currentUserId,
+                                controllerId: controllerId,
+                                onReply: () => _setReplyingTo(items[i]),
+                                onQuoteTap: _scrollTo,
+                              ),
+                            ),
+                          ],
+                          for (final p in pendingMine)
+                            _PendingWithWithdraw(item: p),
+                          if (pendingMine.isNotEmpty)
+                            const _ReviewingPulsePill(),
+                        ],
+                      ),
+                    ),
+                    if (_awayFromLatest)
+                      Positioned(
+                        right: 16,
+                        bottom: 12,
+                        child: FloatingActionButton.small(
+                          key: const ValueKey('jump-latest'),
+                          heroTag: null,
+                          tooltip: AppStrings.jumpToLatest,
+                          backgroundColor: Colors.white,
+                          foregroundColor: Brand.ink,
+                          elevation: 2,
+                          onPressed: _jumpToLatest,
+                          child: const Icon(Icons.keyboard_arrow_down),
                         ),
-                      for (final m in items)
-                        KeyedSubtree(
-                          key: _keyFor(m.id),
-                          child: PublishedMessageTile(
-                            message: m,
-                            groupId: widget.groupId,
-                            isController: isController,
-                            currentUserId: currentUserId,
-                            controllerId: controllerId,
-                            onReply: () => _setReplyingTo(m),
-                            onQuoteTap: _scrollTo,
-                          ),
-                        ),
-                      for (final p in pendingMine)
-                        _PendingWithWithdraw(item: p),
-                      if (pendingMine.isNotEmpty) const _ReviewingPulsePill(),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -922,12 +979,12 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                               const SizedBox(height: 6),
                             ],
 
-                            // Message text
+                            // Message text (1-3 emoji alone are shown big)
                             Text(
                               messageBody,
                               style: TextStyle(
-                                fontSize: 14,
-                                height: 1.4,
+                                fontSize: isEmojiOnly(messageBody) ? 40 : 14,
+                                height: isEmojiOnly(messageBody) ? 1.15 : 1.4,
                                 color: isMe
                                     ? Colors.white
                                     : (isDark ? Colors.white : Brand.ink),
@@ -2601,4 +2658,79 @@ String _clock(DateTime value) {
   final minute = local.minute.toString().padLeft(2, '0');
   final suffix = local.hour >= 12 ? 'PM' : 'AM';
   return '$hour12:$minute $suffix';
+}
+
+// The analyzer does not know Unicode property names such as
+// Extended_Pictographic; test/chat_polish_test.dart checks this pattern.
+final _emojiChar = RegExp(
+  // ignore: valid_regexps
+  r'^(?:[\u{1F1E6}-\u{1F1FF}]{2}|[#*0-9]\uFE0F?\u20E3|\p{Extended_Pictographic}(?:\p{Emoji_Modifier}|\uFE0F)?(?:\u200D\p{Extended_Pictographic}(?:\p{Emoji_Modifier}|\uFE0F)?)*)$',
+  unicode: true,
+);
+
+/// True for a message of 1 to 3 emoji and nothing else.
+bool isEmojiOnly(String text) {
+  final chars = text.replaceAll(RegExp(r'\s'), '').characters;
+  if (chars.isEmpty || chars.length > 3) return false;
+  return chars.every(_emojiChar.hasMatch);
+}
+
+bool sameDay(DateTime a, DateTime b) {
+  final x = a.toLocal();
+  final y = b.toLocal();
+  return x.year == y.year && x.month == y.month && x.day == y.day;
+}
+
+/// "Today", "Yesterday", a weekday this week, or a date.
+String dayLabel(DateTime date, {DateTime? now}) {
+  final d = date.toLocal();
+  final today = (now ?? DateTime.now()).toLocal();
+  final start = DateTime(today.year, today.month, today.day);
+  final day = DateTime(d.year, d.month, d.day);
+  final diff = start.difference(day).inDays;
+  if (diff == 0) return 'Today';
+  if (diff == 1) return 'Yesterday';
+  const weekdays = [
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', //
+    'Sunday',
+  ];
+  if (diff > 1 && diff < 7) return weekdays[d.weekday - 1];
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', //
+    'Nov', 'Dec',
+  ];
+  final year = d.year == today.year ? '' : ' ${d.year}';
+  return '${d.day} ${months[d.month - 1]}$year';
+}
+
+/// The day label between messages from different days.
+class DateDivider extends StatelessWidget {
+  const DateDivider({required this.date, super.key});
+
+  final DateTime date;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: Brand.muted,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: Brand.border),
+          ),
+          child: Text(
+            dayLabel(date),
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: Brand.inkSoft,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

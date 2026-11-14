@@ -420,4 +420,5 @@ abstract final class AppStrings {
   static const originalMessage = 'Original message';
   static const olderMessageHint =
       'That message is further back. Tap "Load earlier messages" first.';
+  static const jumpToLatest = 'Jump to latest';
 }

@@ -299,8 +299,6 @@ abstract final class AppStrings {
   static const resetIntro =
       'Enter your account email and we will send you a 6-digit code.';
   static const resetSendCode = 'Send code';
-  static const resetCodeSent =
-      'If that email has an account, a code is on its way. It expires in 15 minutes.';
   static const resetCodeLabel = '6-digit code';
   static const resetNewPasswordLabel = 'New password';
   static const resetConfirm = 'Set new password';
@@ -310,6 +308,23 @@ abstract final class AppStrings {
   static const resetResend = 'Send a new code';
   static const resetBackToLogin = 'Back to log in';
   static const resetMockHint = 'Mock mode: the code is 123456.';
+  static const resetNoAccount =
+      'No account uses this email. Check it, or create an account.';
+  static String resetStep(int step) => 'STEP $step OF 3';
+  static const resetCodeTitle = 'Check your email';
+  static String resetCodeIntro(String email) =>
+      'We sent a 6-digit code to $email. It expires in 15 minutes.';
+  static const resetVerify = 'Verify code';
+  static const resetPasswordTitle = 'Choose a new password';
+  static const resetPasswordIntro =
+      'Code verified. Pick a password with at least 8 characters.';
+  static const resetConfirmPasswordLabel = 'Confirm new password';
+  static const resetPasswordsDiffer = 'The two passwords do not match.';
+  static String resetResendIn(int seconds) => 'Send a new code in ${seconds}s';
+  static const resetNewCodeSent = 'A new code is on its way.';
+  static const resetChangeEmail = 'Use a different email';
+  static const resetCreateAccount = 'Create an account';
+  static const resetCheckSpam = 'Not there? Check your spam folder.';
   static const enterValidEmail = 'Enter a valid email address.';
   static const deleteAccount = 'Delete account';
   static const deleteAccountSubtitle =

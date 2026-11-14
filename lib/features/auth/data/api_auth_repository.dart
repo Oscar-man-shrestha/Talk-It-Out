@@ -111,15 +111,33 @@ class ApiAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> confirmPasswordReset({
+  Future<String> verifyResetCode({
     required String email,
     required String code,
+  }) {
+    return guardApi(() async {
+      final response = await _dio.post(
+        Endpoints.passwordResetVerify,
+        data: {'email': email, 'code': code},
+      );
+      return asJsonMap(response.data)['reset_token'] as String;
+    });
+  }
+
+  @override
+  Future<void> confirmPasswordReset({
+    required String email,
+    required String resetToken,
     required String newPassword,
   }) {
     return guardApi(() async {
       await _dio.post(
         Endpoints.passwordResetConfirm,
-        data: {'email': email, 'code': code, 'new_password': newPassword},
+        data: {
+          'email': email,
+          'reset_token': resetToken,
+          'new_password': newPassword,
+        },
       );
     });
   }

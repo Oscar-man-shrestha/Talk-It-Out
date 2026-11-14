@@ -53,12 +53,16 @@ MockAuthRepository _mockRepo() =>
 
 void main() {
   group('password reset (mock)', () {
-    test('the mock code sets a new password', () async {
+    test('code first, then the token sets a new password', () async {
       final repo = _mockRepo();
       await repo.requestPasswordReset(email: MockAuthRepository.mockEmail);
-      await repo.confirmPasswordReset(
+      final token = await repo.verifyResetCode(
         email: MockAuthRepository.mockEmail,
         code: MockAuthRepository.mockResetCode,
+      );
+      await repo.confirmPasswordReset(
+        email: MockAuthRepository.mockEmail,
+        resetToken: token,
         newPassword: 'brand-new-pass',
       );
       await expectLater(
@@ -75,13 +79,22 @@ void main() {
       expect(session.user.email, MockAuthRepository.mockEmail);
     });
 
-    test('a wrong code or short password is refused', () async {
+    test('unknown email, wrong code and bad token are refused', () async {
       final repo = _mockRepo();
       await expectLater(
-        repo.confirmPasswordReset(
+        repo.requestPasswordReset(email: 'nobody@example.com'),
+        throwsA(
+          isA<RepositoryException>().having(
+            (e) => e.code,
+            'code',
+            'no_account',
+          ),
+        ),
+      );
+      await expectLater(
+        repo.verifyResetCode(
           email: MockAuthRepository.mockEmail,
           code: '000000',
-          newPassword: 'brand-new-pass',
         ),
         throwsA(
           isA<RepositoryException>().having(
@@ -94,8 +107,8 @@ void main() {
       await expectLater(
         repo.confirmPasswordReset(
           email: MockAuthRepository.mockEmail,
-          code: MockAuthRepository.mockResetCode,
-          newPassword: 'short',
+          resetToken: 'made-up',
+          newPassword: 'brand-new-pass',
         ),
         throwsA(isA<RepositoryException>()),
       );
@@ -103,31 +116,43 @@ void main() {
   });
 
   group('password reset (API)', () {
-    test('sends the documented requests', () async {
+    test('sends the documented three requests', () async {
       final dio = Dio(BaseOptions(baseUrl: 'http://api.test'));
-      final adapter = _FakeAdapter(
-        (o) => o.path == Endpoints.passwordReset
-            ? _json(202, {'status': 'sent_if_registered'})
-            : ResponseBody.fromString('', 204),
-      );
+      final adapter = _FakeAdapter((o) {
+        if (o.path == Endpoints.passwordReset) {
+          return _json(202, {'status': 'sent', 'expires_in_minutes': 15});
+        }
+        if (o.path == Endpoints.passwordResetVerify) {
+          return _json(200, {'reset_token': 'a' * 64});
+        }
+        return ResponseBody.fromString('', 204);
+      });
       dio.httpClientAdapter = adapter;
       final repo = ApiAuthRepository(dio);
 
       await repo.requestPasswordReset(email: 'p@example.com');
-      await repo.confirmPasswordReset(
+      final token = await repo.verifyResetCode(
         email: 'p@example.com',
         code: '123456',
+      );
+      await repo.confirmPasswordReset(
+        email: 'p@example.com',
+        resetToken: token,
         newPassword: 'new-password',
       );
 
       expect(adapter.seen.map((o) => o.path), [
         Endpoints.passwordReset,
+        Endpoints.passwordResetVerify,
         Endpoints.passwordResetConfirm,
       ]);
-      expect(adapter.seen[0].data, {'email': 'p@example.com'});
       expect(adapter.seen[1].data, {
         'email': 'p@example.com',
         'code': '123456',
+      });
+      expect(adapter.seen[2].data, {
+        'email': 'p@example.com',
+        'reset_token': 'a' * 64,
         'new_password': 'new-password',
       });
     });
@@ -138,21 +163,18 @@ void main() {
           (_) => _json(400, {
             'error': {
               'code': 'invalid_code',
-              'message': 'That code is not valid or has expired.',
+              'message': 'That code is not right. 4 tries left.',
             },
           }),
         );
       await expectLater(
-        ApiAuthRepository(dio).confirmPasswordReset(
-          email: 'p@example.com',
-          code: '999999',
-          newPassword: 'new-password',
-        ),
+        ApiAuthRepository(dio)
+            .verifyResetCode(email: 'p@example.com', code: '999999'),
         throwsA(
           isA<RepositoryException>().having(
             (e) => e.message,
             'message',
-            'That code is not valid or has expired.',
+            'That code is not right. 4 tries left.',
           ),
         ),
       );
@@ -245,44 +267,64 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(AppStrings.resetTitle), findsOneWidget);
+    expect(find.text(AppStrings.resetStep(1)), findsOneWidget);
     await tester.tap(find.text(AppStrings.resetSendCode));
     await tester.pump();
     expect(find.text(AppStrings.enterValidEmail), findsOneWidget);
+
+    // An email with no account gets no code.
+    await tester.enterText(
+      find.byKey(const ValueKey('reset-email')).first,
+      'nobody@example.com',
+    );
+    await tester.tap(find.text(AppStrings.resetSendCode));
+    await tester.pumpAndSettle();
+    expect(find.text(AppStrings.resetNoAccount), findsOneWidget);
+    expect(find.text(AppStrings.resetCreateAccount), findsOneWidget);
+    expect(find.byKey(const ValueKey('reset-code')), findsNothing);
 
     await tester.enterText(
       find.byKey(const ValueKey('reset-email')).first,
       MockAuthRepository.mockEmail,
     );
     await tester.tap(find.text(AppStrings.resetSendCode));
-    await tester.pumpAndSettle();
-    expect(find.text(AppStrings.resetCodeSent), findsOneWidget);
+    await tester.pump();
+    await tester.pump();
+    // Step 2: only the code, no password field yet.
+    expect(find.text(AppStrings.resetCodeTitle), findsOneWidget);
+    expect(find.text(AppStrings.resetStep(2)), findsOneWidget);
+    expect(find.byKey(const ValueKey('reset-password')), findsNothing);
     expect(find.text(AppStrings.resetMockHint), findsOneWidget);
+    expect(find.text(AppStrings.resetResendIn(60)), findsOneWidget);
 
-    await tester.enterText(
-      find.descendant(
-        of: find.byKey(const ValueKey('reset-code')),
-        matching: find.byType(TextField),
-      ),
-      '000000',
+    final codeField = find.descendant(
+      of: find.byKey(const ValueKey('reset-code')),
+      matching: find.byType(TextField),
     );
-    await tester.enterText(
-      find.descendant(
-        of: find.byKey(const ValueKey('reset-password')),
-        matching: find.byType(TextField),
-      ),
-      'brand-new-pass',
-    );
-    await tester.tap(find.text(AppStrings.resetConfirm));
-    await tester.pumpAndSettle();
+    await tester.enterText(codeField, '000000');
+    await tester.pump();
+    await tester.pump();
     expect(find.text(AppStrings.resetCodeInvalid), findsOneWidget);
+    expect(find.byKey(const ValueKey('reset-password')), findsNothing);
 
-    await tester.enterText(
-      find.descendant(
-        of: find.byKey(const ValueKey('reset-code')),
-        matching: find.byType(TextField),
-      ),
-      MockAuthRepository.mockResetCode,
+    // Six digits submit by themselves.
+    await tester.enterText(codeField, MockAuthRepository.mockResetCode);
+    await tester.pump();
+    await tester.pump();
+    expect(find.text(AppStrings.resetPasswordTitle), findsOneWidget);
+    expect(find.text(AppStrings.resetStep(3)), findsOneWidget);
+
+    Finder field(String key) => find.descendant(
+      of: find.byKey(ValueKey(key)),
+      matching: find.byType(TextField),
     );
+    await tester.enterText(field('reset-password'), 'brand-new-pass');
+    await tester.enterText(field('reset-password-confirm'), 'different-pass');
+    await tester.tap(find.text(AppStrings.resetConfirm));
+    await tester.pump();
+    expect(find.text(AppStrings.resetPasswordsDiffer), findsOneWidget);
+
+    await tester.enterText(field('reset-password-confirm'), 'brand-new-pass');
     await tester.tap(find.text(AppStrings.resetConfirm));
     await tester.pumpAndSettle();
     expect(find.text('LOGIN PAGE'), findsOneWidget);

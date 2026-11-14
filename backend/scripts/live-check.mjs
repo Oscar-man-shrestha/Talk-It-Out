@@ -192,8 +192,12 @@ async function main() {
   check('old token stops working after the change', (await call('GET', '/me', { token: M.token })).status === 401);
   M.token = cp.body.token;
   M.password = 'live-check-pw-2';
-  const reset = await call('POST', '/auth/password-reset', { body: { email: M.email } });
-  check('password reset request (202, or 503 when email is off)', [202, 503].includes(reset.status), String(reset.status));
+  // An unknown address: no email goes out, and the answer says so.
+  const reset = await call('POST', '/auth/password-reset', { body: { email: `nobody-${run}@example.com` } });
+  check('reset for an unknown email: 404 no_account (or 503 when email is off)',
+    (reset.status === 404 && reset.body.error?.code === 'no_account') || reset.status === 503, String(reset.status));
+  const verifyBad = await call('POST', '/auth/password-reset/verify', { body: { email: M.email, code: '000000' } });
+  check('reset code check refuses a wrong code', verifyBad.status === 400 && verifyBad.body.error?.code === 'invalid_code');
   check('logout-all ends the session', (await call('POST', '/auth/logout-all', { token: O.token })).status === 204 && (await call('GET', '/me', { token: O.token })).status === 401);
 
   // --- Controller hand-over (D4) -----------------------------------------

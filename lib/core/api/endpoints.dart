@@ -8,6 +8,7 @@ abstract final class Endpoints {
   static const refresh = '/auth/refresh';
   static const myAccount = '/users/me';
   static const passwordReset = '/auth/password-reset';
+  static const passwordResetVerify = '/auth/password-reset/verify';
   static const passwordResetConfirm = '/auth/password-reset/confirm';
   static const changePassword = '/auth/change-password';
   static const logoutAll = '/auth/logout-all';

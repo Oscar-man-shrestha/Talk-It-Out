@@ -35,9 +35,11 @@ describe('password reset', () => {
 
     const res = await request(a, 'P@Example.com');
     expect(res.status).toBe(202);
-    expect(res.body).toEqual({ status: 'sent_if_registered' });
+    expect(res.body).toEqual({ status: 'sent', expires_in_minutes: 15 });
     const code = await codeFor('p@example.com');
-    expect(memoryOutbox[0].subject).toMatch(/reset/i);
+    expect(memoryOutbox[0].subject).toMatch(/reset code/i);
+    expect(memoryOutbox[0].html).toContain(`>${code[0]}</td>`);
+    expect(memoryOutbox[0].html).toContain('Hi P,');
 
     const done = await confirm(a, { email: 'p@example.com', code, new_password: 'new-password' });
     expect(done.status).toBe(204);
@@ -63,12 +65,11 @@ describe('password reset', () => {
     expect(again.status).toBe(400);
   });
 
-  it('answers the same for unknown emails and sends nothing', async () => {
+  it('says so for an unknown email and sends nothing', async () => {
     const a = app();
     const res = await request(a, 'nobody@example.com');
-    expect(res.status).toBe(202);
-    expect(res.body).toEqual({ status: 'sent_if_registered' });
-    await new Promise((r) => setTimeout(r, 50));
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('no_account');
     expect(memoryOutbox).toHaveLength(0);
     const bad = await confirm(a, {
       email: 'nobody@example.com',
@@ -110,6 +111,12 @@ describe('password reset', () => {
     await request(a, 'p@example.com');
     const first = await codeFor('p@example.com');
     memoryOutbox.length = 0;
+    // A second request within a minute is refused...
+    const soon = await request(a, 'p@example.com');
+    expect(soon.status).toBe(429);
+    expect(soon.body.error.code).toBe('too_soon');
+    // ...after that it replaces the old code.
+    await testPool().query("UPDATE password_resets SET created_at = now() - interval '2 minutes'");
     await request(a, 'p@example.com');
     const second = await codeFor('p@example.com');
     if (first !== second) {
@@ -148,6 +155,72 @@ describe('password reset', () => {
       email: 'p@example.com',
     });
     expect(res.status).toBe(202);
+  });
+});
+
+describe('three-step reset: code first, then new password', () => {
+  const verify = (a: ReturnType<typeof testApp>, body: object) =>
+    api.post(a, '/auth/password-reset/verify', undefined, body);
+
+  it('a correct code returns a one-time token that sets the password', async () => {
+    const a = app();
+    await registerUser(a, 'Priya Shah', 'p@example.com', 'old-password');
+    await request(a, 'p@example.com');
+    const code = await codeFor('p@example.com');
+    const wrong = code === '000000' ? '111111' : '000000';
+
+    const miss = await verify(a, { email: 'p@example.com', code: wrong });
+    expect(miss.status).toBe(400);
+    expect(miss.body.error.message).toMatch(/4 tries left/);
+
+    const ok = await verify(a, { email: 'p@example.com', code });
+    expect(ok.status).toBe(200);
+    expect(ok.body.reset_token).toMatch(/^[0-9a-f]{64}$/);
+    const { rows } = await testPool().query('SELECT verify_token_hash FROM password_resets');
+    expect(rows[0].verify_token_hash).not.toContain(ok.body.reset_token);
+
+    const badToken = await confirm(a, {
+      email: 'p@example.com',
+      reset_token: 'f'.repeat(64),
+      new_password: 'new-password',
+    });
+    expect(badToken.status).toBe(400);
+
+    const done = await confirm(a, {
+      email: 'p@example.com',
+      reset_token: ok.body.reset_token,
+      new_password: 'new-password',
+    });
+    expect(done.status).toBe(204);
+    const login = await api.post(a, '/auth/login', undefined, {
+      email: 'p@example.com',
+      password: 'new-password',
+    });
+    expect(login.status).toBe(200);
+    // The token works once.
+    const again = await confirm(a, {
+      email: 'p@example.com',
+      reset_token: ok.body.reset_token,
+      new_password: 'third-password',
+    });
+    expect(again.status).toBe(400);
+  });
+
+  it('needs a code or a token, and a well-formed one', async () => {
+    const a = app();
+    expect((await confirm(a, { email: 'p@example.com', new_password: 'longenough' })).status).toBe(422);
+    expect((await verify(a, { email: 'p@example.com', code: '12' })).status).toBe(422);
+    expect((await verify(a, { email: 'p@example.com', code: '123456' })).status).toBe(400);
+  });
+
+  it('reports a delivery failure instead of pretending it was sent', async () => {
+    const a = testApp({ mailTransport: 'smtp', smtpUrl: 'smtp://127.0.0.1:1', smtpHost: '', smtpUser: '', smtpPass: '' });
+    await registerUser(a, 'P', 'p@example.com');
+    const res = await request(a, 'p@example.com');
+    expect(res.status).toBe(502);
+    expect(res.body.error.code).toBe('email_failed');
+    const { rows } = await testPool().query('SELECT count(*)::int AS n FROM password_resets');
+    expect(rows[0].n).toBe(0);
   });
 });
 

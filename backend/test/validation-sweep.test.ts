@@ -170,6 +170,7 @@ describe('migrations', () => {
       '012_post_title_topic.sql',
       '013_rewrite_tone.sql',
       '014_comment_reports.sql',
+      '015_reset_verify_token.sql',
     ]);
   });
 });

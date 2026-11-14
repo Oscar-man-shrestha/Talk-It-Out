@@ -158,19 +158,44 @@ class MockAuthRepository implements AuthRepository {
           message: AppStrings.enterValidEmail,
         );
       }
+      if (!_accounts.containsKey(email.trim().toLowerCase())) {
+        throw const RepositoryException(
+          code: 'no_account',
+          message: AppStrings.resetNoAccount,
+        );
+      }
+    });
+  }
+
+  static const _mockResetToken = 'mock-reset-token';
+
+  @override
+  Future<String> verifyResetCode({
+    required String email,
+    required String code,
+  }) {
+    return runMock(_controls, () {
+      if (!_accounts.containsKey(email.trim().toLowerCase()) ||
+          code.trim() != mockResetCode) {
+        throw const RepositoryException(
+          code: 'invalid_code',
+          message: AppStrings.resetCodeInvalid,
+        );
+      }
+      return _mockResetToken;
     });
   }
 
   @override
   Future<void> confirmPasswordReset({
     required String email,
-    required String code,
+    required String resetToken,
     required String newPassword,
   }) {
     return runMock(_controls, () {
       final cleanEmail = email.trim().toLowerCase();
       final account = _accounts[cleanEmail];
-      if (account == null || code.trim() != mockResetCode) {
+      if (account == null || resetToken != _mockResetToken) {
         throw const RepositoryException(
           code: 'invalid_code',
           message: AppStrings.resetCodeInvalid,

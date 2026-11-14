@@ -5,6 +5,8 @@ export interface Mail {
   to: string;
   subject: string;
   text: string;
+  /** Optional HTML part; mail clients show it, others fall back to text. */
+  html?: string;
 }
 
 export interface Mailer {

@@ -362,4 +362,16 @@ abstract final class AppStrings {
       'This message has been decided. Decisions are final.';
 
   static const groupChatTitle = 'Group chat';
+
+  // Profile anonymity card
+  static const anonymityCardTitle = 'ANONYMOUS MESSAGES';
+  static const anonymityCardSubtitle =
+      'Tick "Anonymous message" when you write in a group chat';
+  static const anonymityMembersSee = 'Group sees:';
+  static const anonymityControllerSees = 'Controller sees:';
+  static const anonymityNoId = 'no name, no ID';
+  static const anonymityReviews = 'reviews first';
+  static const anonymityCardNote =
+      'The AI also rewrites the wording, so your style does not give you away. '
+      'Nothing is published until the controller approves it.';
 }

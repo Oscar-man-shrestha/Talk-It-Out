@@ -2858,3 +2858,19 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
 - **Commands run and results:** Flutter 95 passed, analyze 0; live build checked (Feed, Profile).
 - **Next steps:** Review and merge `temp/project-completion-run070`.
 
+### Run 090: Honest profile, demo shortcuts removed
+- **Date/time:** 2026-11-14 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 30 (Fix)
+- **Prompt / task:** "Go to the profile and make sure everything showing works. What is Peer Anonymity Shield?" and "remove quick demo access and all".
+- **Result:** Completed
+- **Summary:**
+  - **Peer Anonymity Shield was fake and misleading.** Its "Display ID" cycled through 4 hard-coded codes on the device, and "12h left" never changed. The product gives anonymous senders no ID at all (`display_sender: null`, shown as "Anonymous user"). It is replaced by an "Anonymous messages" card that shows what the group sees ("Anonymous user", no name, no ID) and what the controller sees (your name, reviews first). The local salt state is removed.
+  - **AI Clarity tile** was a permanent "—, No score yet". Showing contributors their own AI scores is not allowed (scores are for controllers). It is replaced by a real count of saved questions. Tile labels are now plain words ("groups you lead").
+  - The duplicate "How anonymity works" card is removed. On wide screens the four tiles sit in one row.
+  - **Demo shortcuts removed:**
+    - Login's "Quick demo access" (Contributor/Controller) and the meaningless `#member` tag.
+    - Sign-up's persona card ("Maya Lin" / "Julian Vance" with filled passwords).
+    - The avatar picker's stock photos of strangers with made-up names. The "Initial" option now shows the user's own initials.
+- **Commands run and results:** Flutter 95 passed (the profile test now also asserts that no Display ID, Rotate, 12h left or AI Clarity appear), analyze 0; live build checked.
+

@@ -122,8 +122,20 @@ void main() {
       '1,420+',
       '(she/her)',
       '94%',
+      // Run 089: no made-up anonymity ID or AI score on the profile.
+      'DISPLAY ID',
+      'Rotate',
+      '12h left',
+      'AI CLARITY',
     ]) {
       expect(find.textContaining(invented), findsNothing);
     }
+    // Anonymous messages carry no ID: the card says what others see.
+    final card = find.byKey(const ValueKey('anonymity-card'));
+    expect(card, findsOneWidget);
+    expect(
+      find.descendant(of: card, matching: find.text(AppStrings.anonymousUser)),
+      findsOneWidget,
+    );
   });
 }

@@ -12,6 +12,7 @@ import 'package:talk_it_out/core/widgets/safe_image.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
 import 'package:talk_it_out/features/feed/data/post.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
+import 'package:talk_it_out/features/feed/saved_posts.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/profile/profile_state.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
@@ -34,41 +35,11 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  static const _salts = [
-    '#7b99c8f2...9f2a',
-    '#3e41b99a...6d8c',
-    '#91a0c842...4aa1',
-    '#19fec390...7e0b',
-  ];
-
   static const _tones = [
     'Professional & Diplomatic',
     'Direct & Concise',
     'Socratic & Inquisitive',
     'Empathetic & Supportive',
-  ];
-
-  static const _presetAvatars = [
-    (
-      'Maya Lin',
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
-    ),
-    (
-      'Julian V.',
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80',
-    ),
-    (
-      'Priya S.',
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=256&q=80',
-    ),
-    (
-      'Elena V.',
-      'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=256&q=80',
-    ),
-    (
-      'Alex M.',
-      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=256&q=80',
-    ),
   ];
 
   static const _presetCovers = [
@@ -93,6 +64,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80',
     ),
   ];
+
+  static String _initialsOf(String name) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
+    if (parts.isEmpty) return '?';
+    return parts.take(2).map((p) => p[0].toUpperCase()).join();
+  }
 
   Future<void> _copyLink(String url) async {
     await Clipboard.setData(ClipboardData(text: url));
@@ -250,8 +227,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 avatarCtrl.clear();
                               });
                             },
-                            child: const Text(
-                              'AM',
+                            child: Text(
+                              _initialsOf(nameCtrl.text),
                               style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w700,
@@ -259,26 +236,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ),
                             ),
                           ),
-                          for (final preset in _presetAvatars) ...[
-                            const SizedBox(width: 8),
-                            _PresetAvatarOption(
-                              label: preset.$1,
-                              isSelected: selectedAvatar == preset.$2,
-                              onTap: () {
-                                setModalState(() {
-                                  selectedAvatar = preset.$2;
-                                  avatarCtrl.text = preset.$2;
-                                });
-                              },
-                              child: ClipOval(
-                                child: SizedBox(
-                                  width: 40,
-                                  height: 40,
-                                  child: SafeImage(imageUrl: preset.$2),
-                                ),
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                     ),
@@ -287,7 +244,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     _EditProfileTextField(
                       label: 'Full Name',
                       controller: nameCtrl,
-                      hint: 'Priya Sharma',
+                      hint: 'Your full name',
                       icon: Icons.person_outline,
                     ),
                     const SizedBox(height: 12),
@@ -1900,136 +1857,79 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // 5. Peer Anonymity Shield Card
+                  // 5. Anonymity: what others see when you send anonymously.
+                  // There is no pseudonym or ID: anonymous messages carry no
+                  // sender at all (only the controller sees who sent them).
                   Container(
+                    key: const ValueKey('anonymity-card'),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: _kSurfaceMuted,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              children: [
-                                Container(
-                                  width: 28,
-                                  height: 28,
-                                  decoration: BoxDecoration(
-                                    color: _kPrimary,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: const Icon(
-                                    Icons.fingerprint,
-                                    size: 16,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                const Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'PEER ANONYMITY SHIELD',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.6,
-                                        color: _kTextPrimary,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Anonymous option available',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: _kTextSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                ref
-                                    .read(userProfileProvider.notifier)
-                                    .rotateSalt();
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _kSurface,
-                                foregroundColor: _kTextPrimary,
-                                elevation: 0.5,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                minimumSize: const Size(0, 32),
+                            Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: _kPrimary,
+                                borderRadius: BorderRadius.circular(6),
                               ),
-                              icon: const Icon(Icons.sync, size: 14),
-                              label: const Text(
-                                'Rotate',
-                                style: TextStyle(fontSize: 11),
+                              child: const Icon(
+                                Icons.fingerprint,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    AppStrings.anonymityCardTitle,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.6,
+                                      color: _kTextPrimary,
+                                    ),
+                                  ),
+                                  Text(
+                                    AppStrings.anonymityCardSubtitle,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: _kTextSecondary,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _kSurface,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  const Text(
-                                    'DISPLAY ID: ',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontFamily: 'monospace',
-                                      color: _kTextTertiary,
-                                    ),
-                                  ),
-                                  Text(
-                                    _salts[profile.saltIndex],
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontFamily: 'monospace',
-                                      fontWeight: FontWeight.w600,
-                                      color: _kTextPrimary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _kSurfaceMuted,
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: const Text(
-                                  '12h left',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: _kTextSecondary,
-                                  ),
-                                ),
-                              ),
-                            ],
+                        _WhoSeesRow(
+                          who: AppStrings.anonymityMembersSee,
+                          what: AppStrings.anonymousUser,
+                          tag: AppStrings.anonymityNoId,
+                        ),
+                        const SizedBox(height: 6),
+                        _WhoSeesRow(
+                          who: AppStrings.anonymityControllerSees,
+                          what: profile.name,
+                          tag: AppStrings.anonymityReviews,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          AppStrings.anonymityCardNote,
+                          style: TextStyle(
+                            fontSize: 11,
+                            height: 1.35,
+                            color: _kTextSecondary,
                           ),
                         ),
                       ],
@@ -2039,166 +1939,43 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                   // 6. Metrics 2x2 Bento Grid
                   GridView.count(
-                    crossAxisCount: 2,
+                    // One row of four on wide screens, 2 x 2 on phones.
+                    crossAxisCount: MediaQuery.sizeOf(context).width >= 640
+                        ? 4
+                        : 2,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
-                    childAspectRatio: 1.35,
+                    childAspectRatio: MediaQuery.sizeOf(context).width >= 640
+                        ? 1.25
+                        : 1.35,
                     children: [
                       _BentoCard(
                         title: 'GROUPS JOINED',
                         icon: Icons.groups_outlined,
                         value: '${groups.length}',
-                        subtitle: 'active squads',
+                        subtitle: 'groups you are in',
                       ),
                       _BentoCard(
                         title: 'CONTRIBUTIONS',
                         icon: Icons.forum_outlined,
                         value: '$myPosts',
-                        subtitle: 'public posts',
+                        subtitle: 'questions asked',
                       ),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: _kSurfaceSubtle,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _kBorderSubtle),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'AI CLARITY',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.6,
-                                    color: _kTextSecondary,
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.auto_awesome,
-                                  size: 16,
-                                  color: _kTextSecondary,
-                                ),
-                              ],
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Row(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.baseline,
-                                  textBaseline: TextBaseline.alphabetic,
-                                  children: [
-                                    Text(
-                                      '—',
-                                      style: TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: -0.5,
-                                        color: _kTextPrimary,
-                                      ),
-                                    ),
-                                    SizedBox(width: 4),
-                                    Text(
-                                      'No score yet',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: _kTextSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Container(
-                                  height: 4,
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    color: _kSurfaceMuted,
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
-                                  alignment: Alignment.centerLeft,
-                                  child: FractionallySizedBox(
-                                    widthFactor: 0,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: _kPrimary,
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                const Text(
-                                  'Diplomatic clarity',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: _kTextSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                      _BentoCard(
+                        title: 'SAVED',
+                        icon: Icons.bookmark_outline,
+                        value: '${ref.watch(savedPostsProvider).length}',
+                        subtitle: 'saved questions',
                       ),
                       _BentoCard(
                         title: 'MODERATED',
                         icon: Icons.gavel_outlined,
                         value: '$moderated',
-                        subtitle: 'squad spaces',
+                        subtitle: 'groups you lead',
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // 7. Cryptographic Privacy Guarantee Card
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: _kSurface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _kBorderSubtle),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(
-                          Icons.lock_outline,
-                          size: 18,
-                          color: _kTextPrimary,
-                        ),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'How anonymity works',
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: _kTextPrimary,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Anonymous messages are hidden from the group but visible to the controller, who reviews every message before it is published.',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  height: 1.35,
-                                  color: _kTextSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                   const SizedBox(height: 12),
 
@@ -2242,8 +2019,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         _PreferenceTile(
                           icon: Icons.logout,
                           title: AppStrings.logout,
-                          subtitle:
-                              'Terminates secure session tokens on device',
+                          subtitle: 'Signs you out on this device',
                           trailing: const Icon(
                             Icons.arrow_forward_ios,
                             size: 13,
@@ -2341,6 +2117,57 @@ class _PresetAvatarOption extends StatelessWidget {
               fontSize: 10,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               color: isSelected ? _kTextPrimary : _kTextSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One line of the anonymity card: who sees what.
+class _WhoSeesRow extends StatelessWidget {
+  const _WhoSeesRow({required this.who, required this.what, required this.tag});
+
+  final String who;
+  final String what;
+  final String tag;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: _kSurface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Text(
+            '$who ',
+            style: const TextStyle(fontSize: 11, color: _kTextTertiary),
+          ),
+          Expanded(
+            child: Text(
+              what,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: _kTextPrimary,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: _kSurfaceMuted,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              tag,
+              style: const TextStyle(fontSize: 10, color: _kTextSecondary),
             ),
           ),
         ],

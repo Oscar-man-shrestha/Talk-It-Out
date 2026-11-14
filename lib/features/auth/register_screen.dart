@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:talk_it_out/app/providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
@@ -35,17 +34,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   var _obscureConfirm = true;
   var _agreeToTerms = false;
 
-  /// Sample personas only fill the form in mock builds. A live build never
-  /// pre-fills, so nobody creates a real account with invented details.
-  bool get _useMock => ref.read(appConfigProvider).useMock;
-
-  @override
-  void initState() {
-    super.initState();
-    if (_useMock) _fillPersona('contributor');
-  }
-
-  var _selectedRole = 'contributor'; // 'contributor' | 'controller'
   var _busy = false;
   String? _error;
 
@@ -56,27 +44,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _password.dispose();
     _confirmPassword.dispose();
     super.dispose();
-  }
-
-  void _fillPersona(String role) {
-    setState(() {
-      _selectedRole = role;
-      _error = null;
-      _agreeToTerms = _useMock;
-      if (!_useMock) return;
-      if (role == 'contributor') {
-        _name.text = 'Maya Lin';
-        _email.text = 'maya.lin@domain.com';
-        _password.text = 'RefinedTalk2024!';
-        _confirmPassword.text = 'RefinedTalk2024!';
-      } else {
-        _name.text = 'Julian Vance';
-        _email.text = 'j.vance@governance.net';
-        _password.text = 'ControlProtocol#2024';
-        _confirmPassword.text = 'ControlProtocol#2024';
-      }
-      _error = null;
-    });
   }
 
   Future<void> _submit() async {
@@ -218,171 +185,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ),
             const SizedBox(height: 18),
 
-            // Quick Fill Persona Card
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _kSurfaceSubtle,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _kBorderSubtle),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'QUICK FILL PERSONA',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
-                          color: _kTextTertiary,
-                        ),
-                      ),
-                      Text(
-                        'Tap to preview role defaults',
-                        style: TextStyle(fontSize: 11, color: _kTextSecondary),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      // Contributor Button
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => _fillPersona('contributor'),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _selectedRole == 'contributor'
-                                  ? _kSurfaceMuted
-                                  : _kSurface,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: _selectedRole == 'contributor'
-                                    ? _kTextPrimary
-                                    : _kBorderSubtle,
-                              ),
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(
-                                  Icons.edit_note,
-                                  size: 18,
-                                  color: _kTextSecondary,
-                                ),
-                                SizedBox(width: 6),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Contributor',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          color: _kTextPrimary,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Maya Lin',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          color: _kTextTertiary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.north_east,
-                                  size: 13,
-                                  color: _kTextTertiary,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-
-                      // Controller Button
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => _fillPersona('controller'),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _selectedRole == 'controller'
-                                  ? _kSurfaceMuted
-                                  : _kSurface,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: _selectedRole == 'controller'
-                                    ? _kTextPrimary
-                                    : _kBorderSubtle,
-                              ),
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(
-                                  Icons.admin_panel_settings_outlined,
-                                  size: 18,
-                                  color: _kTextSecondary,
-                                ),
-                                SizedBox(width: 6),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Controller',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          color: _kTextPrimary,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Julian Vance',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          color: _kTextTertiary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.north_east,
-                                  size: 13,
-                                  color: _kTextTertiary,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
             // Form Fields
             // 1. Full Name
             const Row(
@@ -422,7 +224,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     size: 18,
                     color: _kTextTertiary,
                   ),
-                  hintText: 'e.g. Maya Lin',
+                  hintText: 'Your full name',
                   hintStyle: TextStyle(fontSize: 13, color: _kTextTertiary),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(
@@ -484,7 +286,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     size: 16,
                     color: _kTextPrimary,
                   ),
-                  hintText: 'maya.lin@domain.com',
+                  hintText: 'you@example.com',
                   hintStyle: TextStyle(fontSize: 13, color: _kTextTertiary),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(

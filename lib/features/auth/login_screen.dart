@@ -35,8 +35,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _password = TextEditingController();
   var _busy = false;
   var _obscure = true;
-  var _role = 'contributor';
-  var _roleTag = '#member';
   var _keepSession = true;
   String? _error;
 
@@ -83,20 +81,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-  }
-
-  void _selectRole(String role) {
-    setState(() {
-      _role = role;
-      _roleTag = role == 'contributor' ? '#contributor' : '#controller';
-      // The seeded sample account is a contributor in one group and the
-      // controller of another, so both quick-access tabs sign in as it.
-      if (_useMock) {
-        _email.text = MockAuthRepository.mockEmail;
-        _password.text = MockAuthRepository.mockPassword;
-      }
-      _error = null;
-    });
   }
 
   @override
@@ -162,53 +146,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
             const SizedBox(height: 22),
 
-            // Quick Demo Roles Switcher
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
-              decoration: BoxDecoration(
-                color: _kSurfaceMuted,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 6, top: 2),
-                    child: Text(
-                      'QUICK DEMO ACCESS',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: _kTextTertiary,
-                      ),
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _DemoRoleTab(
-                          label: 'Contributor',
-                          active: _role == 'contributor',
-                          onTap: _busy
-                              ? null
-                              : () => _selectRole('contributor'),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: _DemoRoleTab(
-                          label: 'Controller',
-                          active: _role == 'controller',
-                          onTap: _busy ? null : () => _selectRole('controller'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-
             // Email Label Row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -222,15 +159,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       fontWeight: FontWeight.w500,
                       color: _kTextPrimary,
                     ),
-                  ),
-                ),
-                Text(
-                  _roleTag,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w500,
-                    color: _kTextTertiary,
                   ),
                 ),
               ],
@@ -640,58 +568,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DemoRoleTab extends StatelessWidget {
-  const _DemoRoleTab({
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool active;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: active ? Colors.white : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
-      elevation: active ? 1 : 0,
-      shadowColor: const Color(0x1F000000),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 5,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: active ? _kPrimary : _kTextTertiary,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: active ? _kTextPrimary : _kTextSecondary,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

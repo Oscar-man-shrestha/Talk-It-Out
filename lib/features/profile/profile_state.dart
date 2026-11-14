@@ -91,7 +91,6 @@ class UserProfile {
       githubUrl = '',
       websiteUrl = '',
       coverStyle = 0,
-      saltIndex = 0,
       toneIndex = 0,
       experiences = const [],
       educations = const [],
@@ -109,7 +108,6 @@ class UserProfile {
     required this.githubUrl,
     this.websiteUrl = '',
     this.coverStyle = 0,
-    this.saltIndex = 0,
     this.toneIndex = 0,
     this.experiences = const [],
     this.educations = const [],
@@ -129,7 +127,6 @@ class UserProfile {
   final String githubUrl;
   final String websiteUrl;
   final int coverStyle;
-  final int saltIndex;
   final int toneIndex;
   final List<ProfileExperience> experiences;
   final List<ProfileEducation> educations;
@@ -148,7 +145,6 @@ class UserProfile {
     String? githubUrl,
     String? websiteUrl,
     int? coverStyle,
-    int? saltIndex,
     int? toneIndex,
     List<ProfileExperience>? experiences,
     List<ProfileEducation>? educations,
@@ -168,7 +164,6 @@ class UserProfile {
       githubUrl: githubUrl ?? this.githubUrl,
       websiteUrl: websiteUrl ?? this.websiteUrl,
       coverStyle: coverStyle ?? this.coverStyle,
-      saltIndex: saltIndex ?? this.saltIndex,
       toneIndex: toneIndex ?? this.toneIndex,
       experiences: experiences ?? this.experiences,
       educations: educations ?? this.educations,
@@ -182,7 +177,7 @@ class UserProfile {
 /// The view model above is filled from the profile repository (`API.md`
 /// section 10) and every edit is saved back to it. Changes show immediately;
 /// a failed save restores the previous profile and reports the error through
-/// [profileSyncErrorProvider]. Cover style, the identity salt and the tone
+/// [profileSyncErrorProvider]. Cover style and the tone
 /// preference are display settings with no server field, so they stay on
 /// this device.
 class UserProfileNotifier extends Notifier<UserProfile> {
@@ -325,10 +320,6 @@ class UserProfileNotifier extends Notifier<UserProfile> {
   void setCoverStyle(int style) {
     state = state.copyWith(coverStyle: style);
     if (state.coverImageUrl != null) setCoverImage(null);
-  }
-
-  void rotateSalt() {
-    state = state.copyWith(saltIndex: (state.saltIndex + 1) % 4);
   }
 
   /// Moves to the next rewrite tone and saves it (API 44). The AI uses it
@@ -527,7 +518,6 @@ UserProfile _fromApi(api.Profile profile, {required UserProfile keep}) {
         : 'github.com/${profile.githubHandle}',
     websiteUrl: profile.website,
     coverStyle: keep.coverStyle,
-    saltIndex: keep.saltIndex,
     toneIndex: api.Profile.rewriteTones
         .indexOf(profile.rewriteTone)
         .clamp(0, api.Profile.rewriteTones.length - 1),

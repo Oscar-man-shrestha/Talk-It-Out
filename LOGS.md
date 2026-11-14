@@ -13,7 +13,7 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-14 (IST)
-**Current phase:** Complete and verified end to end (Run 084): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real. `npm run check:live` passes 51/51 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Current phase:** Complete and verified end to end (Run 085): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history and comment moderation. `npm run check:live` passes 57/57 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
 **Next step:** Review and merge `temp/project-completion-run070`. Optional: Gmail app password in `backend/.env` for real reset emails (user enters it); a larger model for higher rewrite fidelity.
@@ -52,6 +52,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 | 23 | Decided items D4, D10, D20–D22 and refresh tokens | Done | 073 |
 | 24 | Live updates (SSE) and chat identity fix | Done | 083 |
 | 25 | Feed questions, dead-control audit, rewrite tone | Done | 084 |
+| 26 | Review history, comment reports and removal, delete question | Done | 085 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -2760,4 +2761,25 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] Worker payload still has no identity or `is_anonymous`
   - [x] `main` untouched
 - **Next steps:** Review and merge `temp/project-completion-run070`. (The test question posted while checking the form was deleted from the local database afterwards.)
+
+### Run 085: Review history, comment moderation, delete your question
+- **Date/time:** 2026-11-14 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 26 (Feature)
+- **Prompt / task:** "Push in temp branch and keep seeing what needs to be added; every frontend feature should work."
+- **Result:** Completed
+- **Summary:**
+  - **Review history:** the Approved and Rejected tabs showed "–" and nothing else. They now list decided messages, most recent first, with real counts on all three tabs (API.md 45). A decided message opens read-only: the Accept/Reject dock is replaced by a "Decisions are final" note and the new-rewrite menu is off.
+  - **Comments:** Reply only showed a snackbar. It now puts `@Name ` in the comment box and focuses it. Report said "not available yet". It now records a report (migration 014), and the reporter can withdraw it. The question's author sees "Reported by N people" and can remove the comment. Commenters can remove their own comments (API.md 46). Reports never hide anything by themselves.
+  - **Delete question:** the author's question menu has "Delete question", with a confirm (API.md 47). A group started from the question keeps running.
+- **Files created:** `backend/migrations/014_comment_reports.sql`, `backend/test/{review-history,comment-moderation}.test.ts`, `test/moderation_and_history_test.dart`
+- **Files modified:** `backend/src/routes/{groups,feed}.ts`, `backend/test/{contract,feed,validation-sweep}.test.ts`, `backend/scripts/live-check.mjs`, Flutter review and feed data layers, `review_queue_screen.dart`, `review_detail_screen.dart`, `post_detail_screen.dart`, `endpoints.dart`, `app_strings.dart`, `API.md`
+- **Commands run and results:** backend 214 passed, lint and build clean; Flutter 94 passed, analyze 0; `npm run check:live` 57/57 (adds review counts, rejected tab, report, report count, remove, delete question). The dev database is migrated to 014. A visual check on a demo build was not done: the build was killed (exit 137) before it finished.
+- **Hard-rules check:**
+  - [x] Relevance still never hides a message; reports never hide a comment
+  - [x] No rejection reasons; decided messages are read-only (no rewrite editing)
+  - [x] `RawMessage` still only in `lib/features/review`
+  - [x] No message text logged
+  - [x] `main` untouched
+- **Next steps:** Review and merge `temp/project-completion-run070`.
 

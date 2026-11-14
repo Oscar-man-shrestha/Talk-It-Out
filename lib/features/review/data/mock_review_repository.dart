@@ -26,9 +26,22 @@ class MockReviewRepository implements ReviewRepository {
     String groupId, {
     int? limit,
     String? cursor,
+    MessageStatus status = MessageStatus.pending,
   }) {
     return runMock(_controls, () {
       _requireControllerGroup(groupId);
+      if (status != MessageStatus.pending) {
+        final decided =
+            _messages
+                .where((m) => m.groupId == groupId && m.status == status)
+                .toList()
+              ..sort(
+                (a, b) => (b.decidedAt ?? b.createdAt).compareTo(
+                  a.decidedAt ?? a.createdAt,
+                ),
+              );
+        return slicePage(decided, limit: limit, cursor: cursor);
+      }
       final pending = [
         ..._messages.where(
           (message) =>
@@ -41,6 +54,39 @@ class MockReviewRepository implements ReviewRepository {
       ]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
       return slicePage(pending, limit: limit, cursor: cursor);
     });
+  }
+
+  @override
+  Future<ReviewCounts> counts(String groupId) {
+    return runMock(_controls, () {
+      _requireControllerGroup(groupId);
+      int count(MessageStatus status) => _messages
+          .where((m) => m.groupId == groupId && m.status == status)
+          .length;
+      final outgoing = _bridge.outgoing
+          .where((message) => message.groupId == groupId)
+          .length;
+      return (
+        pending: count(MessageStatus.pending) + outgoing,
+        accepted: count(MessageStatus.accepted),
+        rejected: count(MessageStatus.rejected),
+      );
+    });
+  }
+
+  /// Records a decision, keeping messages that came from the chat bridge
+  /// so they show up in the decided tabs too.
+  void _decide(RawMessage message, MessageStatus status) {
+    final decided = message.copyWith(
+      status: status,
+      decidedAt: DateTime.now().toUtc(),
+    );
+    final index = _messages.indexWhere((item) => item.id == message.id);
+    if (index >= 0) {
+      _messages[index] = decided;
+    } else {
+      _messages.add(decided);
+    }
   }
 
   @override
@@ -68,10 +114,7 @@ class MockReviewRepository implements ReviewRepository {
       final publishedId = 'pm-${message.id}';
       _publish(message, publishedId, rewrite.trim());
       _bridge.outgoing.removeWhere((item) => item.id == message.id);
-      final index = _messages.indexWhere((item) => item.id == message.id);
-      if (index >= 0) {
-        _messages[index] = message.copyWith(status: MessageStatus.accepted);
-      }
+      _decide(message, MessageStatus.accepted);
       _markMine(message.id, MessageStatus.accepted);
       return AcceptResult(
         id: message.id,
@@ -87,10 +130,7 @@ class MockReviewRepository implements ReviewRepository {
       final message = _requireById(messageId);
       _requirePending(message);
       _bridge.outgoing.removeWhere((item) => item.id == message.id);
-      final index = _messages.indexWhere((item) => item.id == message.id);
-      if (index >= 0) {
-        _messages[index] = message.copyWith(status: MessageStatus.rejected);
-      }
+      _decide(message, MessageStatus.rejected);
       _markMine(message.id, MessageStatus.rejected);
       return RejectResult(id: message.id, status: MessageStatus.rejected);
     });

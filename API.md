@@ -503,3 +503,15 @@ Signing out everywhere (endpoint 39) closes the user's streams. How it works: da
 
 ### 44. Rewrite tone (`rewrite_tone` on your profile)
 `GET /users/me/profile` returns `user.rewrite_tone`: `professional` (default), `direct`, `socratic` or `empathetic`. Set it with `PUT /users/me/profile {"rewrite_tone": "direct"}`; any other value is `422`. It is private: other people's view of your profile never includes it. The AI uses it when rewriting your **named** group messages. Anonymous messages always use `professional`, so a distinctive style can never point to who wrote one. The profile screen's "Default Tone Target" row cycles through the tones and saves them.
+
+### 45. Review history: `GET /groups/:groupId/review-queue?status=` and `GET /groups/:groupId/review-counts`
+Controller only (`403` otherwise). `status` is `pending` (default, oldest first), `accepted` or `rejected` (most recent decision first, same cursor paging). Any other value is `400`. Every raw message now also has `decided_at` (ISO time, `null` while pending). `review-counts` returns `{"pending": n, "accepted": n, "rejected": n}`, counting only messages from current members, like the lists. The review queue's Pending / Approved / Rejected tabs use both. A decided message opens read-only: no accept, reject or new rewrite.
+
+### 46. Comment reports and removal
+- `POST /posts/:postId/comments/:commentId/report` → `204`. Idempotent. Reporting your own comment is `400 own_comment`. `DELETE` on the same path withdraws your report (`204`).
+- A report never hides anything. Comments now carry `reported_by_me` (bool) and `report_count`. `report_count` is a number only for the question's author and `null` for everyone else.
+- `DELETE /posts/:postId/comments/:commentId` → `204`. Allowed for the comment's author or the question's author; anyone else gets `403`.
+
+### 47. `DELETE /posts/:postId` (delete your own question)
+Author only (`403` otherwise, `404` if it is gone). Removes the question with its likes, comments, reports and pending analysis jobs. A group started from it keeps running; its `source_post_id` becomes `null`.
+

@@ -167,6 +167,8 @@ describe('comments', () => {
       'nsfw_flag',
       'other_flags',
       'post_id',
+      'report_count',
+      'reported_by_me',
     ]);
     expect(created.body.post_id).toBe(postId);
     expect(created.body.author).toEqual({ id: commenter.id, name: 'Commenter' });

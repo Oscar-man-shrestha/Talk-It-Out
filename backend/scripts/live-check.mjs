@@ -140,6 +140,10 @@ async function main() {
   check('rejection notification has no reason', rejNote?.type === 'message_rejected' && !('reason' in rejNote));
   check('unread count', (await call('GET', '/notifications/unread-count', { token: M.token })).body.count >= 1);
   check('read-all', (await call('POST', '/notifications/read-all', { token: M.token })).body.marked_count >= 1);
+  const counts = await call('GET', `/groups/${gid}/review-counts`, { token: C.token });
+  check('review counts per tab', counts.status === 200 && counts.body.rejected >= 1 && typeof counts.body.accepted === 'number');
+  const history = await call('GET', `/groups/${gid}/review-queue?status=rejected`, { token: C.token });
+  check('rejected tab lists the decision', history.body.items?.some((r) => r.id === second.body.id && r.decided_at));
 
   const ann = await call('POST', `/groups/${gid}/messages/controller`, { token: C.token, body: { text: 'Announcement from the live check.' } });
   check('controller announcement publishes directly', ann.status === 201 && ann.body.display_sender?.id === C.id);
@@ -149,7 +153,15 @@ async function main() {
   const post = await call('POST', '/posts', { token: M.token, body: { title: `Live check question ${run}?`, topic: 'culture', content: `Live check post ${run}` } });
   check('feed post (author shown)', post.status === 201 && post.body.author?.id === M.id);
   check('question keeps title and topic', post.body.title === `Live check question ${run}?` && post.body.topic === 'culture');
-  check('comment', (await call('POST', `/posts/${post.body.id}/comments`, { token: C.token, body: { content: 'Comment from the live check.' } })).status === 201);
+  const cm = await call('POST', `/posts/${post.body.id}/comments`, { token: C.token, body: { content: 'Comment from the live check.' } });
+  check('comment', cm.status === 201);
+  check('report a comment', (await call('POST', `/posts/${post.body.id}/comments/${cm.body.id}/report`, { token: O.token })).status === 204);
+  const seen = await call('GET', `/posts/${post.body.id}/comments`, { token: M.token });
+  check('question author sees the report count', seen.body.items?.[0]?.report_count === 1);
+  check('question author removes the comment', (await call('DELETE', `/posts/${post.body.id}/comments/${cm.body.id}`, { token: M.token })).status === 204);
+  const extra = await call('POST', '/posts', { token: O.token, body: { content: `Live check throwaway ${run}` } });
+  check('author deletes their question', (await call('DELETE', `/posts/${extra.body.id}`, { token: O.token })).status === 204
+    && (await call('GET', `/posts/${extra.body.id}`, { token: M.token })).status === 404);
   check('like', (await call('POST', `/posts/${post.body.id}/reactions`, { token: C.token, body: { type: 'like' } })).body.reaction_count === 1);
   const conv = await call('POST', `/posts/${post.body.id}/group`, { token: M.token });
   check('post -> group (author becomes controller)', conv.status === 201 && conv.body.my_role === 'controller');

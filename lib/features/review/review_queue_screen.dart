@@ -340,16 +340,29 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
         groupAsync.value?.agenda ?? 'AI Ethics & Workplace Policy';
     final pending = queue.value ?? const <RawMessage>[];
     final ready = pending.where((m) => m.rewrittenText != null).length;
-    // The queue endpoint lists pending messages only. Relevance is advisory
-    // and never hides a message: the mark only labels, the order only sorts.
-    // Only the identity filter narrows the list.
-    final items = _activeTab != 0
-        ? <RawMessage>[]
-        : pending.where((m) {
-            if (_anonymityFilter == 1) return m.isAnonymous;
-            if (_anonymityFilter == 2) return !m.isAnonymous;
-            return true;
-          }).toList();
+    final counts = ref.watch(reviewCountsProvider(widget.groupId)).value;
+    final historyStatus = _activeTab == 1
+        ? MessageStatus.accepted
+        : MessageStatus.rejected;
+    final history = _activeTab == 0
+        ? null
+        : ref.watch(
+            reviewHistoryProvider((
+              groupId: widget.groupId,
+              status: historyStatus,
+            )),
+          );
+    final hasHistory = counts != null && counts.accepted + counts.rejected > 0;
+    // Relevance is advisory and never hides a message: the mark only labels,
+    // the order only sorts. Only the identity filter narrows the list.
+    final source = _activeTab == 0
+        ? pending
+        : history?.value ?? const <RawMessage>[];
+    final items = source.where((m) {
+      if (_anonymityFilter == 1) return m.isAnonymous;
+      if (_anonymityFilter == 2) return !m.isAnonymous;
+      return true;
+    }).toList();
     int byAge(RawMessage a, RawMessage b) => a.createdAt.compareTo(b.createdAt);
     switch (_priorityMode) {
       case 'Newest first':
@@ -370,6 +383,13 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
         });
       default:
         items.sort(byAge);
+    }
+    // Decided messages always read most recent decision first.
+    if (_activeTab != 0) {
+      items.sort(
+        (a, b) =>
+            (b.decidedAt ?? b.createdAt).compareTo(a.decidedAt ?? a.createdAt),
+      );
     }
     final mark = _relevanceThreshold.round();
     final screenWidth = MediaQuery.sizeOf(context).width;
@@ -482,7 +502,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
         ),
       ),
       body: AsyncBody(
-        status: asyncStatus(queue, isEmpty: pending.isEmpty),
+        status: asyncStatus(queue, isEmpty: pending.isEmpty && !hasHistory),
         errorMessage: errorText(queue.error),
         onRetry: () => ref.invalidate(reviewQueueProvider(widget.groupId)),
         empty: _EmptyReviewState(hPad: hPad),
@@ -699,21 +719,21 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                 children: [
                   _FilterPill(
                     label: 'Pending',
-                    count: '${pending.length}',
+                    count: '${counts?.pending ?? pending.length}',
                     selected: _activeTab == 0,
                     onTap: () => setState(() => _activeTab = 0),
                   ),
                   const SizedBox(width: 8),
                   _FilterPill(
                     label: 'Approved',
-                    count: '–',
+                    count: counts == null ? '–' : '${counts.accepted}',
                     selected: _activeTab == 1,
                     onTap: () => setState(() => _activeTab = 1),
                   ),
                   const SizedBox(width: 8),
                   _FilterPill(
                     label: 'Rejected',
-                    count: '–',
+                    count: counts == null ? '–' : '${counts.rejected}',
                     selected: _activeTab == 2,
                     onTap: () => setState(() => _activeTab = 2),
                   ),
@@ -723,14 +743,42 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
             const SizedBox(height: 14),
 
             // 4. Queue Cards List
-            if (items.isEmpty)
+            if (history != null && history.isLoading && !history.hasValue)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              )
+            else if (history != null && history.hasError && !history.hasValue)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: TextButton(
+                    onPressed: () => ref.invalidate(
+                      reviewHistoryProvider((
+                        groupId: widget.groupId,
+                        status: historyStatus,
+                      )),
+                    ),
+                    child: Text('${errorText(history.error)} Tap to retry.'),
+                  ),
+                ),
+              )
+            else if (items.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Center(
                   child: Text(
                     _activeTab == 0
                         ? AppStrings.reviewEmpty
-                        : 'Reviewed messages are not listed here.',
+                        : _activeTab == 1
+                        ? AppStrings.reviewNoneApproved
+                        : AppStrings.reviewNoneRejected,
                     style: const TextStyle(
                       fontSize: 12,
                       color: _kTextSecondary,
@@ -751,6 +799,8 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                   try {
                     await ref.read(reviewRepositoryProvider).reject(message.id);
                     ref.invalidate(reviewQueueProvider(widget.groupId));
+                    ref.invalidate(reviewCountsProvider(widget.groupId));
+                    ref.invalidate(reviewHistoryProvider);
                   } on RepositoryException catch (e) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context)
@@ -1110,85 +1160,160 @@ class _QueueCard extends StatelessWidget {
             const SizedBox(height: 10),
           ],
 
-          // Action Row (Reject / Rerun / Review & Decide)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  InkWell(
-                    onTap: onReject,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: _kSurface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: _kBorderSubtle),
-                      ),
-                      child: const Icon(
-                        Icons.close,
-                        size: 18,
-                        color: _kTextSecondary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  InkWell(
-                    key: ValueKey('rerun-${message.id}'),
-                    onTap: _rewriting ? null : onRerun,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: _kSurface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: _kBorderSubtle),
-                      ),
-                      child: const Icon(
-                        Icons.cached,
-                        size: 18,
-                        color: _kTextSecondary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              FilledButton(
-                onPressed: () =>
-                    context.push('/groups/$groupId/review/${message.id}'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _kPrimary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
+          // Decided messages: the outcome instead of the actions.
+          if (message.status != MessageStatus.pending)
+            _DecidedRow(message: message, groupId: groupId)
+          else
+            // Action Row (Reject / Rerun / Review & Decide)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      'Review & Decide',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                    InkWell(
+                      onTap: onReject,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: _kSurface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: _kBorderSubtle),
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          size: 18,
+                          color: _kTextSecondary,
+                        ),
                       ),
                     ),
-                    SizedBox(width: 5),
-                    Icon(Icons.arrow_forward, size: 14),
+                    const SizedBox(width: 6),
+                    InkWell(
+                      key: ValueKey('rerun-${message.id}'),
+                      onTap: _rewriting ? null : onRerun,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: _kSurface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: _kBorderSubtle),
+                        ),
+                        child: const Icon(
+                          Icons.cached,
+                          size: 18,
+                          color: _kTextSecondary,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
+                FilledButton(
+                  onPressed: () =>
+                      context.push('/groups/$groupId/review/${message.id}'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _kPrimary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Review & Decide',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(width: 5),
+                      Icon(Icons.arrow_forward, size: 14),
+                    ],
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
+    );
+  }
+}
+
+class _DecidedRow extends StatelessWidget {
+  const _DecidedRow({required this.message, required this.groupId});
+
+  final RawMessage message;
+  final String groupId;
+
+  @override
+  Widget build(BuildContext context) {
+    final accepted = message.status == MessageStatus.accepted;
+    final when = message.decidedAt;
+    return Row(
+      key: ValueKey('decided-${message.id}'),
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Flexible(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: accepted ? _kPrimary : _kSurface,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: accepted ? _kPrimary : _kBorderSubtle),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  accepted ? Icons.check : Icons.close,
+                  size: 13,
+                  color: accepted ? Colors.white : _kTextSecondary,
+                ),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    '${accepted ? 'APPROVED' : 'REJECTED'}'
+                    '${when == null ? '' : ' · ${formatWhen(when)}'}',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4,
+                      color: accepted ? Colors.white : _kTextPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        OutlinedButton(
+          onPressed: () =>
+              context.push('/groups/$groupId/review/${message.id}'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: _kTextPrimary,
+            side: const BorderSide(color: _kBorderSubtle),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          child: const Text(
+            'View',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
     );
   }
 }

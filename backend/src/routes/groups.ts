@@ -1,7 +1,7 @@
-import { Router } from 'express';
+import { Request, Router } from 'express';
 import { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
-import { conflict, forbidden, notFound, parseWith } from '../errors';
+import { badRequest, conflict, forbidden, notFound, parseWith } from '../errors';
 import { buildPage, parseListQuery, PageCursor } from '../pagination';
 import { RequireAuth } from '../middleware/auth';
 import { uniqueConstraint, withTransaction } from '../db';
@@ -361,6 +361,7 @@ export function createGroupsRouter(
     pipeline_status: string;
     status: string;
     created_at: Date;
+    decided_at: Date | null;
   }) => ({
     id: row.id,
     group_id: row.group_id,
@@ -379,36 +380,74 @@ export function createGroupsRouter(
     pipeline_status: row.pipeline_status,
     status: row.status,
     created_at: row.created_at.toISOString(),
+    decided_at: row.decided_at ? row.decided_at.toISOString() : null,
   });
 
+  const REVIEW_STATUSES = ['pending', 'accepted', 'rejected'] as const;
+  type ReviewStatus = (typeof REVIEW_STATUSES)[number];
+  const reviewStatusOf = (req: Request): ReviewStatus => {
+    const raw = req.query.status;
+    if (raw === undefined) return 'pending';
+    if (typeof raw === 'string' && (REVIEW_STATUSES as readonly string[]).includes(raw)) {
+      return raw as ReviewStatus;
+    }
+    throw badRequest('bad_request', 'Status must be pending, accepted or rejected.');
+  };
+
+  // Pending messages oldest first (the queue). ?status=accepted|rejected
+  // lists the controller's decided messages instead, most recently decided
+  // first, so a controller can look back at what was published or turned down.
   router.get('/:groupId/review-queue', async (req, res) => {
     const groupId = requireUuid(req.params.groupId, 'group');
     if (!(await groupExists(pool, groupId))) throw notFound();
     const callerRole = await memberRole(pool, groupId, req.user!.id);
     if (callerRole !== 'controller') throw forbidden();
+    const status = reviewStatusOf(req);
     const { limit, cursor } = parseListQuery(req);
+    const pending = status === 'pending';
+    const sortColumn = pending ? 'r.created_at' : 'r.decided_at';
     const { rows } = await pool.query(
       `SELECT r.id, r.group_id, r.author_id, r.original_text, r.rewritten_text,
               r.is_anonymous, r.intent_preservation_score, r.relevance_score,
               r.relevance_label, r.pipeline_status, r.status,
               date_trunc('milliseconds', r.created_at) AS created_at,
+              date_trunc('milliseconds', r.decided_at) AS decided_at,
+              date_trunc('milliseconds', ${sortColumn}) AS sort_at,
               u.name AS sender_name
        FROM raw_messages r
        JOIN users u ON u.id = r.author_id
-       WHERE r.group_id = $1 AND r.status = 'pending' AND ${QUEUE_AUTHOR_IS_MEMBER}
+       WHERE r.group_id = $1 AND r.status = $5 AND ${QUEUE_AUTHOR_IS_MEMBER}
          AND ($2::timestamptz IS NULL
-              OR (date_trunc('milliseconds', r.created_at), r.id) > ($2::timestamptz, $3::uuid))
-       ORDER BY r.created_at ASC, r.id ASC
+              OR (date_trunc('milliseconds', ${sortColumn}), r.id)
+                 ${pending ? '>' : '<'} ($2::timestamptz, $3::uuid))
+       ORDER BY ${sortColumn} ${pending ? 'ASC' : 'DESC'}, r.id ${pending ? 'ASC' : 'DESC'}
        LIMIT $4`,
-      [groupId, cursor?.t ?? null, cursor?.i ?? null, limit + 1],
+      [groupId, cursor?.t ?? null, cursor?.i ?? null, limit + 1, status],
     );
     const page = buildPage(
       rows,
       limit,
-      (row) => ({ t: row.created_at.toISOString(), i: row.id }),
-      rawMessageJson,
+      (row) => ({ t: (row.sort_at as Date).toISOString(), i: row.id as string }),
+      (row) => rawMessageJson(row),
     );
     res.json(page);
+  });
+
+  // How many messages sit in each review tab (same visibility as the lists).
+  router.get('/:groupId/review-counts', async (req, res) => {
+    const groupId = requireUuid(req.params.groupId, 'group');
+    if (!(await groupExists(pool, groupId))) throw notFound();
+    const callerRole = await memberRole(pool, groupId, req.user!.id);
+    if (callerRole !== 'controller') throw forbidden();
+    const { rows } = await pool.query(
+      `SELECT count(*) FILTER (WHERE r.status = 'pending')::int AS pending,
+              count(*) FILTER (WHERE r.status = 'accepted')::int AS accepted,
+              count(*) FILTER (WHERE r.status = 'rejected')::int AS rejected
+       FROM raw_messages r
+       WHERE r.group_id = $1 AND ${QUEUE_AUTHOR_IS_MEMBER}`,
+      [groupId],
+    );
+    res.json(rows[0]);
   });
 
   router.get('/:groupId/review-queue/:messageId', async (req, res) => {

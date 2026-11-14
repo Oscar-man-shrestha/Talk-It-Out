@@ -27,6 +27,9 @@ abstract class RawMessage with _$RawMessage {
     @JsonKey(unknownEnumValue: MessageStatus.pending)
     required MessageStatus status,
     required DateTime createdAt,
+
+    /// When the controller accepted or rejected it; null while pending.
+    DateTime? decidedAt,
   }) = _RawMessage;
 
   bool get rewriteUnavailable => pipelineStatus == PipelineStatus.failed;

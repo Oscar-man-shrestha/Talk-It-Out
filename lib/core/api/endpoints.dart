@@ -43,6 +43,9 @@ abstract final class Endpoints {
 
   static String reviewQueue(String groupId) => '/groups/$groupId/review-queue';
 
+  static String reviewCounts(String groupId) =>
+      '/groups/$groupId/review-counts';
+
   static String reviewMessage(String groupId, String messageId) =>
       '/groups/$groupId/review-queue/$messageId';
 
@@ -62,6 +65,12 @@ abstract final class Endpoints {
   static String postComments(String postId) => '/posts/$postId/comments';
 
   static String postGroup(String postId) => '/posts/$postId/group';
+
+  static String comment(String postId, String commentId) =>
+      '/posts/$postId/comments/$commentId';
+
+  static String commentReport(String postId, String commentId) =>
+      '/posts/$postId/comments/$commentId/report';
 
   static String notificationRead(String notificationId) =>
       '/notifications/$notificationId/read';

@@ -17,6 +17,11 @@ abstract class Comment with _$Comment {
     @Default(<String, dynamic>{})
     Map<String, dynamic> otherFlags,
     required DateTime createdAt,
+
+    /// How many people reported this comment. Only the question's author
+    /// gets a number; everyone else gets null.
+    int? reportCount,
+    @Default(false) bool reportedByMe,
   }) = _Comment;
 
   factory Comment.fromJson(Map<String, dynamic> json) =>

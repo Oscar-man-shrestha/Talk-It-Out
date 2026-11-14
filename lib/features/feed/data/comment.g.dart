@@ -16,6 +16,8 @@ _Comment _$CommentFromJson(Map<String, dynamic> json) => _Comment(
       ? const <String, dynamic>{}
       : flagsFromJson(json['other_flags']),
   createdAt: DateTime.parse(json['created_at'] as String),
+  reportCount: (json['report_count'] as num?)?.toInt(),
+  reportedByMe: json['reported_by_me'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$CommentToJson(_Comment instance) => <String, dynamic>{
@@ -26,4 +28,6 @@ Map<String, dynamic> _$CommentToJson(_Comment instance) => <String, dynamic>{
   'nsfw_flag': instance.nsfwFlag,
   'other_flags': instance.otherFlags,
   'created_at': instance.createdAt.toIso8601String(),
+  'report_count': instance.reportCount,
+  'reported_by_me': instance.reportedByMe,
 };

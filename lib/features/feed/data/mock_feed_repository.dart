@@ -30,6 +30,7 @@ class MockFeedRepository implements FeedRepository {
   final List<Comment> _comments = [];
   var _nextPost = 20;
   var _nextComment = 20;
+  final Set<String> _reported = {};
 
   @override
   Future<PageResult<Post>> listPosts({int? limit, String? cursor}) {
@@ -121,8 +122,16 @@ class MockFeedRepository implements FeedRepository {
     String? cursor,
   }) {
     return runMock(_controls, () {
-      _requirePost(postId);
-      final comments = _comments.where((comment) => comment.postId == postId);
+      final post = _requirePost(postId);
+      final mine = post.author.id == MockIds.priya;
+      final comments = _comments
+          .where((comment) => comment.postId == postId)
+          .map(
+            (comment) => comment.copyWith(
+              reportedByMe: _reported.contains(comment.id),
+              reportCount: mine ? 0 : null,
+            ),
+          );
       return slicePage(comments.toList(), limit: limit, cursor: cursor);
     });
   }
@@ -191,6 +200,71 @@ class MockFeedRepository implements FeedRepository {
       ];
       return group;
     });
+  }
+
+  @override
+  Future<void> deletePost(String postId) {
+    return runMock(_controls, () {
+      final post = _requirePost(postId);
+      if (post.author.id != MockIds.priya) {
+        throw const RepositoryException(
+          code: 'forbidden',
+          message: AppStrings.notAllowed,
+        );
+      }
+      _posts.removeWhere((item) => item.id == postId);
+      _comments.removeWhere((item) => item.postId == postId);
+    });
+  }
+
+  @override
+  Future<void> deleteComment(String postId, String commentId) {
+    return runMock(_controls, () {
+      final post = _requirePost(postId);
+      final comment = _requireComment(postId, commentId);
+      if (comment.author.id != MockIds.priya &&
+          post.author.id != MockIds.priya) {
+        throw const RepositoryException(
+          code: 'forbidden',
+          message: AppStrings.notAllowed,
+        );
+      }
+      _comments.remove(comment);
+      _reported.remove(commentId);
+      _replacePost(post.copyWith(commentCount: post.commentCount - 1));
+    });
+  }
+
+  @override
+  Future<void> reportComment(
+    String postId,
+    String commentId, {
+    bool report = true,
+  }) {
+    return runMock(_controls, () {
+      final comment = _requireComment(postId, commentId);
+      if (comment.author.id == MockIds.priya) {
+        throw const RepositoryException(
+          code: 'own_comment',
+          message: AppStrings.cannotReportOwn,
+        );
+      }
+      if (report) {
+        _reported.add(commentId);
+      } else {
+        _reported.remove(commentId);
+      }
+    });
+  }
+
+  Comment _requireComment(String postId, String commentId) {
+    for (final comment in _comments) {
+      if (comment.id == commentId && comment.postId == postId) return comment;
+    }
+    throw const RepositoryException(
+      code: 'not_found',
+      message: AppStrings.notFound,
+    );
   }
 
   Post _requirePost(String postId) {

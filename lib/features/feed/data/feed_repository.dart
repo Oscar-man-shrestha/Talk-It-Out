@@ -29,4 +29,17 @@ abstract class FeedRepository {
   Future<Comment> addComment(String postId, {required String content});
 
   Future<Group> createGroupFromPost(String postId);
+
+  /// Deletes your own question with its likes and comments.
+  Future<void> deletePost(String postId);
+
+  /// Removes a comment (its author, or the question's author).
+  Future<void> deleteComment(String postId, String commentId);
+
+  /// Reports a comment, or withdraws your report when [report] is false.
+  Future<void> reportComment(
+    String postId,
+    String commentId, {
+    bool report = true,
+  });
 }

@@ -112,6 +112,9 @@ class _ReviewDetailScreenState extends ConsumerState<ReviewDetailScreen> {
         await repo.reject(widget.messageId);
       }
       ref.invalidate(reviewQueueProvider(widget.groupId));
+      ref.invalidate(reviewCountsProvider(widget.groupId));
+      ref.invalidate(reviewHistoryProvider);
+      ref.invalidate(reviewDetailProvider(_key));
       ref.invalidate(groupMessagesProvider(widget.groupId));
       ref.invalidate(myMessagesProvider(widget.groupId));
       ref.invalidate(groupsProvider);
@@ -135,7 +138,11 @@ class _ReviewDetailScreenState extends ConsumerState<ReviewDetailScreen> {
     return Scaffold(
       backgroundColor: _kSurface,
       appBar: _ReviewDetailAppBar(
-        onNewRewrite: message == null || _busy || _rewriting(message)
+        onNewRewrite:
+            message == null ||
+                _busy ||
+                _rewriting(message) ||
+                message.status != MessageStatus.pending
             ? null
             : _requestRewrite,
       ),
@@ -366,12 +373,14 @@ class ReviewDetailBody extends StatelessWidget {
           left: 0,
           right: 0,
           bottom: 0,
-          child: _FixedActionDock(
-            hPad: hPad,
-            busy: busy,
-            onAccept: onAccept,
-            onReject: onReject,
-          ),
+          child: message.status == MessageStatus.pending
+              ? _FixedActionDock(
+                  hPad: hPad,
+                  busy: busy,
+                  onAccept: onAccept,
+                  onReject: onReject,
+                )
+              : _DecidedDock(hPad: hPad),
         ),
       ],
     );
@@ -1009,6 +1018,40 @@ class _RationalePill extends StatelessWidget {
 }
 
 // ─── 7. Fixed Bottom Action Dock ─────────────────────────────────────────────
+
+/// Shown instead of Accept / Reject once a message is decided.
+class _DecidedDock extends StatelessWidget {
+  const _DecidedDock({required this.hPad});
+
+  final double hPad;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('decided-dock'),
+      padding: EdgeInsets.fromLTRB(hPad, 14, hPad, 18),
+      decoration: const BoxDecoration(
+        color: _kSurface,
+        border: Border(top: BorderSide(color: _kBorderSubtle)),
+      ),
+      child: const SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Icon(Icons.lock_outline, size: 16, color: _kTextSecondary),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                AppStrings.reviewDecidedNote,
+                style: TextStyle(fontSize: 12, color: _kTextSecondary),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _FixedActionDock extends StatelessWidget {
   const _FixedActionDock({

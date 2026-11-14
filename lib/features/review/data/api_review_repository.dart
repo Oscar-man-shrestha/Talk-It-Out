@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:talk_it_out/core/api/api_guard.dart';
 import 'package:talk_it_out/core/api/endpoints.dart';
+import 'package:talk_it_out/core/models/enums.dart';
 import 'package:talk_it_out/core/models/page_result.dart';
 import 'package:talk_it_out/features/review/data/raw_message.dart';
 import 'package:talk_it_out/features/review/data/review_repository.dart';
@@ -16,13 +17,31 @@ class ApiReviewRepository implements ReviewRepository {
     String groupId, {
     int? limit,
     String? cursor,
+    MessageStatus status = MessageStatus.pending,
   }) {
     return guardApi(() async {
       final response = await _dio.get(
         Endpoints.reviewQueue(groupId),
-        queryParameters: pageQuery(limit: limit, cursor: cursor),
+        queryParameters: {
+          ...pageQuery(limit: limit, cursor: cursor),
+          if (status != MessageStatus.pending) 'status': status.name,
+        },
       );
       return decodePage(response.data, RawMessage.fromJson);
+    });
+  }
+
+  @override
+  Future<ReviewCounts> counts(String groupId) {
+    return guardApi(() async {
+      final response = await _dio.get(Endpoints.reviewCounts(groupId));
+      final json = asJsonMap(response.data);
+      int read(String key) => (json[key] as num?)?.toInt() ?? 0;
+      return (
+        pending: read('pending'),
+        accepted: read('accepted'),
+        rejected: read('rejected'),
+      );
     });
   }
 

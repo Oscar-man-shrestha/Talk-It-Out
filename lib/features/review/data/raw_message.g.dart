@@ -34,6 +34,9 @@ _RawMessage _$RawMessageFromJson(Map<String, dynamic> json) => _RawMessage(
     unknownValue: MessageStatus.pending,
   ),
   createdAt: DateTime.parse(json['created_at'] as String),
+  decidedAt: json['decided_at'] == null
+      ? null
+      : DateTime.parse(json['decided_at'] as String),
 );
 
 Map<String, dynamic> _$RawMessageToJson(_RawMessage instance) =>
@@ -51,6 +54,7 @@ Map<String, dynamic> _$RawMessageToJson(_RawMessage instance) =>
       'pipeline_status': _$PipelineStatusEnumMap[instance.pipelineStatus]!,
       'status': _$MessageStatusEnumMap[instance.status]!,
       'created_at': instance.createdAt.toIso8601String(),
+      'decided_at': instance.decidedAt?.toIso8601String(),
     };
 
 const _$RelevanceLabelEnumMap = {

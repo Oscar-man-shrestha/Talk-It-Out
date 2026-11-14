@@ -169,6 +169,7 @@ describe('migrations', () => {
       '011_realtime_notify.sql',
       '012_post_title_topic.sql',
       '013_rewrite_tone.sql',
+      '014_comment_reports.sql',
     ]);
   });
 });

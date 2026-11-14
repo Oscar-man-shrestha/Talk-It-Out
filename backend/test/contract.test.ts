@@ -21,6 +21,7 @@ afterAll(closePool);
 
 const RAW_MESSAGE_KEYS = [
   'created_at',
+  'decided_at',
   'group_id',
   'id',
   'intent_preservation_score',

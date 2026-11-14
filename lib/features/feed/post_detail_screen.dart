@@ -37,6 +37,7 @@ class PostDetailScreen extends ConsumerStatefulWidget {
 
 class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   final _comment = TextEditingController();
+  final _commentFocus = FocusNode();
   var _busy = false;
   var _postPublicly = true;
   String? _error;
@@ -82,6 +83,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   @override
   void dispose() {
     _comment.dispose();
+    _commentFocus.dispose();
     super.dispose();
   }
 
@@ -142,6 +144,117 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
         await ref.read(savedPostsProvider.notifier).toggle(post.id);
       case 'group':
         await _createGroup();
+      case 'delete':
+        await _deletePost();
+    }
+  }
+
+  /// Starts a reply: mentions the person in the comment box and focuses it.
+  void _reply(String name) {
+    final mention = '@$name ';
+    if (!_comment.text.startsWith(mention)) {
+      _comment.text = '$mention${_comment.text}';
+    }
+    _comment.selection = TextSelection.collapsed(offset: _comment.text.length);
+    _commentFocus.requestFocus();
+  }
+
+  void _snack(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text), behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  Future<bool> _confirm(String message, String action) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _kSurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 13.5, color: _kTextPrimary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text(
+              AppStrings.cancel,
+              style: TextStyle(color: _kTextSecondary),
+            ),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _kPrimary),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(action),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
+  void _refreshComments() {
+    ref.invalidate(commentsProvider(widget.postId));
+    ref.invalidate(postDetailProvider(widget.postId));
+    ref.invalidate(feedProvider);
+  }
+
+  Future<void> _report(Comment comment) async {
+    final report = !comment.reportedByMe;
+    try {
+      await ref
+          .read(feedRepositoryProvider)
+          .reportComment(widget.postId, comment.id, report: report);
+      ref.invalidate(commentsProvider(widget.postId));
+      _snack(report ? AppStrings.commentReported : AppStrings.reportWithdrawn);
+    } on RepositoryException catch (error) {
+      _snack(error.message);
+    } catch (_) {
+      _snack(AppStrings.errorGeneric);
+    }
+  }
+
+  Future<void> _removeComment(Comment comment) async {
+    if (!await _confirm(AppStrings.removeCommentConfirm, AppStrings.remove)) {
+      return;
+    }
+    try {
+      await ref
+          .read(feedRepositoryProvider)
+          .deleteComment(widget.postId, comment.id);
+      _refreshComments();
+      _snack(AppStrings.commentRemoved);
+    } on RepositoryException catch (error) {
+      _snack(error.message);
+    } catch (_) {
+      _snack(AppStrings.errorGeneric);
+    }
+  }
+
+  Future<void> _deletePost() async {
+    if (!await _confirm(AppStrings.deleteQuestionConfirm, AppStrings.delete)) {
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref.read(feedRepositoryProvider).deletePost(widget.postId);
+      ref.invalidate(feedProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(AppStrings.questionDeleted)));
+      context.go('/feed');
+    } on RepositoryException catch (error) {
+      setState(() => _error = error.message);
+    } catch (_) {
+      setState(() => _error = AppStrings.errorGeneric);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -261,6 +374,13 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                           enabled: !_busy,
                           child: const Text(AppStrings.createGroupFromPost),
                         ),
+                        if (post.author.id == userId)
+                          PopupMenuItem(
+                            key: const ValueKey('delete-question'),
+                            value: 'delete',
+                            enabled: !_busy,
+                            child: const Text(AppStrings.deleteQuestion),
+                          ),
                       ],
                     ),
                 ],
@@ -874,6 +994,18 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                           timeAgo: relativeTime(comment.createdAt),
                           content: comment.content,
                           likesCount: '',
+                          commentId: comment.id,
+                          reportCount: comment.reportCount,
+                          reportedByMe: comment.reportedByMe,
+                          canReport:
+                              userId != null && comment.author.id != userId,
+                          canRemove:
+                              userId != null &&
+                              (comment.author.id == userId ||
+                                  post.author.id == userId),
+                          onReply: () => _reply(comment.author.name),
+                          onReport: () => _report(comment),
+                          onRemove: () => _removeComment(comment),
                         ),
                         const SizedBox(height: 8),
                       ],
@@ -994,6 +1126,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                   Expanded(
                                     child: TextField(
                                       controller: _comment,
+                                      focusNode: _commentFocus,
                                       style: const TextStyle(
                                         fontSize: 13,
                                         color: _kTextPrimary,
@@ -1082,7 +1215,26 @@ class _DiscussionItem extends StatelessWidget {
     required this.likesCount,
     this.authorInitials,
     this.isAuthor = false,
+    this.commentId = '',
+    this.reportCount,
+    this.reportedByMe = false,
+    this.canReport = false,
+    this.canRemove = false,
+    this.onReply,
+    this.onReport,
+    this.onRemove,
   });
+
+  final String commentId;
+
+  /// Only the question's author gets a count (null for everyone else).
+  final int? reportCount;
+  final bool reportedByMe;
+  final bool canReport;
+  final bool canRemove;
+  final VoidCallback? onReply;
+  final VoidCallback? onReport;
+  final VoidCallback? onRemove;
 
   final String? authorInitials;
   final String authorName;
@@ -1090,6 +1242,27 @@ class _DiscussionItem extends StatelessWidget {
   final bool isAuthor;
   final String content;
   final String likesCount;
+
+  static PopupMenuItem<String> _menuItem(
+    String value,
+    IconData icon,
+    String label,
+  ) {
+    return PopupMenuItem(
+      value: value,
+      height: 34,
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: _kTextSecondary),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: _kTextPrimary),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1194,15 +1367,8 @@ class _DiscussionItem extends StatelessWidget {
                   const SizedBox(width: 14),
                 ],
                 GestureDetector(
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Replying to $authorName...'),
-                        duration: const Duration(seconds: 1),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
+                  key: ValueKey('reply-$commentId'),
+                  onTap: onReply,
                   child: const Text(
                     'Reply',
                     style: TextStyle(
@@ -1212,8 +1378,28 @@ class _DiscussionItem extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (reportCount != null && reportCount! > 0) ...[
+                  const SizedBox(width: 12),
+                  Row(
+                    key: ValueKey('reports-$commentId'),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.flag, size: 12, color: _kTextSecondary),
+                      const SizedBox(width: 3),
+                      Text(
+                        AppStrings.reportedTimes(reportCount!),
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: _kTextSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const Spacer(),
                 PopupMenuButton<String>(
+                  key: ValueKey('comment-menu-$commentId'),
                   tooltip: 'Comment actions',
                   padding: EdgeInsets.zero,
                   icon: const Icon(
@@ -1228,61 +1414,39 @@ class _DiscussionItem extends StatelessWidget {
                   color: _kSurface,
                   elevation: 3,
                   onSelected: (val) async {
-                    if (val == 'copy') {
-                      await Clipboard.setData(ClipboardData(text: content));
+                    switch (val) {
+                      case 'copy':
+                        await Clipboard.setData(ClipboardData(text: content));
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Comment copied to clipboard'),
+                            duration: Duration(seconds: 1),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      case 'report':
+                        onReport?.call();
+                      case 'remove':
+                        onRemove?.call();
                     }
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          val == 'copy'
-                              ? 'Comment copied to clipboard'
-                              : 'Reporting is not available yet.',
-                        ),
-                        duration: const Duration(seconds: 1),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
                   },
-                  itemBuilder: (ctx) => const [
-                    PopupMenuItem(
-                      value: 'copy',
-                      height: 34,
-                      child: Row(
-                        children: [
-                          Icon(Icons.copy, size: 14, color: _kTextSecondary),
-                          SizedBox(width: 8),
-                          Text(
-                            'Copy Text',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                        ],
+                  itemBuilder: (ctx) => [
+                    _menuItem('copy', Icons.copy, 'Copy Text'),
+                    if (canReport)
+                      _menuItem(
+                        'report',
+                        reportedByMe ? Icons.flag : Icons.flag_outlined,
+                        reportedByMe
+                            ? AppStrings.withdrawReport
+                            : AppStrings.reportComment,
                       ),
-                    ),
-                    PopupMenuItem(
-                      value: 'report',
-                      height: 34,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.flag_outlined,
-                            size: 14,
-                            color: _kTextSecondary,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Flag for Moderator',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                        ],
+                    if (canRemove)
+                      _menuItem(
+                        'remove',
+                        Icons.delete_outline,
+                        AppStrings.removeComment,
                       ),
-                    ),
                   ],
                 ),
               ],

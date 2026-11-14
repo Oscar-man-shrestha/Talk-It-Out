@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
-import { conflict, forbidden, notFound, parseWith } from '../errors';
+import { badRequest, conflict, forbidden, notFound, parseWith } from '../errors';
 import { buildPage, parseListQuery, PageCursor } from '../pagination';
 import { RequireAuth } from '../middleware/auth';
 import { uniqueConstraint, withTransaction } from '../db';
@@ -73,6 +73,9 @@ interface CommentRow {
   created_at: Date;
   author_id: string;
   author_name: string;
+  /** Only filled for the question's author; null for everyone else. */
+  report_count?: number | null;
+  reported_by_me?: boolean;
 }
 
 /**
@@ -114,6 +117,8 @@ function commentJson(row: CommentRow) {
     nsfw_flag: flags.nsfw_flag,
     other_flags: flags.other_flags,
     created_at: row.created_at.toISOString(),
+    report_count: row.report_count ?? null,
+    reported_by_me: row.reported_by_me ?? false,
   };
 }
 
@@ -128,12 +133,20 @@ const POST_SELECT = `
   FROM posts p
   JOIN users u ON u.id = p.author_id`;
 
+// $5 is the caller. Report counts are shown only to the question's author,
+// who is the one who may remove a reported comment.
 const COMMENT_SELECT = `
   SELECT c.id, c.post_id, c.content, c.analysis_status, c.analysis_nsfw,
          c.analysis_flags, date_trunc('milliseconds', c.created_at) AS created_at,
-         u.id AS author_id, u.name AS author_name
+         u.id AS author_id, u.name AS author_name,
+         CASE WHEN p.author_id = $5
+              THEN (SELECT count(*)::int FROM comment_reports cr WHERE cr.comment_id = c.id)
+         END AS report_count,
+         EXISTS (SELECT 1 FROM comment_reports mr
+                 WHERE mr.comment_id = c.id AND mr.reporter_id = $5) AS reported_by_me
   FROM comments c
-  JOIN users u ON u.id = c.author_id`;
+  JOIN users u ON u.id = c.author_id
+  JOIN posts p ON p.id = c.post_id`;
 
 /** Enqueues a feed analysis job; the job never carries text or identity. */
 function enqueueFeedAnalysisJob(
@@ -270,7 +283,7 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
               OR (date_trunc('milliseconds', c.created_at), c.id) > ($2::timestamptz, $3::uuid))
        ORDER BY c.created_at ASC, c.id ASC
        LIMIT $4`,
-      [postId, cursor?.t ?? null, cursor?.i ?? null, limit + 1],
+      [postId, cursor?.t ?? null, cursor?.i ?? null, limit + 1, req.user!.id],
     );
     const page = buildPage(
       rows,
@@ -302,6 +315,81 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
     res.status(201).json(
       commentJson({ ...row, author_id: req.user!.id, author_name: req.user!.name }),
     );
+  });
+
+  // Delete your own question with its likes and comments. A group started
+  // from it keeps running; it just no longer links back to the question.
+  router.delete('/:postId', async (req, res) => {
+    const postId = req.params.postId;
+    if (!UUID_RE.test(postId)) throw notFound();
+    const authorId = await postAuthor(pool, postId);
+    if (authorId === null) throw notFound();
+    if (authorId !== req.user!.id) throw forbidden();
+    await withTransaction(pool, async (client) => {
+      await client.query(
+        `DELETE FROM jobs WHERE kind = 'analyze_feed_content'
+           AND ((content_type = 'post' AND content_id = $1)
+             OR (content_type = 'comment'
+                 AND content_id IN (SELECT id FROM comments WHERE post_id = $1)))`,
+        [postId],
+      );
+      await client.query('UPDATE groups SET source_post_id = NULL WHERE source_post_id = $1', [postId]);
+      await client.query('DELETE FROM post_likes WHERE post_id = $1', [postId]);
+      await client.query('DELETE FROM comments WHERE post_id = $1', [postId]);
+      await client.query('DELETE FROM posts WHERE id = $1', [postId]);
+    });
+    res.status(204).end();
+  });
+
+  async function commentOwners(postId: string, commentId: string) {
+    if (!UUID_RE.test(postId) || !UUID_RE.test(commentId)) throw notFound();
+    const { rows } = await pool.query(
+      `SELECT c.author_id AS comment_author, p.author_id AS post_author
+       FROM comments c JOIN posts p ON p.id = c.post_id
+       WHERE c.id = $1 AND c.post_id = $2`,
+      [commentId, postId],
+    );
+    if (!rows[0]) throw notFound();
+    return rows[0] as { comment_author: string; post_author: string };
+  }
+
+  // Report a comment. Idempotent; nothing is hidden automatically.
+  router.post('/:postId/comments/:commentId/report', async (req, res) => {
+    const owners = await commentOwners(req.params.postId, req.params.commentId);
+    if (owners.comment_author === req.user!.id) {
+      throw badRequest('own_comment', 'You cannot report your own comment.');
+    }
+    await pool.query(
+      `INSERT INTO comment_reports (comment_id, reporter_id) VALUES ($1, $2)
+       ON CONFLICT DO NOTHING`,
+      [req.params.commentId, req.user!.id],
+    );
+    res.status(204).end();
+  });
+
+  router.delete('/:postId/comments/:commentId/report', async (req, res) => {
+    await commentOwners(req.params.postId, req.params.commentId);
+    await pool.query('DELETE FROM comment_reports WHERE comment_id = $1 AND reporter_id = $2', [
+      req.params.commentId,
+      req.user!.id,
+    ]);
+    res.status(204).end();
+  });
+
+  // Remove a comment: its author, or the author of the question it is on.
+  router.delete('/:postId/comments/:commentId', async (req, res) => {
+    const owners = await commentOwners(req.params.postId, req.params.commentId);
+    const me = req.user!.id;
+    if (owners.comment_author !== me && owners.post_author !== me) throw forbidden();
+    await withTransaction(pool, async (client) => {
+      await client.query(
+        `DELETE FROM jobs WHERE kind = 'analyze_feed_content'
+           AND content_type = 'comment' AND content_id = $1`,
+        [req.params.commentId],
+      );
+      await client.query('DELETE FROM comments WHERE id = $1', [req.params.commentId]);
+    });
+    res.status(204).end();
   });
 
   router.post('/:postId/group', async (req, res) => {

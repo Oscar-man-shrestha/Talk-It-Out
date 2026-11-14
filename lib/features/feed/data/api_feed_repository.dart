@@ -103,4 +103,34 @@ class ApiFeedRepository implements FeedRepository {
       return Group.fromJson(asJsonMap(response.data));
     });
   }
+
+  @override
+  Future<void> deletePost(String postId) {
+    return guardApi(() async {
+      await _dio.delete(Endpoints.post(postId));
+    });
+  }
+
+  @override
+  Future<void> deleteComment(String postId, String commentId) {
+    return guardApi(() async {
+      await _dio.delete(Endpoints.comment(postId, commentId));
+    });
+  }
+
+  @override
+  Future<void> reportComment(
+    String postId,
+    String commentId, {
+    bool report = true,
+  }) {
+    return guardApi(() async {
+      final path = Endpoints.commentReport(postId, commentId);
+      if (report) {
+        await _dio.post(path);
+      } else {
+        await _dio.delete(path);
+      }
+    });
+  }
 }

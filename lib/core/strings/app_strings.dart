@@ -317,4 +317,30 @@ abstract final class AppStrings {
       'messages are deleted. Messages already published in groups stay but '
       'show as "Anonymous user". Groups you control pass to the member who '
       'joined earliest. Enter your password to confirm.';
+
+  // Comments and questions you own
+  static const cannotReportOwn = 'You cannot report your own comment.';
+  static const reportComment = 'Report comment';
+  static const withdrawReport = 'Withdraw report';
+  static const commentReported =
+      'Reported. The question\'s author can see it and remove the comment.';
+  static const reportWithdrawn = 'Report withdrawn.';
+  static const removeComment = 'Remove comment';
+  static const commentRemoved = 'Comment removed.';
+  static const removeCommentConfirm =
+      'Remove this comment for everyone? This cannot be undone.';
+  static String reportedTimes(int n) =>
+      n == 1 ? 'Reported by 1 person' : 'Reported by $n people';
+  static const deleteQuestion = 'Delete question';
+  static const deleteQuestionConfirm =
+      'Delete this question with its likes and comments? A group started '
+      'from it keeps running. This cannot be undone.';
+  static const questionDeleted = 'Question deleted.';
+  static const remove = 'Remove';
+
+  // Review history
+  static const reviewNoneApproved = 'No approved messages yet.';
+  static const reviewNoneRejected = 'No rejected messages yet.';
+  static const reviewDecidedNote =
+      'This message has been decided. Decisions are final.';
 }

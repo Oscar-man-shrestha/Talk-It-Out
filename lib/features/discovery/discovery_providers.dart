@@ -17,8 +17,27 @@ class InterestsNotifier extends AsyncNotifier<InterestState> {
         picked: List.unmodifiable(picked),
         chosen: true,
         available: current?.available ?? const [],
+        personalized: current?.personalized ?? true,
       ),
     );
+    ref.invalidate(forYouProvider);
+  }
+
+  /// Personalisation on or off. Off: For You shows what is popular and new,
+  /// and nothing you do is recorded for ranking.
+  Future<void> setPersonalized(bool on) async {
+    await ref.read(discoveryRepositoryProvider).setPersonalized(on);
+    final current = state.value;
+    if (current != null) {
+      state = AsyncData(
+        InterestState(
+          picked: current.picked,
+          chosen: current.chosen,
+          available: current.available,
+          personalized: on,
+        ),
+      );
+    }
     ref.invalidate(forYouProvider);
   }
 }

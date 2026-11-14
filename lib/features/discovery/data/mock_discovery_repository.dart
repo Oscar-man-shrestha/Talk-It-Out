@@ -76,6 +76,7 @@ class MockDiscoveryRepository implements DiscoveryRepository {
   String? _handle;
   List<String> _interests = [];
   var _interestsChosen = false;
+  var _personalized = true;
   final Set<String> _hidden = {};
   final Set<String> _opened = {};
 
@@ -226,6 +227,7 @@ class MockDiscoveryRepository implements DiscoveryRepository {
       picked: List.unmodifiable(_interests),
       chosen: _interestsChosen,
       available: kInterestCatalog,
+      personalized: _personalized,
     ),
   );
 
@@ -254,7 +256,9 @@ class MockDiscoveryRepository implements DiscoveryRepository {
         if (post.topic != null && !topics.contains(post.topic)) {
           topics.insert(0, post.topic!);
         }
-        final match = topics.where(_interests.contains).toList();
+        final match = _personalized
+            ? topics.where(_interests.contains).toList()
+            : <String>[];
         final engagement =
             (post.reactionCount + 2 * post.commentCount) / maxEngagement;
         final ageDays = now.difference(post.createdAt).inHours / 24;
@@ -376,5 +380,27 @@ class MockDiscoveryRepository implements DiscoveryRepository {
         set.remove(postId);
       }
     });
+  }
+
+  @override
+  Future<void> setPersonalized(bool on) =>
+      runMock(_controls, () => _personalized = on);
+
+  @override
+  Future<List<SimilarQuestion>> similarQuestions({
+    String? title,
+    required String content,
+  }) async {
+    final query = '${title ?? ''} $content'.trim();
+    if (query.length < 8) return const [];
+    final result = await searchPosts(query);
+    return [
+      for (final post in result.items.take(3))
+        SimilarQuestion(
+          id: post.id,
+          title: post.title ?? post.content,
+          commentCount: post.commentCount,
+        ),
+    ];
   }
 }

@@ -1549,6 +1549,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   _FeedInterestsCard(
                     interests: ref.watch(interestsProvider).value,
                     onEdit: () => context.push('/feed/interests'),
+                    onPersonalized: (on) async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      try {
+                        await ref
+                            .read(interestsProvider.notifier)
+                            .setPersonalized(on);
+                      } on RepositoryException catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(content: Text(e.message)),
+                        );
+                      }
+                    },
                   ),
                   const SizedBox(height: 12),
 
@@ -3025,10 +3037,15 @@ class _HandleLine extends StatelessWidget {
 
 /// The interests the For You feed starts from.
 class _FeedInterestsCard extends StatelessWidget {
-  const _FeedInterestsCard({required this.interests, required this.onEdit});
+  const _FeedInterestsCard({
+    required this.interests,
+    required this.onEdit,
+    required this.onPersonalized,
+  });
 
   final InterestState? interests;
   final VoidCallback onEdit;
+  final ValueChanged<bool> onPersonalized;
 
   @override
   Widget build(BuildContext context) {
@@ -3076,8 +3093,38 @@ class _FeedInterestsCard extends StatelessWidget {
               color: _kTextSecondary,
             ),
           ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Personalise For You',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _kTextPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Off: For You shows what is popular and new, and your activity is not used.',
+                      style: TextStyle(fontSize: 11.5, color: _kTextSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              Switch.adaptive(
+                key: const ValueKey('profile-personalized'),
+                value: state?.personalized ?? true,
+                onChanged: state == null ? null : onPersonalized,
+              ),
+            ],
+          ),
           if (picked.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             Wrap(
               spacing: 6,
               runSpacing: 6,

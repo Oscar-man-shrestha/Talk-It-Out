@@ -118,7 +118,8 @@ class _InterestPickerScreenState extends ConsumerState<InterestPickerScreen> {
                       crossAxisCount: columns,
                       mainAxisSpacing: 10,
                       crossAxisSpacing: 10,
-                      childAspectRatio: 1.15,
+                      // Taller on phones so two-line blurbs fit.
+                      childAspectRatio: columns == 2 ? 0.98 : 1.15,
                     ),
                     delegate: SliverChildBuilderDelegate((context, i) {
                       final option = data.available[i];

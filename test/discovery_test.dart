@@ -219,4 +219,30 @@ void main() {
       'priya.new',
     );
   });
+
+  test('personalisation off: For You stops using interests', () async {
+    final container = _container();
+    final repo = container.read(discoveryRepositoryProvider);
+    await repo.setInterests(['engineering']);
+    final on = (await repo.forYou()).items;
+    expect(on.any((r) => r.reason?.kind == 'interest'), isTrue);
+    await repo.setPersonalized(false);
+    expect((await repo.getInterests()).personalized, isFalse);
+    final off = (await repo.forYou()).items;
+    expect(off.every((r) => r.reason?.kind != 'interest'), isTrue);
+  });
+
+  test('similar questions find an existing question', () async {
+    final container = _container();
+    final repo = container.read(discoveryRepositoryProvider);
+    final posts =
+        (await container.read(feedRepositoryProvider).listPosts()).items;
+    final target = posts.first;
+    final similar = await repo.similarQuestions(
+      title: target.title,
+      content: target.content,
+    );
+    expect(similar.map((q) => q.id), contains(target.id));
+    expect(await repo.similarQuestions(content: 'hi'), isEmpty);
+  });
 }

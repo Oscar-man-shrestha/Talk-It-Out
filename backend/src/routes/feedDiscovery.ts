@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { badRequest, notFound, parseWith } from '../errors';
 import { RequireAuth } from '../middleware/auth';
 import { decodeCursor, encodeCursor } from '../pagination';
-import { EngagedPost, rankForYou, RankPost, searchPosts } from '../nlp/rank';
+import { EngagedPost, rankForYou, RankPost, searchPosts, similarPosts } from '../nlp/rank';
 import { classify, interestById } from '../nlp/topics';
 import { POST_SELECT, POST_TOPICS, postJson, PostRow } from './feed';
 
@@ -67,6 +67,8 @@ export function createFeedDiscoveryRouter(pool: Pool, requireAuth: RequireAuth):
       offset = n;
     }
     const me = req.user!.id;
+    const settings = await pool.query('SELECT personalized FROM users WHERE id = $1', [me]);
+    const personalized = settings.rows[0]?.personalized !== false;
 
     const [candidates, engaged, dismissed, picked] = await Promise.all([
       pool.query<Row>(
@@ -130,15 +132,19 @@ export function createFeedDiscoveryRouter(pool: Pool, requireAuth: RequireAuth):
         createdAt: r.created_at,
         likes: Number(r.reaction_count),
         comments: Number(r.comment_count),
-        inMyGroups: r.in_my_groups,
+        inMyGroups: personalized && r.in_my_groups,
         engagedByMe: r.engaged_by_me,
       })),
+      // Personalisation off: only popularity and freshness, plus the posts
+      // the person explicitly hid.
       {
         userId: me,
-        picked: picked.rows.map((r) => r.interest),
-        engaged: engaged.rows.map((e): EngagedPost => ({ ...e, weight: Number(e.weight) })),
+        picked: personalized ? picked.rows.map((r) => r.interest) : [],
+        engaged: personalized
+          ? engaged.rows.map((e): EngagedPost => ({ ...e, weight: Number(e.weight) }))
+          : [],
         hidden: new Set(dismissed.rows.map((d) => d.id)),
-        disliked,
+        disliked: personalized ? disliked : new Map(),
         now: new Date(),
       },
     );
@@ -184,6 +190,29 @@ export function createFeedDiscoveryRouter(pool: Pool, requireAuth: RequireAuth):
     });
   });
 
+  // POST /posts/similar {title, content} : "already asked?" while writing.
+  router.post('/similar', async (req, res) => {
+    const body = parseWith(classifyBody, req.body);
+    const { rows } = await pool.query<PostRow>(
+      `${POST_SELECT} ORDER BY p.created_at DESC LIMIT $2`,
+      [req.user!.id, SEARCH_LIMIT],
+    );
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const hits = similarPosts(rows, body.title ?? null, body.content);
+    res.json({
+      items: hits.map((h) => {
+        const row = byId.get(h.id)!;
+        const text = row.title ?? row.content.replace(/\s+/g, ' ');
+        return {
+          id: row.id,
+          title: text.length > 120 ? `${text.slice(0, 117)}...` : text,
+          comment_count: Number(row.comment_count),
+          score: h.score,
+        };
+      }),
+    });
+  });
+
   // POST /posts/:postId/signals {kind, on}
   router.post('/:postId/signals', async (req, res) => {
     const postId = req.params.postId;
@@ -192,6 +221,14 @@ export function createFeedDiscoveryRouter(pool: Pool, requireAuth: RequireAuth):
     const me = req.user!.id;
     const exists = await pool.query('SELECT 1 FROM posts WHERE id = $1', [postId]);
     if (!exists.rows[0]) throw notFound();
+    if (body.kind !== 'not_interested') {
+      // With personalisation off, activity is not recorded at all.
+      const settings = await pool.query('SELECT personalized FROM users WHERE id = $1', [me]);
+      if (settings.rows[0]?.personalized === false) {
+        res.status(204).end();
+        return;
+      }
+    }
     if (body.on) {
       await pool.query(
         `INSERT INTO feed_events (user_id, post_id, kind) VALUES ($1, $2, $3)

@@ -21,6 +21,15 @@ abstract class DiscoveryRepository {
 
   Future<void> setInterests(List<String> interests);
 
+  /// Turns For You personalisation on or off (`API.md` 57).
+  Future<void> setPersonalized(bool on);
+
+  /// Questions like a draft, so people can read before asking (`API.md` 58).
+  Future<List<SimilarQuestion>> similarQuestions({
+    String? title,
+    required String content,
+  });
+
   Future<PageResult<RankedPost>> forYou({int? limit, String? cursor});
 
   Future<FeedSearchResult> searchPosts(String query);

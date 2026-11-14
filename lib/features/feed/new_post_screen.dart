@@ -44,6 +44,7 @@ class _NewPostScreenState extends ConsumerState<NewPostScreen> {
   String? _serverError;
   Timer? _ideasTimer;
   TopicIdeas? _ideas;
+  List<SimilarQuestion> _similar = const [];
   var _ideasFor = '';
 
   @override
@@ -66,11 +67,18 @@ class _NewPostScreenState extends ConsumerState<NewPostScreen> {
     if (text.trim().length < 12) return;
     _ideasTimer = Timer(const Duration(milliseconds: 600), () async {
       _ideasFor = text;
+      final repo = ref.read(discoveryRepositoryProvider);
       try {
-        final ideas = await ref
-            .read(discoveryRepositoryProvider)
-            .classifyDraft(title: _titleText, content: _detailsText);
-        if (mounted && _ideasFor == text) setState(() => _ideas = ideas);
+        final results = await Future.wait([
+          repo.classifyDraft(title: _titleText, content: _detailsText),
+          repo.similarQuestions(title: _titleText, content: _detailsText),
+        ]);
+        if (mounted && _ideasFor == text) {
+          setState(() {
+            _ideas = results[0] as TopicIdeas;
+            _similar = results[1] as List<SimilarQuestion>;
+          });
+        }
       } on RepositoryException {
         // Suggestions are optional.
       }
@@ -214,6 +222,7 @@ class _NewPostScreenState extends ConsumerState<NewPostScreen> {
                 decoration: _inputDecoration(AppStrings.askTitleHint),
               ),
             ),
+            if (_similar.isNotEmpty) _SimilarQuestions(items: _similar),
             const SizedBox(height: 18),
             const _Label(AppStrings.askTopicLabel),
             Wrap(
@@ -529,6 +538,83 @@ class _ErrorLine extends StatelessWidget {
           color: _error,
           fontWeight: FontWeight.w500,
         ),
+      ),
+    );
+  }
+}
+
+/// "Already asked?": existing questions like the draft, as on Quora and
+/// Stack Overflow, so people can read answers before posting a duplicate.
+class _SimilarQuestions extends StatelessWidget {
+  const _SimilarQuestions({required this.items});
+
+  final List<SimilarQuestion> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('ask-similar'),
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      decoration: BoxDecoration(
+        color: Brand.accentSoft,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Brand.accentBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.manage_search, size: 16, color: _ink),
+              SizedBox(width: 6),
+              Text(
+                'Already asked?',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: _ink,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          const Text(
+            'These look similar. You can still post yours.',
+            style: TextStyle(fontSize: 11.5, color: _muted),
+          ),
+          for (final q in items)
+            InkWell(
+              onTap: () => context.push('/feed/${q.id}'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        q.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: _ink,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      q.commentCount == 1
+                          ? '1 answer'
+                          : '${q.commentCount} answers',
+                      style: const TextStyle(fontSize: 11.5, color: _muted),
+                    ),
+                    const Icon(Icons.chevron_right, size: 18, color: _muted),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { editDistance, jaroWinkler, matchPerson, phoneticKey } from '../src/nlp/fuzzy';
 import { fold, nameKey, stem, terms } from '../src/nlp/text';
 import { classify, INTERESTS } from '../src/nlp/topics';
-import { rankForYou, RankPost, searchPosts, ViewerProfile } from '../src/nlp/rank';
+import { rankForYou, RankPost, searchPosts, similarPosts, ViewerProfile } from '../src/nlp/rank';
 
 describe('text', () => {
   it('folds accents and case, and keys names', () => {
@@ -178,3 +178,23 @@ describe('feed search', () => {
     expect(searchPosts(docs, 'xyzzy').ids).toEqual([]);
   });
 });
+
+describe('similar questions', () => {
+  const docs = [
+    { id: 'promo', title: 'How do I ask my manager for a promotion?', content: 'I have been a senior engineer for two years.' },
+    { id: 'remote', title: 'Remote work across time zones', content: 'Meetings at midnight are hard.' },
+    { id: 'pay', title: 'Is my salary fair?', content: 'No raise this year.' },
+  ];
+
+  it('finds a question asked in other words', () => {
+    const hits = similarPosts(docs, 'Asking my manager about getting promoted', 'Senior engineer, two years, no promotion yet');
+    expect(hits[0].id).toBe('promo');
+    expect(hits.map((h) => h.id)).not.toContain('remote');
+  });
+
+  it('stays quiet for unrelated or tiny drafts', () => {
+    expect(similarPosts(docs, 'Lunch', 'Where to eat near the office?')).toEqual([]);
+    expect(similarPosts(docs, null, 'hi')).toEqual([]);
+  });
+});
+

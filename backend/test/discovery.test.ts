@@ -264,4 +264,45 @@ describe('feed search and topic ideas (API 56)', () => {
     );
     expect(left.rows[0]).toEqual({ i: 0, e: 0 });
   });
+
+  it('personalisation off: no interests or activity used, opens not stored', async () => {
+    const app = testApp();
+    const me = await registerUser(app, 'Oscar', 'o@example.com');
+    const author = await registerUser(app, 'Author', 'author@example.com');
+    const burn = await api.post(app, '/posts', author.token, { content: 'Burnout and stress every weekend' });
+    const hot = await api.post(app, '/posts', author.token, { content: 'Code review takes days' });
+    const other = await registerUser(app, 'Other', 'other@example.com');
+    await api.post(app, `/posts/${hot.body.id}/reactions`, other.token, { type: 'like' });
+    await api.put(app, '/users/me/interests', me.token, { interests: ['wellbeing'] });
+
+    expect((await api.get(app, '/users/me/feed-settings', me.token)).body).toEqual({ personalized: true });
+    const on = await api.get(app, '/posts?mode=for_you', me.token);
+    expect(on.body.items[0].id).toBe(burn.body.id);
+
+    const off = await api.put(app, '/users/me/feed-settings', me.token, { personalized: false });
+    expect(off.body).toEqual({ personalized: false });
+    expect((await api.get(app, '/users/me/interests', me.token)).body.personalized).toBe(false);
+    const plain = await api.get(app, '/posts?mode=for_you', me.token);
+    expect(plain.body.items[0].id).toBe(hot.body.id);
+    expect(plain.body.items.every((p: { reason: { kind: string } }) => ['popular', 'new'].includes(p.reason.kind))).toBe(true);
+
+    await api.post(app, `/posts/${burn.body.id}/signals`, me.token, { kind: 'open' });
+    const stored = await testPool().query("SELECT count(*)::int AS n FROM feed_events WHERE kind = 'open'");
+    expect(stored.rows[0].n).toBe(0);
+    expect((await api.put(app, '/users/me/feed-settings', me.token, { personalized: 'no' })).status).toBe(422);
+  });
+
+  it('lists similar questions for a draft', async () => {
+    const app = testApp();
+    const me = await registerUser(app, 'Oscar', 'o@example.com');
+    const q = await api.post(app, '/posts', me.token, { title: 'How should I ask for a raise?', content: 'My salary has not changed in two years.' });
+    await api.post(app, '/posts', me.token, { content: 'Best lunch spots near the office' });
+    const res = await api.post(app, '/posts/similar', me.token, { title: 'Asking for a salary raise', content: 'Two years with no change in salary' });
+    expect(res.status).toBe(200);
+    expect(res.body.items.map((i: { id: string }) => i.id)).toEqual([q.body.id]);
+    expect(res.body.items[0]).toMatchObject({ title: 'How should I ask for a raise?', comment_count: 0 });
+    const none = await api.post(app, '/posts/similar', me.token, { content: 'Totally unrelated gardening tips' });
+    expect(none.body.items).toEqual([]);
+  });
 });
+

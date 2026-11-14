@@ -597,3 +597,17 @@ Plain text or several emoji in one reaction give `422`. One person can add at mo
 - `GET /posts/search?q=` returns `{items, did_you_mean|null}`. Ranking is BM25 over titles (counted twice) and bodies, with stemming, typo tolerance and prefix matching on the last word.
 - `POST /posts/classify {title?, content}` returns `{topic|null, interests[{id,label,emoji,score}]}`. `topic` is one of the six question topics.
 
+### 57. Personalisation switch
+- `GET /users/me/feed-settings` returns `{personalized}`. `PUT /users/me/feed-settings {personalized: bool}` returns the same shape.
+- `GET /users/me/interests` also returns `personalized`.
+- **When off:**
+  - For You ignores picked interests, learned interests, activity and group connections, and ranks by popularity and freshness only (reasons `popular` or `new`).
+  - `open` and `save` signals are accepted but not stored.
+  - "Not interested" still hides a post, because it is an explicit choice.
+- Default is on (migration 020).
+
+### 58. Similar questions
+- `POST /posts/similar {title?, content}` returns `{items[{id, title, comment_count, score}]}`: up to 3 existing questions like the draft.
+- **Method:** the draft's 12 rarest words are matched against each question with BM25 and stemming. Each score is divided by the best possible score, and only questions at 0.3 or above are returned.
+- A title longer than 120 characters is cut short; a question without a title shows its text instead.
+

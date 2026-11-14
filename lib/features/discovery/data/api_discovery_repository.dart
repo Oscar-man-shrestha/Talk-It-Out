@@ -119,4 +119,31 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
       await _dio.post('/posts/$postId/signals', data: {'kind': kind, 'on': on});
     });
   }
+
+  @override
+  Future<void> setPersonalized(bool on) {
+    return guardApi(() async {
+      await _dio.put('/users/me/feed-settings', data: {'personalized': on});
+    });
+  }
+
+  @override
+  Future<List<SimilarQuestion>> similarQuestions({
+    String? title,
+    required String content,
+  }) {
+    return guardApi(() async {
+      final response = await _dio.post(
+        '/posts/similar',
+        data: {'title': title, 'content': content},
+      );
+      final items = asJsonMap(response.data)['items'];
+      return [
+        if (items is List)
+          for (final x in items)
+            if (x is Map)
+              SimilarQuestion.fromJson(Map<String, dynamic>.from(x)),
+      ];
+    });
+  }
 }

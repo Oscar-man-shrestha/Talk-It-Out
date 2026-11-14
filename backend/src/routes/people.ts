@@ -74,6 +74,10 @@ const handleBody = z.object({
   handle: z.string().trim().toLowerCase().transform((v) => v.replace(/^@+/, '')),
 });
 
+const feedSettingsBody = z.object({
+  personalized: z.boolean({ error: () => 'Choose on or off.' }),
+});
+
 const interestsBody = z.object({
   interests: z
     .array(z.enum(INTEREST_IDS as [string, ...string[]], { error: () => 'Unknown interest.' }))
@@ -309,11 +313,12 @@ export function createPeopleRouter(pool: Pool, requireAuth: RequireAuth): Router
         'SELECT interest FROM user_interests WHERE user_id = $1 ORDER BY created_at, interest',
         [me],
       ),
-      pool.query('SELECT interests_set_at FROM users WHERE id = $1', [me]),
+      pool.query('SELECT interests_set_at, personalized FROM users WHERE id = $1', [me]),
     ]);
     res.json({
       interests: picked.rows.map((r) => r.interest).filter((id) => INTEREST_IDS.includes(id)),
       chosen: user.rows[0]?.interests_set_at != null,
+      personalized: user.rows[0]?.personalized !== false,
       available: INTERESTS.map(({ id, label, emoji, blurb }) => ({ id, label, emoji, blurb })),
     });
   });
@@ -336,6 +341,18 @@ export function createPeopleRouter(pool: Pool, requireAuth: RequireAuth): Router
       await client.query('UPDATE users SET interests_set_at = now() WHERE id = $1', [me]);
     });
     res.json({ interests: unique, chosen: true });
+  });
+
+  // GET/PUT /users/me/feed-settings {personalized}
+  router.get('/me/feed-settings', async (req, res) => {
+    const { rows } = await pool.query('SELECT personalized FROM users WHERE id = $1', [req.user!.id]);
+    res.json({ personalized: rows[0]?.personalized !== false });
+  });
+
+  router.put('/me/feed-settings', async (req, res) => {
+    const body = parseWith(feedSettingsBody, req.body);
+    await pool.query('UPDATE users SET personalized = $2 WHERE id = $1', [req.user!.id, body.personalized]);
+    res.json({ personalized: body.personalized });
   });
 
   return router;

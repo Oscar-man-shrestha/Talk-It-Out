@@ -13,7 +13,7 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-14 (IST)
-**Current phase:** Complete and verified end to end (Run 094): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Current phase:** Complete and verified end to end (Run 095): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
 **Next step:** Review and merge `temp/project-completion-run070`. Optional: Gmail app password in `backend/.env` for real reset emails (user enters it); a larger model for higher rewrite fidelity.
@@ -61,6 +61,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 | 32 | Chat: replies, withdraw, preview, history, search, pins, polls | Done | 092 |
 | 33 | Emoji keyboard, any-emoji reactions, chat polish, chat-list groups page | Done | 093 |
 | 34 | Discovery: fuzzy people search, @handles, interests, For You, NLP search, startup plan | Done | 094 |
+| 35 | Personalisation off switch, similar questions, live rebuild, push | Done | 095 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -2974,4 +2975,27 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - Flutter 113 passed, analyze 0;
   - `live-check.mjs` 83/83 against the local backend, with 6 new discovery checks.
 - **Not done:** the live web build was not rebuilt. The disk filled up (about 0.3 GB free) during `flutter build web`; the build was stopped, and only its own unfinished output folder was removed. The live site still serves the previous build, so the new screens are not on it yet. The backend already serves the new API.
+
+### Run 095: Personalisation switch, similar questions, live build checked
+- **Date/time:** 2026-11-15 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 35 (Feature / NLP / Release)
+- **Prompt / task:** "Yes, clear caches", then "do" (rebuild live; personalisation off switch, similar questions, push to GitHub).
+- **Result:** Completed
+- **Summary:**
+  - **Disk:** with the user's OK, `~/Library/Caches` was cleared again (2.1 GB: mostly the Brave browser and an old Claude app update download). The previous build attempt that filled the disk had been stopped, and only its own unfinished output folder removed.
+  - **Live build of Run 094**, checked on the live site at phone width:
+    - the interest picker opened on the first feed visit (tiles tapped to check the look; nothing saved to the user's account);
+    - For you / Latest tabs, the "Make For You yours" card and reason lines;
+    - the typo search "fgdhfdgh" found the question, with "Showing results for";
+    - the Add Members sheet: "prya" found Priya, with the similar-names hint (closed without adding anyone).
+    - Fixed: interest tiles were too short at phone width.
+  - **Migration 020 and API 57:** personalisation switch, also in Profile → Feed interests and as a note on the For You tab. When off, opens are not reported by the app nor stored by the server.
+  - **API 58 and the app:** "Already asked?" on the Ask screen. Up to 3 similar existing questions, with answer counts, from BM25 over the draft's rarest words, with stemming.
+  - **Note:** `AGENTS.md` still says agents must not change backend code. Runs 081 onward have changed the backend at the user's request; this run did too, for the switch and similar questions.
+- **Commands run and results:**
+  - backend 265 passed, type-check and lint clean;
+  - Flutter 115 passed, analyze 0, format clean;
+  - `npm run migrate` applied 019 and 020 to the dev database;
+  - `live-check.mjs` 83/83 (before this run's additions).
 

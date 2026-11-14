@@ -414,3 +414,61 @@ export function searchPosts(docs: SearchDoc[], query: string): SearchResult {
     : null;
   return { ids: scores.map((s) => s.id), didYouMean };
 }
+
+// ---------------------------------------------------------------- Similar
+
+export interface SimilarHit {
+  id: string;
+  /** 0..1: how much of the draft's weight the question covers. */
+  score: number;
+}
+
+/**
+ * Questions like a draft, for "already asked?" while writing (like Stack
+ * Overflow and Quora). The draft's most distinctive words (by IDF) are the
+ * query; each question's BM25 score is divided by the best possible score,
+ * so the threshold means the same for short and long drafts.
+ */
+export function similarPosts(
+  docs: SearchDoc[],
+  title: string | null,
+  content: string,
+  opts: { max?: number; threshold?: number } = {},
+): SimilarHit[] {
+  const max = opts.max ?? 3;
+  const threshold = opts.threshold ?? 0.3;
+  const draft = [...terms(title ?? ''), ...terms(title ?? ''), ...terms(content)];
+  if (draft.length < 2 || docs.length === 0) return [];
+
+  const docTerms = docs.map((d) => [...terms(d.title ?? ''), ...terms(d.title ?? ''), ...terms(d.content)]);
+  const n = docs.length;
+  const df = new Map<string, number>();
+  for (const doc of docTerms) for (const t of new Set(doc)) df.set(t, (df.get(t) ?? 0) + 1);
+  const idf = (t: string) => Math.log(1 + (n - (df.get(t) ?? 0) + 0.5) / ((df.get(t) ?? 0) + 0.5));
+
+  // Up to 12 distinct draft words that occur somewhere, rarest first.
+  const query = [...new Set(draft)]
+    .filter((t) => df.has(t))
+    .sort((a, b) => idf(b) - idf(a))
+    .slice(0, 12);
+  if (query.length === 0) return [];
+  const best = query.reduce((sum, t) => sum + idf(t), 0);
+
+  const avgLen = docTerms.reduce((s, d) => s + d.length, 0) / n || 1;
+  const k1 = 1.2;
+  const b = 0.75;
+  const hits: SimilarHit[] = [];
+  docTerms.forEach((doc, i) => {
+    const tf = termCounts(doc);
+    let score = 0;
+    for (const t of query) {
+      const f = tf.get(t);
+      if (!f) continue;
+      // Saturated term weight, capped at the term's idf.
+      score += idf(t) * Math.min(1, (f * (k1 + 1)) / (f + k1 * (1 - b + (b * doc.length) / avgLen)) / (k1 + 1) * 1.6);
+    }
+    const normalized = score / best;
+    if (normalized >= threshold) hits.push({ id: docs[i].id, score: Math.round(normalized * 1000) / 1000 });
+  });
+  return hits.sort((a, b2) => b2.score - a.score).slice(0, max);
+}

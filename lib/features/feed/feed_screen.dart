@@ -142,7 +142,14 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   }
 
   void _openPost(Post post) {
-    // A light signal for For You; never blocks opening the question.
+    // A light signal for For You; never blocks opening the question, and
+    // never sent when personalisation is off.
+    final personalized =
+        ref.read(interestsProvider).value?.personalized ?? true;
+    if (!personalized) {
+      context.push('/feed/${post.id}');
+      return;
+    }
     unawaited(
       ref
           .read(discoveryRepositoryProvider)
@@ -606,7 +613,9 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 const SizedBox(height: 10),
                 _InterestBar(
                   interests: interests,
-                  onEdit: () => context.push('/feed/interests'),
+                  onEdit: () => interests?.personalized == false
+                      ? context.go('/profile')
+                      : context.push('/feed/interests'),
                 ),
                 const SizedBox(height: 12),
                 if ((forYou?.value ?? const <RankedPost>[]).isEmpty)
@@ -1709,6 +1718,21 @@ class _InterestBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = interests;
     if (state == null) return const SizedBox(height: 30);
+    if (!state.personalized) {
+      return Row(
+        children: [
+          const Icon(Icons.toggle_off_outlined, size: 18, color: _muted),
+          const SizedBox(width: 6),
+          const Expanded(
+            child: Text(
+              'Personalisation is off: showing what is popular and new.',
+              style: TextStyle(fontSize: 12.5, color: _muted),
+            ),
+          ),
+          TextButton(onPressed: onEdit, child: const Text('Settings')),
+        ],
+      );
+    }
     if (state.picked.isEmpty) {
       return Material(
         color: Brand.accentSoft,

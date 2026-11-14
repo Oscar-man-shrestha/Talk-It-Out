@@ -115,6 +115,7 @@ class InterestState {
     required this.picked,
     required this.chosen,
     required this.available,
+    this.personalized = true,
   });
 
   factory InterestState.fromJson(Map<String, dynamic> json) => InterestState(
@@ -125,6 +126,7 @@ class InterestState {
     ],
     chosen: json['chosen'] == true,
     available: _maps(json['available']).map(InterestOption.fromJson).toList(),
+    personalized: json['personalized'] != false,
   );
 
   final List<String> picked;
@@ -132,6 +134,9 @@ class InterestState {
   /// The person has been through the picker (even if they skipped it).
   final bool chosen;
   final List<InterestOption> available;
+
+  /// False when the person turned personalisation off (`API.md` 57).
+  final bool personalized;
 
   InterestOption? byId(String id) {
     for (final option in available) {
@@ -267,4 +272,26 @@ class TopicIdeas {
   /// The suggested post topic (one of the six question topics), or null.
   final String? topic;
   final List<TopicIdea> interests;
+}
+
+/// An existing question that looks like a draft (`API.md` 58).
+class SimilarQuestion {
+  const SimilarQuestion({
+    required this.id,
+    required this.title,
+    required this.commentCount,
+  });
+
+  factory SimilarQuestion.fromJson(Map<String, dynamic> json) =>
+      SimilarQuestion(
+        id: _str(json['id']),
+        title: _str(json['title']),
+        commentCount: _int(json['comment_count']),
+      );
+
+  final String id;
+
+  /// The question's title, or the start of its text when it has none.
+  final String title;
+  final int commentCount;
 }

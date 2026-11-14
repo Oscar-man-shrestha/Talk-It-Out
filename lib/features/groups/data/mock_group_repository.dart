@@ -133,6 +133,7 @@ class MockGroupRepository implements GroupRepository {
     required String text,
     required bool isAnonymous,
     String? attachmentId,
+    String? replyToId,
   }) {
     return runMock(_controls, () {
       final group = _requireGroup(groupId);
@@ -171,8 +172,10 @@ class MockGroupRepository implements GroupRepository {
           senderName: 'Priya',
           createdAt: createdAt,
           attachmentId: attachmentId,
+          replyToId: replyToId,
         ),
       );
+      if (replyToId != null) _bridge.replies[id] = replyToId;
       return SentMessage(
         id: id,
         groupId: groupId,
@@ -187,6 +190,7 @@ class MockGroupRepository implements GroupRepository {
     String groupId, {
     required String text,
     String? attachmentId,
+    String? replyToId,
   }) {
     return runMock(_controls, () {
       final group = _requireGroup(groupId);
@@ -213,10 +217,230 @@ class MockGroupRepository implements GroupRepository {
           name: 'Priya (Controller)',
         ),
         attachmentId: attachmentId,
+        replyTo: _quote(replyToId),
         publishedAt: DateTime.now().toUtc(),
       );
       _bridge.published.add(msg);
       return msg;
+    });
+  }
+
+  ReplyQuote? _quote(String? id) {
+    if (id == null) return null;
+    for (final m in _bridge.published) {
+      if (m.id == id) {
+        return ReplyQuote(
+          id: m.id,
+          text: m.text,
+          displaySender: m.displaySender,
+        );
+      }
+    }
+    return null;
+  }
+
+  final Map<String, ({String groupId, String text, bool anonymous})> _previews =
+      {};
+
+  @override
+  Future<MessageHistoryPage> listMessagesBefore(
+    String groupId, {
+    String? before,
+    int? limit,
+  }) {
+    return runMock(_controls, () {
+      _requireGroup(groupId);
+      final all = _bridge.published.where((m) => m.groupId == groupId).toList();
+      final end = before == null || before.isEmpty
+          ? all.length
+          : int.tryParse(before) ?? all.length;
+      final size = limit ?? 50;
+      final start = end - size < 0 ? 0 : end - size;
+      return (
+        items: all.sublist(start, end),
+        prevCursor: start > 0 ? '$start' : null,
+      );
+    });
+  }
+
+  @override
+  Future<List<PublishedMessage>> searchMessages(String groupId, String query) {
+    return runMock(_controls, () {
+      _requireGroup(groupId);
+      final q = query.trim().toLowerCase();
+      if (q.length < 2) {
+        throw const RepositoryException(
+          code: 'bad_request',
+          message: AppStrings.searchTooShort,
+        );
+      }
+      return _bridge.published
+          .where(
+            (m) => m.groupId == groupId && m.text.toLowerCase().contains(q),
+          )
+          .toList()
+          .reversed
+          .toList();
+    });
+  }
+
+  @override
+  Future<String> requestPreview(
+    String groupId, {
+    required String text,
+    required bool isAnonymous,
+  }) {
+    return runMock(_controls, () {
+      _requireGroup(groupId);
+      final id = 'pv${_previews.length + 1}';
+      _previews[id] = (
+        groupId: groupId,
+        text: text.trim(),
+        anonymous: isAnonymous,
+      );
+      return id;
+    });
+  }
+
+  @override
+  Future<RewritePreview> getPreview(String groupId, String previewId) {
+    return runMock(_controls, () {
+      final p = _previews[previewId];
+      if (p == null) {
+        throw const RepositoryException(
+          code: 'not_found',
+          message: AppStrings.previewExpired,
+        );
+      }
+      return (ready: true, failed: false, rewrittenText: p.text);
+    });
+  }
+
+  @override
+  Future<SentMessage> sendPreview(
+    String groupId,
+    String previewId, {
+    required bool isAnonymous,
+    String? attachmentId,
+    String? replyToId,
+  }) async {
+    final p = _previews.remove(previewId);
+    if (p == null) {
+      throw const RepositoryException(
+        code: 'not_found',
+        message: AppStrings.previewExpired,
+      );
+    }
+    return sendMessage(
+      groupId,
+      text: p.text,
+      isAnonymous: isAnonymous,
+      attachmentId: attachmentId,
+      replyToId: replyToId,
+    );
+  }
+
+  @override
+  Future<void> discardPreview(String groupId, String previewId) {
+    return runMock(_controls, () {
+      _previews.remove(previewId);
+    });
+  }
+
+  @override
+  Future<void> withdrawMessage(String messageId) {
+    return runMock(_controls, () {
+      final index = _bridge.mine.indexWhere((m) => m.id == messageId);
+      if (index < 0 || _bridge.mine[index].status != MessageStatus.pending) {
+        throw const RepositoryException(
+          code: 'already_decided',
+          message: AppStrings.withdrawTooLate,
+        );
+      }
+      _bridge.mine.removeAt(index);
+      _bridge.outgoing.removeWhere((m) => m.id == messageId);
+    });
+  }
+
+  @override
+  Future<void> setPinned(
+    String groupId,
+    String messageId, {
+    required bool pinned,
+  }) {
+    return runMock(_controls, () {
+      final group = _requireGroup(groupId);
+      if (group.myRole != GroupRole.controller) {
+        throw const RepositoryException(
+          code: 'forbidden',
+          message: AppStrings.notAllowed,
+        );
+      }
+      final i = _bridge.published.indexWhere((m) => m.id == messageId);
+      if (i >= 0) {
+        _bridge.published[i] = _bridge.published[i].copyWith(pinned: pinned);
+      }
+    });
+  }
+
+  @override
+  Future<PublishedMessage> createPoll(
+    String groupId, {
+    required String question,
+    required List<String> options,
+  }) {
+    return runMock(_controls, () {
+      final group = _requireGroup(groupId);
+      if (group.myRole != GroupRole.controller) {
+        throw const RepositoryException(
+          code: 'forbidden',
+          message: AppStrings.notAllowed,
+        );
+      }
+      final id = 'pm${_nextMessage++}';
+      final msg = PublishedMessage(
+        id: id,
+        groupId: groupId,
+        text: question.trim(),
+        displaySender: const DisplaySender(
+          id: MockIds.priya,
+          name: 'Priya (Controller)',
+        ),
+        poll: Poll(
+          id: 'poll-$id',
+          options: [for (final o in options) PollOption(text: o.trim())],
+        ),
+        publishedAt: DateTime.now().toUtc(),
+      );
+      _bridge.published.add(msg);
+      return msg;
+    });
+  }
+
+  @override
+  Future<void> vote(String groupId, String pollId, int? optionIndex) {
+    return runMock(_controls, () {
+      final i = _bridge.published.indexWhere((m) => m.poll?.id == pollId);
+      if (i < 0) {
+        throw const RepositoryException(
+          code: 'not_found',
+          message: AppStrings.notFound,
+        );
+      }
+      final poll = _bridge.published[i].poll!;
+      final counts = [for (final o in poll.options) o.votes];
+      if (poll.myVote != null) counts[poll.myVote!] -= 1;
+      if (optionIndex != null) counts[optionIndex] += 1;
+      _bridge.published[i] = _bridge.published[i].copyWith(
+        poll: poll.copyWith(
+          options: [
+            for (var k = 0; k < poll.options.length; k++)
+              poll.options[k].copyWith(votes: counts[k]),
+          ],
+          totalVotes: counts.fold(0, (a, b) => a + b),
+          myVote: optionIndex,
+        ),
+      );
     });
   }
 

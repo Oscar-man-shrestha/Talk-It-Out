@@ -20,6 +20,7 @@ import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/profile/profile_state.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/groups/chat_image.dart';
+import 'package:talk_it_out/features/groups/chat_extras.dart';
 
 class GroupChatScreen extends ConsumerStatefulWidget {
   const GroupChatScreen({required this.groupId, super.key});
@@ -32,6 +33,37 @@ class GroupChatScreen extends ConsumerStatefulWidget {
 
 class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
   PublishedMessage? _replyingTo;
+  final _keys = <String, GlobalKey>{};
+
+  GlobalKey _keyFor(String id) => _keys.putIfAbsent(id, GlobalKey.new);
+
+  /// Scrolls to a loaded message and flashes nothing; says so if it is
+  /// further back than what is loaded.
+  void _scrollTo(String messageId) {
+    final ctx = _keys[messageId]?.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 350),
+        alignment: 0.3,
+        curve: Curves.easeOut,
+      );
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text(AppStrings.olderMessageHint)));
+  }
+
+  Future<void> _openSearch() async {
+    final id = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Brand.card,
+      builder: (_) => ChatSearchSheet(groupId: widget.groupId),
+    );
+    if (id != null && mounted) _scrollTo(id);
+  }
 
   void _setReplyingTo(PublishedMessage message) {
     setState(() => _replyingTo = message);
@@ -132,6 +164,12 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
           icon: const Icon(Icons.arrow_back_ios_new, size: 18),
         ),
         actions: [
+          IconButton(
+            key: const ValueKey('chat-search'),
+            tooltip: AppStrings.searchHint,
+            icon: const Icon(Icons.search),
+            onPressed: _openSearch,
+          ),
           PopupMenuButton<String>(
             tooltip: 'Session options',
             icon: const Icon(Icons.more_vert),
@@ -271,6 +309,14 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                 padding: EdgeInsets.fromLTRB(hPad, 6, hPad, 0),
                 child: _AgendaAnchorPin(agenda: group.value!.agenda),
               ),
+            if (items.any((m) => m.pinned))
+              Padding(
+                padding: EdgeInsets.fromLTRB(hPad, 6, hPad, 0),
+                child: PinnedBar(
+                  message: items.lastWhere((m) => m.pinned),
+                  onTap: _scrollTo,
+                ),
+              ),
             Expanded(
               child: AsyncBody(
                 status: asyncStatus(
@@ -313,31 +359,49 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                     ),
                   ),
                 ),
-                child: ListView.builder(
+                // Starts at the newest message; every loaded message is
+                // built so a reply quote or search result can jump to it.
+                child: SingleChildScrollView(
+                  key: const ValueKey('chat-scroll'),
+                  reverse: true,
                   padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 16),
-                  itemCount:
-                      items.length +
-                      pendingMine.length +
-                      (pendingMine.isNotEmpty ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index < items.length) {
-                      return PublishedMessageTile(
-                        message: items[index],
-                        groupId: widget.groupId,
-                        isController: isController,
-                        currentUserId: currentUserId,
-                        controllerId: controllerId,
-                        onReply: () => _setReplyingTo(items[index]),
-                      );
-                    }
-                    final pendingIndex = index - items.length;
-                    if (pendingIndex < pendingMine.length) {
-                      return _PendingSubmission(
-                        item: pendingMine[pendingIndex],
-                      );
-                    }
-                    return const _ReviewingPulsePill();
-                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (ref
+                          .watch(groupMessagesProvider(widget.groupId).notifier)
+                          .hasEarlier)
+                        Center(
+                          child: TextButton.icon(
+                            key: const ValueKey('load-earlier'),
+                            onPressed: () => ref
+                                .read(
+                                  groupMessagesProvider(widget.groupId)
+                                      .notifier,
+                                )
+                                .loadEarlier(),
+                            icon: const Icon(Icons.history, size: 16),
+                            label: const Text(AppStrings.loadEarlier),
+                          ),
+                        ),
+                      for (final m in items)
+                        KeyedSubtree(
+                          key: _keyFor(m.id),
+                          child: PublishedMessageTile(
+                            message: m,
+                            groupId: widget.groupId,
+                            isController: isController,
+                            currentUserId: currentUserId,
+                            controllerId: controllerId,
+                            onReply: () => _setReplyingTo(m),
+                            onQuoteTap: _scrollTo,
+                          ),
+                        ),
+                      for (final p in pendingMine)
+                        _PendingWithWithdraw(item: p),
+                      if (pendingMine.isNotEmpty) const _ReviewingPulsePill(),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -425,8 +489,12 @@ class PublishedMessageTile extends ConsumerStatefulWidget {
     this.currentUserId,
     this.controllerId,
     this.onReply,
+    this.onQuoteTap,
     super.key,
   });
+
+  /// Jumps to the message a reply quotes.
+  final ValueChanged<String>? onQuoteTap;
 
   final PublishedMessage message;
   final String groupId;
@@ -564,6 +632,22 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
     return colors[hash % colors.length];
   }
 
+  Future<void> _togglePin() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(groupRepositoryProvider)
+          .setPinned(
+            widget.groupId,
+            widget.message.id,
+            pinned: !widget.message.pinned,
+          );
+      ref.invalidate(groupMessagesProvider(widget.groupId));
+    } on RepositoryException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   Future<void> _deleteMessage() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -630,6 +714,12 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
           messageBody = lines.sublist(1).join('\n\n');
         }
       }
+    }
+    // Real replies (API.md 50) carry the quote as data.
+    final reply = widget.message.replyTo;
+    if (reply != null) {
+      quoteSender = reply.displaySender?.name ?? AppStrings.anonymousUser;
+      quoteSnippet = reply.text;
     }
 
     final authorColor = _authorColor(senderName);
@@ -827,48 +917,57 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                             // Quoted Reply preview inside bubble
                             if (quoteSender != null &&
                                 quoteSnippet != null) ...[
-                              Container(
-                                margin: const EdgeInsets.only(bottom: 6),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isMe
-                                      ? Colors.white.withValues(alpha: 0.16)
-                                      : Brand.muted,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border(
-                                    left: BorderSide(
-                                      color: isMe ? Colors.white : Brand.ink,
-                                      width: 3.5,
+                              GestureDetector(
+                                key: ValueKey('quote-${widget.message.id}'),
+                                onTap: reply == null
+                                    ? null
+                                    : () => widget.onQuoteTap?.call(reply.id),
+                                child: Container(
+                                  margin: const EdgeInsets.only(bottom: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isMe
+                                        ? Colors.white.withValues(alpha: 0.16)
+                                        : Brand.muted,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border(
+                                      left: BorderSide(
+                                        color: isMe ? Colors.white : Brand.ink,
+                                        width: 3.5,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      quoteSender,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: isMe ? Colors.white : Brand.ink,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        quoteSender,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: isMe
+                                              ? Colors.white
+                                              : Brand.ink,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      quoteSnippet,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        color: isMe
-                                            ? Brand.accentSoft
-                                            : Brand.inkSoft,
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        quoteSnippet,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          color: isMe
+                                              ? Brand.accentSoft
+                                              : Brand.inkSoft,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
@@ -892,6 +991,14 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                                     : (isDark ? Colors.white : Brand.ink),
                               ),
                             ),
+                            if (widget.message.poll != null) ...[
+                              const SizedBox(height: 8),
+                              PollCard(
+                                groupId: widget.groupId,
+                                poll: widget.message.poll!,
+                                onDark: isMe,
+                              ),
+                            ],
                             const SizedBox(height: 4),
 
                             // Footer with time, checkmarks, react icon, and popup menu
@@ -979,6 +1086,8 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                                           );
                                     } else if (action == 'delete') {
                                       _deleteMessage();
+                                    } else if (action == 'pin') {
+                                      _togglePin();
                                     }
                                   },
                                   itemBuilder: (ctx) => [
@@ -1015,6 +1124,26 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                                         ],
                                       ),
                                     ),
+                                    if (widget.isController)
+                                      PopupMenuItem(
+                                        value: 'pin',
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              widget.message.pinned
+                                                  ? Icons.push_pin
+                                                  : Icons.push_pin_outlined,
+                                              size: 16,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              widget.message.pinned
+                                                  ? AppStrings.unpin
+                                                  : AppStrings.pin,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     if (widget.isController)
                                       const PopupMenuItem(
                                         value: 'delete',
@@ -1182,15 +1311,10 @@ class _ControllerMessageComposerState
 
     setState(() => _busy = true);
     try {
-      String fullText = rawText;
-      if (widget.replyingTo != null) {
-        final sender =
-            widget.replyingTo!.displaySender?.name ?? 'Anonymous user';
-        final snippet = widget.replyingTo!.text.length > 50
-            ? '${widget.replyingTo!.text.substring(0, 50)}…'
-            : widget.replyingTo!.text;
-        fullText = '> Replying to $sender: "$snippet"\n\n$rawText';
-      }
+      // Replies are sent as a link to the message (API.md 50), not pasted
+      // into the text, so the AI only rewrites what the sender wrote.
+      final fullText = rawText;
+      final replyToId = widget.replyingTo?.id;
 
       final repo = ref.read(groupRepositoryProvider);
       final image = _image;
@@ -1205,6 +1329,7 @@ class _ControllerMessageComposerState
         widget.groupId,
         text: fullText,
         attachmentId: attachmentId,
+        replyToId: replyToId,
       );
       _text.clear();
       _image = null;
@@ -1330,6 +1455,21 @@ class _ControllerMessageComposerState
                                 ),
                               ),
                             ),
+                          ),
+                          IconButton(
+                            key: const ValueKey('new-poll'),
+                            icon: const Icon(
+                              Icons.poll_outlined,
+                              color: Color(0xFF8696A0),
+                              size: 20,
+                            ),
+                            tooltip: AppStrings.newPoll,
+                            onPressed: _busy
+                                ? null
+                                : () => showCreatePollDialog(
+                                    context,
+                                    widget.groupId,
+                                  ),
                           ),
                           IconButton(
                             icon: const Icon(
@@ -1487,7 +1627,22 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     }
   }
 
-  Future<void> _send() async {
+  /// Shows how the AI will word the draft; sends it from there if asked.
+  Future<void> _preview() async {
+    final rawText = _text.text.trim();
+    if (rawText.isEmpty) return;
+    final result = await showRewritePreview(
+      context,
+      groupId: widget.groupId,
+      text: rawText,
+      anonymous: _anonymous,
+    );
+    if (result?.choice == PreviewChoice.send && result?.previewId != null) {
+      await _send(previewId: result!.previewId);
+    }
+  }
+
+  Future<void> _send({String? previewId}) async {
     final rawText = _text.text.trim();
     if (rawText.isEmpty) {
       if (_image != null) {
@@ -1501,15 +1656,10 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
       _error = null;
     });
     try {
-      String fullText = rawText;
-      if (widget.replyingTo != null) {
-        final sender =
-            widget.replyingTo!.displaySender?.name ?? 'Anonymous user';
-        final snippet = widget.replyingTo!.text.length > 50
-            ? '${widget.replyingTo!.text.substring(0, 50)}…'
-            : widget.replyingTo!.text;
-        fullText = '> Replying to $sender: "$snippet"\n\n$rawText';
-      }
+      // Replies are sent as a link to the message (API.md 50), not pasted
+      // into the text, so the AI only rewrites what the sender wrote.
+      final fullText = rawText;
+      final replyToId = widget.replyingTo?.id;
 
       final repo = ref.read(groupRepositoryProvider);
       final image = _image;
@@ -1520,12 +1670,23 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
               bytes: image.bytes,
               filename: image.filename,
             );
-      await repo.sendMessage(
-        widget.groupId,
-        text: fullText,
-        isAnonymous: _anonymous,
-        attachmentId: attachmentId,
-      );
+      if (previewId != null) {
+        await repo.sendPreview(
+          widget.groupId,
+          previewId,
+          isAnonymous: _anonymous,
+          attachmentId: attachmentId,
+          replyToId: replyToId,
+        );
+      } else {
+        await repo.sendMessage(
+          widget.groupId,
+          text: fullText,
+          isAnonymous: _anonymous,
+          attachmentId: attachmentId,
+          replyToId: replyToId,
+        );
+      }
       _text.clear();
       _anonymous = false;
       _image = null;
@@ -1704,6 +1865,22 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                 ),
                 const SizedBox(height: 8),
               ],
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  key: const ValueKey('preview-button'),
+                  onPressed: _busy ? null : _preview,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Brand.ink,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  icon: const Icon(Icons.auto_awesome, size: 15),
+                  label: const Text(
+                    AppStrings.previewAction,
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ),
               // Chat Input Row (Message Pill + Black Send Button)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -1815,6 +1992,78 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
 }
 
 // ─── Pending submission card ──────────────────────────────────────────────────
+
+/// A pending submission with a way to take it back before review.
+class _PendingWithWithdraw extends ConsumerStatefulWidget {
+  const _PendingWithWithdraw({required this.item});
+
+  final MyMessageStatus item;
+
+  @override
+  ConsumerState<_PendingWithWithdraw> createState() =>
+      _PendingWithWithdrawState();
+}
+
+class _PendingWithWithdrawState extends ConsumerState<_PendingWithWithdraw> {
+  var _busy = false;
+
+  Future<void> _withdraw() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        content: const Text(AppStrings.withdrawConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text(AppStrings.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text(AppStrings.withdraw),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(groupRepositoryProvider).withdrawMessage(widget.item.id);
+      ref.invalidate(myMessagesProvider(widget.item.groupId));
+      messenger.showSnackBar(
+        const SnackBar(content: Text(AppStrings.withdrawn)),
+      );
+    } on RepositoryException catch (e) {
+      ref.invalidate(myMessagesProvider(widget.item.groupId));
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        _PendingSubmission(item: widget.item),
+        TextButton.icon(
+          key: ValueKey('withdraw-${widget.item.id}'),
+          onPressed: _busy ? null : _withdraw,
+          style: TextButton.styleFrom(
+            foregroundColor: Brand.inkSoft,
+            visualDensity: VisualDensity.compact,
+          ),
+          icon: const Icon(Icons.undo, size: 15),
+          label: const Text(
+            AppStrings.withdraw,
+            style: TextStyle(fontSize: 12),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class _PendingSubmission extends StatelessWidget {
   const _PendingSubmission({required this.item});

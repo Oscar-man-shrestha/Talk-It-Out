@@ -7,14 +7,13 @@ import 'package:talk_it_out/core/api/dio_provider.dart';
 import 'package:talk_it_out/core/mock/mock_board.dart';
 import 'package:talk_it_out/core/mock/mock_controls.dart';
 import 'package:talk_it_out/core/mock/mock_ids.dart';
-import 'package:talk_it_out/core/models/page_result.dart';
 import 'package:talk_it_out/core/realtime/live_event.dart';
 import 'package:talk_it_out/core/realtime/realtime_client.dart';
 import 'package:talk_it_out/core/realtime/sse_parser.dart';
 import 'package:talk_it_out/core/storage/token_store.dart';
 import 'package:talk_it_out/features/groups/data/mock_group_repository.dart';
 import 'package:talk_it_out/features/groups/data/mock_message_bridge.dart';
-import 'package:talk_it_out/features/groups/data/published_message.dart';
+import 'package:talk_it_out/features/groups/data/group_repository.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 
 /// Counts chat fetches per group.
@@ -24,13 +23,13 @@ class _CountingGroups extends MockGroupRepository {
   final calls = <String, int>{};
 
   @override
-  Future<PageResult<PublishedMessage>> listMessages(
+  Future<MessageHistoryPage> listMessagesBefore(
     String groupId, {
+    String? before,
     int? limit,
-    String? cursor,
   }) {
     calls[groupId] = (calls[groupId] ?? 0) + 1;
-    return super.listMessages(groupId, limit: limit, cursor: cursor);
+    return super.listMessagesBefore(groupId, before: before, limit: limit);
   }
 }
 

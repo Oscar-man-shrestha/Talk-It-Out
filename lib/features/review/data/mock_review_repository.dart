@@ -198,9 +198,32 @@ class MockReviewRepository implements ReviewRepository {
             ? null
             : DisplaySender(id: message.senderId, name: message.senderName),
         attachmentId: message.attachmentId,
+        replyTo: _quoteFor(message.id),
         publishedAt: DateTime.now().toUtc(),
       ),
     );
+  }
+
+  /// The reply quote for an outgoing message, if it replied to one.
+  ReplyQuote? _quoteFor(String rawId) {
+    String? target;
+    for (final item in _bridge.outgoing) {
+      if (item.id == rawId) target = item.replyToId;
+    }
+    for (final item in _bridge.replies.entries) {
+      if (item.key == rawId) target = item.value;
+    }
+    if (target == null) return null;
+    for (final m in _bridge.published) {
+      if (m.id == target) {
+        return ReplyQuote(
+          id: m.id,
+          text: m.text,
+          displaySender: m.displaySender,
+        );
+      }
+    }
+    return null;
   }
 
   void _markMine(String id, MessageStatus status) {

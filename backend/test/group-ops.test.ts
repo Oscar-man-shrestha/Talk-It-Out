@@ -31,7 +31,10 @@ describe('controller direct messages', () => {
       'display_sender',
       'group_id',
       'id',
+      'pinned',
+      'poll',
       'published_at',
+      'reply_to',
       'text',
     ]);
     expect(res.body.display_sender).toEqual({ id: controller.id, name: 'Cara Controller' });

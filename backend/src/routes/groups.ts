@@ -2,7 +2,7 @@ import { Request, Router } from 'express';
 import { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { badRequest, conflict, forbidden, notFound, parseWith } from '../errors';
-import { buildPage, parseListQuery, PageCursor } from '../pagination';
+import { buildPage, decodeCursor, encodeCursor, parseListQuery, PageCursor } from '../pagination';
 import { RequireAuth } from '../middleware/auth';
 import { uniqueConstraint, withTransaction } from '../db';
 
@@ -32,11 +32,37 @@ const attachmentId = z
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'Attach the image again.')
   .nullish();
 
+const uuidRef = (message: string) =>
+  z
+    .string()
+    .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, message)
+    .nullish();
+
 const sendMessageSchema = z.object({
   text: z.string().trim().min(1, 'Add a caption before sending.'),
   is_anonymous: z.boolean().default(false),
   attachment_id: attachmentId,
+  reply_to_id: uuidRef('That message can no longer be replied to.'),
 });
+
+const sendPreviewSchema = z.object({
+  is_anonymous: z.boolean().default(false),
+  attachment_id: attachmentId,
+  reply_to_id: uuidRef('That message can no longer be replied to.'),
+});
+
+const pollSchema = z.object({
+  question: z.string().trim().min(1, 'Write a question.').max(300, 'Keep the question under 300 characters.'),
+  options: z
+    .array(z.string().trim().min(1, 'Options cannot be empty.').max(100, 'Keep options under 100 characters.'))
+    .min(2, 'Add at least 2 options.')
+    .max(6, 'Use at most 6 options.'),
+});
+
+const voteSchema = z.object({ option_index: z.number().int().min(0).max(5) });
+
+/** Unsent rewrite previews older than this are deleted. */
+const PREVIEW_TTL = "interval '1 hour'";
 
 const controllerMessageSchema = z.object({
   text: z
@@ -45,6 +71,7 @@ const controllerMessageSchema = z.object({
     .min(1, 'Write a message before sending.')
     .max(5000, 'Message is too long.'),
   attachment_id: attachmentId,
+  reply_to_id: uuidRef('That message can no longer be replied to.'),
 });
 
 /**
@@ -73,20 +100,121 @@ async function claimAttachment(
   return rows[0].id as string;
 }
 
+/** Deletes rewrite previews (and their jobs) matching a raw_messages filter. */
+async function deletePreviews(client: PoolClient, where: string, params: unknown[]): Promise<void> {
+  const { rows } = await client.query(`SELECT id FROM raw_messages WHERE ${where}`, params);
+  const ids = rows.map((r) => r.id as string);
+  if (ids.length === 0) return;
+  await client.query('DELETE FROM jobs WHERE raw_message_id = ANY($1::uuid[])', [ids]);
+  await client.query('DELETE FROM raw_messages WHERE id = ANY($1::uuid[]) AND is_preview', [ids]);
+}
+
+/** A reply must point at a published message in the same group. */
+async function checkReplyTarget(
+  client: PoolClient,
+  id: string | null | undefined,
+  groupId: string,
+): Promise<string | null> {
+  if (!id) return null;
+  const { rows } = await client.query(
+    'SELECT id FROM published_messages WHERE id = $1 AND group_id = $2',
+    [id, groupId],
+  );
+  if (!rows[0]) throw badRequest('invalid_reply', 'That message can no longer be replied to.');
+  return id;
+}
+
+/**
+ * Group-facing message rows with their reply quote, pin and poll. $1 is the
+ * group and $2 the caller (for "my vote"); callers add WHERE/ORDER/LIMIT.
+ * A quote shows only what the group already sees: the published text and
+ * the published sender (null when anonymous).
+ */
+const PUBLISHED_SELECT = `
+  SELECT p.id, p.group_id, p.text, p.attachment_id, p.reply_to_id,
+         p.pinned_at IS NOT NULL AS pinned,
+         date_trunc('milliseconds', p.published_at) AS published_at,
+         u.id AS author_id, u.name AS author_name,
+         q.text AS reply_text, qu.id AS reply_author_id, qu.name AS reply_author_name,
+         po.id AS poll_id, po.options AS poll_options,
+         (SELECT array_agg(c ORDER BY i) FROM (
+            SELECT gs.i, count(v.voter_id)::int AS c
+            FROM generate_series(0, cardinality(po.options) - 1) AS gs(i)
+            LEFT JOIN poll_votes v ON v.poll_id = po.id AND v.option_index = gs.i
+            GROUP BY gs.i) t) AS poll_counts,
+         (SELECT v.option_index FROM poll_votes v
+          WHERE v.poll_id = po.id AND v.voter_id = $2) AS poll_my_vote
+  FROM published_messages p
+  LEFT JOIN users u ON u.id = p.author_id
+  LEFT JOIN published_messages q ON q.id = p.reply_to_id
+  LEFT JOIN users qu ON qu.id = q.author_id
+  LEFT JOIN polls po ON po.message_id = p.id
+  WHERE p.group_id = $1`;
+
+interface PublishedRow {
+  id: string;
+  group_id: string;
+  text: string;
+  attachment_id: string | null;
+  reply_to_id: string | null;
+  pinned: boolean;
+  published_at: Date;
+  author_id: string | null;
+  author_name: string | null;
+  reply_text: string | null;
+  reply_author_id: string | null;
+  reply_author_name: string | null;
+  poll_id: string | null;
+  poll_options: string[] | null;
+  poll_counts: number[] | null;
+  poll_my_vote: number | null;
+}
+
+function publishedJson(row: PublishedRow) {
+  const counts = row.poll_counts ?? [];
+  return {
+    id: row.id,
+    group_id: row.group_id,
+    text: row.text,
+    display_sender: row.author_id ? { id: row.author_id, name: row.author_name } : null,
+    attachment_id: row.attachment_id,
+    reply_to:
+      row.reply_to_id && row.reply_text !== null
+        ? {
+            id: row.reply_to_id,
+            text: row.reply_text.length > 140 ? `${row.reply_text.slice(0, 140)}…` : row.reply_text,
+            display_sender: row.reply_author_id
+              ? { id: row.reply_author_id, name: row.reply_author_name }
+              : null,
+          }
+        : null,
+    pinned: row.pinned,
+    poll: row.poll_id
+      ? {
+          id: row.poll_id,
+          options: (row.poll_options ?? []).map((text, i) => ({ text, votes: counts[i] ?? 0 })),
+          total_votes: counts.reduce((a, b) => a + b, 0),
+          my_vote: row.poll_my_vote,
+        }
+      : null,
+    published_at: row.published_at.toISOString(),
+  };
+}
+
 /**
  * Pending messages only count toward the controller's queue while their
  * author is still a member; a removed member's pending rows stay in the
  * database for audit but drop out of every queue surface.
  */
 const PENDING_FROM_MEMBERS = `SELECT count(*)::int FROM raw_messages r
-  WHERE r.group_id = g.id AND r.status = 'pending'
+  WHERE r.group_id = g.id AND r.status = 'pending' AND NOT r.is_preview
     AND EXISTS (
       SELECT 1 FROM group_members m
       WHERE m.group_id = r.group_id AND m.user_id = r.author_id
     )`;
 
 /** Queue rows only while the author is still a member of the group. */
-const QUEUE_AUTHOR_IS_MEMBER = `EXISTS (
+const QUEUE_AUTHOR_IS_MEMBER = `NOT r.is_preview AND EXISTS (
   SELECT 1 FROM group_members am
   WHERE am.group_id = r.group_id AND am.user_id = r.author_id
 )`;
@@ -289,11 +417,13 @@ export function createGroupsRouter(
 
     const result = await withTransaction(pool, async (client) => {
       const attachment = await claimAttachment(client, body.attachment_id, groupId, req.user!.id);
+      const replyTo = await checkReplyTarget(client, body.reply_to_id, groupId);
       const { rows } = await client.query(
-        `INSERT INTO raw_messages (group_id, author_id, original_text, is_anonymous, attachment_id)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO raw_messages
+           (group_id, author_id, original_text, is_anonymous, attachment_id, reply_to_id)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id, group_id, status, created_at`,
-        [groupId, req.user!.id, body.text, body.is_anonymous, attachment],
+        [groupId, req.user!.id, body.text, body.is_anonymous, attachment, replyTo],
       );
       const raw = rows[0];
       // Outbox job: holds only the raw message id, never text or identity.
@@ -317,40 +447,255 @@ export function createGroupsRouter(
     });
   });
 
+  // Default: oldest first from the start (the v1 contract). With
+  // ?before=<cursor> (empty for "the latest"), returns the page just before
+  // that point, still in reading order, plus prev_cursor for older pages.
   router.get('/:groupId/messages', async (req, res) => {
     const groupId = requireUuid(req.params.groupId, 'group');
     await requireMember(pool, groupId, req.user!.id);
     const { limit, cursor } = parseListQuery(req);
-    const { rows } = await pool.query(
-      `SELECT p.id, p.group_id, p.text, p.attachment_id,
-              date_trunc('milliseconds', p.published_at) AS published_at,
-              u.id AS author_id, u.name AS author_name
-       FROM published_messages p
-       LEFT JOIN users u ON u.id = p.author_id
-       WHERE p.group_id = $1
-         AND ($2::timestamptz IS NULL
-              OR (date_trunc('milliseconds', p.published_at), p.id) > ($2::timestamptz, $3::uuid))
+    if (typeof req.query.before === 'string') {
+      const before = req.query.before ? decodeCursor(req.query.before) : null;
+      const { rows } = await pool.query<PublishedRow>(
+        `${PUBLISHED_SELECT}
+           AND ($3::timestamptz IS NULL
+                OR (date_trunc('milliseconds', p.published_at), p.id) < ($3::timestamptz, $4::uuid))
+         ORDER BY p.published_at DESC, p.id DESC
+         LIMIT $5`,
+        [groupId, req.user!.id, before?.t ?? null, before?.i ?? null, limit + 1],
+      );
+      const more = rows.length > limit;
+      const page = rows.slice(0, limit).reverse();
+      res.json({
+        items: page.map(publishedJson),
+        prev_cursor:
+          more && page[0]
+            ? encodeCursor({ t: page[0].published_at.toISOString(), i: page[0].id })
+            : null,
+      });
+      return;
+    }
+    const { rows } = await pool.query<PublishedRow>(
+      `${PUBLISHED_SELECT}
+         AND ($3::timestamptz IS NULL
+              OR (date_trunc('milliseconds', p.published_at), p.id) > ($3::timestamptz, $4::uuid))
        ORDER BY p.published_at ASC, p.id ASC
-       LIMIT $4`,
-      [groupId, cursor?.t ?? null, cursor?.i ?? null, limit + 1],
+       LIMIT $5`,
+      [groupId, req.user!.id, cursor?.t ?? null, cursor?.i ?? null, limit + 1],
     );
-    const page = buildPage(
-      rows,
-      limit,
-      (row): PageCursor => ({ t: row.published_at.toISOString(), i: row.id }),
-      (row) => ({
-        id: row.id,
-        group_id: row.group_id,
-        text: row.text,
-        display_sender: row.author_id
-          ? { id: row.author_id, name: row.author_name }
-          : null,
-        attachment_id: row.attachment_id,
-        published_at: row.published_at.toISOString(),
-      }),
+    res.json(
+      buildPage(
+        rows,
+        limit,
+        (row): PageCursor => ({ t: row.published_at.toISOString(), i: row.id }),
+        publishedJson,
+      ),
     );
-    res.json(page);
   });
+
+  // Search the group's published messages (newest first, at most 50).
+  router.get('/:groupId/messages/search', async (req, res) => {
+    const groupId = requireUuid(req.params.groupId, 'group');
+    await requireMember(pool, groupId, req.user!.id);
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    if (q.length < 2) throw badRequest('bad_request', 'Type at least 2 characters to search.');
+    if (q.length > 100) throw badRequest('bad_request', 'Search is too long.');
+    const pattern = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const { rows } = await pool.query<PublishedRow>(
+      `${PUBLISHED_SELECT} AND p.text ILIKE $3
+       ORDER BY p.published_at DESC, p.id DESC LIMIT 50`,
+      [groupId, req.user!.id, pattern],
+    );
+    res.json({ items: rows.map(publishedJson) });
+  });
+
+  // --- Rewrite preview (before sending) --------------------------------
+  // The sender sees how the AI will word their own draft. Nothing reaches
+  // the controller until they send it.
+  router.post('/:groupId/messages/preview', async (req, res) => {
+    const groupId = requireUuid(req.params.groupId, 'group');
+    if (!(await groupExists(pool, groupId))) throw notFound();
+    const role = await memberRole(pool, groupId, req.user!.id);
+    if (role === null) throw forbidden();
+    if (role === 'controller') {
+      throw forbidden('Controllers review messages instead of sending them.');
+    }
+    const body = parseWith(submitSchema, req.body);
+    const row = await withTransaction(pool, async (client) => {
+      await deletePreviews(
+        client,
+        `author_id = $1 AND is_preview AND created_at < now() - ${PREVIEW_TTL}`,
+        [req.user!.id],
+      );
+      const { rows } = await client.query(
+        `INSERT INTO raw_messages (group_id, author_id, original_text, is_anonymous, is_preview)
+         VALUES ($1, $2, $3, $4, true)
+         RETURNING id, pipeline_status`,
+        [groupId, req.user!.id, body.text, body.is_anonymous],
+      );
+      await client.query(
+        `INSERT INTO jobs (kind, raw_message_id) VALUES ('process_raw_message', $1)`,
+        [rows[0].id],
+      );
+      return rows[0];
+    });
+    res.status(202).json({ id: row.id, pipeline_status: row.pipeline_status, rewritten_text: null });
+  });
+
+  router.get('/:groupId/messages/preview/:previewId', async (req, res) => {
+    const groupId = requireUuid(req.params.groupId, 'group');
+    const previewId = requireUuid(req.params.previewId, 'preview');
+    const { rows } = await pool.query(
+      `SELECT id, pipeline_status, rewritten_text FROM raw_messages
+       WHERE id = $1 AND group_id = $2 AND author_id = $3 AND is_preview`,
+      [previewId, groupId, req.user!.id],
+    );
+    if (!rows[0]) throw notFound('That preview has expired. Preview again.');
+    res.json({
+      id: rows[0].id,
+      pipeline_status: rows[0].pipeline_status,
+      rewritten_text: rows[0].pipeline_status === 'done' ? rows[0].rewritten_text : null,
+    });
+  });
+
+  router.post('/:groupId/messages/preview/:previewId/send', async (req, res) => {
+    const groupId = requireUuid(req.params.groupId, 'group');
+    const previewId = requireUuid(req.params.previewId, 'preview');
+    const role = await memberRole(pool, groupId, req.user!.id);
+    if (role !== 'contributor') throw forbidden();
+    const body = parseWith(sendPreviewSchema, req.body);
+    const sent = await withTransaction(pool, async (client) => {
+      const { rows } = await client.query(
+        `SELECT id, is_anonymous FROM raw_messages
+         WHERE id = $1 AND group_id = $2 AND author_id = $3 AND is_preview
+         FOR UPDATE`,
+        [previewId, groupId, req.user!.id],
+      );
+      if (!rows[0]) throw notFound('That preview has expired. Preview again.');
+      const attachment = await claimAttachment(client, body.attachment_id, groupId, req.user!.id);
+      const replyTo = await checkReplyTarget(client, body.reply_to_id, groupId);
+      const { rows: updated } = await client.query(
+        `UPDATE raw_messages
+         SET is_preview = false, is_anonymous = $2, attachment_id = $3, reply_to_id = $4,
+             created_at = now()
+         WHERE id = $1
+         RETURNING id, group_id, status, created_at, pipeline_status`,
+        [previewId, body.is_anonymous, attachment, replyTo],
+      );
+      // The previewed wording used the tone for the old choice; if the
+      // anonymity choice changed, rewrite again with the right one.
+      if (rows[0].is_anonymous !== body.is_anonymous && updated[0].pipeline_status !== 'queued' && updated[0].pipeline_status !== 'processing') {
+        await client.query(
+          `UPDATE raw_messages SET pipeline_status = 'queued', rewritten_text = NULL,
+             intent_preservation_score = NULL, relevance_score = NULL, relevance_label = NULL
+           WHERE id = $1`,
+          [previewId],
+        );
+        await client.query(
+          `INSERT INTO jobs (kind, raw_message_id) VALUES ('process_raw_message', $1)`,
+          [previewId],
+        );
+      }
+      await client.query(
+        `INSERT INTO notifications (recipient_id, type, ref_id, group_id)
+         SELECT controller_id, 'message_pending_review', $2, id FROM groups WHERE id = $1`,
+        [groupId, previewId],
+      );
+      return updated[0];
+    });
+    res.status(201).json({
+      id: sent.id,
+      group_id: sent.group_id,
+      status: sent.status,
+      created_at: sent.created_at.toISOString(),
+    });
+  });
+
+  router.delete('/:groupId/messages/preview/:previewId', async (req, res) => {
+    const groupId = requireUuid(req.params.groupId, 'group');
+    const previewId = requireUuid(req.params.previewId, 'preview');
+    await withTransaction(pool, (client) =>
+      deletePreviews(client, 'id = $1 AND group_id = $2 AND author_id = $3 AND is_preview', [
+        previewId,
+        groupId,
+        req.user!.id,
+      ]),
+    );
+    res.status(204).end();
+  });
+
+  // --- Pins and polls (controller) ---------------------------------------
+  for (const pin of [true, false]) {
+    router[pin ? 'post' : 'delete']('/:groupId/messages/:messageId/pin', async (req, res) => {
+      const groupId = requireUuid(req.params.groupId, 'group');
+      const messageId = requireUuid(req.params.messageId, 'message');
+      if (!(await groupExists(pool, groupId))) throw notFound();
+      if ((await memberRole(pool, groupId, req.user!.id)) !== 'controller') throw forbidden();
+      const { rowCount } = await pool.query(
+        `UPDATE published_messages SET pinned_at = ${pin ? 'now()' : 'NULL'}
+         WHERE id = $1 AND group_id = $2`,
+        [messageId, groupId],
+      );
+      if (rowCount === 0) throw notFound();
+      res.status(204).end();
+    });
+  }
+
+  router.post('/:groupId/polls', async (req, res) => {
+    const groupId = requireUuid(req.params.groupId, 'group');
+    if (!(await groupExists(pool, groupId))) throw notFound();
+    if ((await memberRole(pool, groupId, req.user!.id)) !== 'controller') throw forbidden();
+    const body = parseWith(pollSchema, req.body);
+    const messageId = await withTransaction(pool, async (client) => {
+      const { rows } = await client.query(
+        `INSERT INTO published_messages (group_id, author_id, text, is_anonymous, is_controller)
+         VALUES ($1, $2, $3, false, true) RETURNING id`,
+        [groupId, req.user!.id, body.question],
+      );
+      await client.query('INSERT INTO polls (message_id, options) VALUES ($1, $2)', [
+        rows[0].id,
+        body.options,
+      ]);
+      return rows[0].id as string;
+    });
+    const { rows } = await pool.query<PublishedRow>(`${PUBLISHED_SELECT} AND p.id = $3`, [
+      groupId,
+      req.user!.id,
+      messageId,
+    ]);
+    res.status(201).json(publishedJson(rows[0]));
+  });
+
+  // Votes are counted, never listed: nobody sees who voted for what.
+  for (const vote of [true, false]) {
+    router[vote ? 'post' : 'delete']('/:groupId/polls/:pollId/vote', async (req, res) => {
+      const groupId = requireUuid(req.params.groupId, 'group');
+      const pollId = requireUuid(req.params.pollId, 'poll');
+      await requireMember(pool, groupId, req.user!.id);
+      const { rows } = await pool.query(
+        `SELECT po.id, cardinality(po.options) AS n FROM polls po
+         JOIN published_messages p ON p.id = po.message_id
+         WHERE po.id = $1 AND p.group_id = $2`,
+        [pollId, groupId],
+      );
+      if (!rows[0]) throw notFound();
+      if (vote) {
+        const body = parseWith(voteSchema, req.body);
+        if (body.option_index >= rows[0].n) throw badRequest('bad_request', 'Pick one of the options.');
+        await pool.query(
+          `INSERT INTO poll_votes (poll_id, voter_id, option_index) VALUES ($1, $2, $3)
+           ON CONFLICT (poll_id, voter_id) DO UPDATE SET option_index = $3, voted_at = now()`,
+          [pollId, req.user!.id, body.option_index],
+        );
+      } else {
+        await pool.query('DELETE FROM poll_votes WHERE poll_id = $1 AND voter_id = $2', [
+          pollId,
+          req.user!.id,
+        ]);
+      }
+      res.status(204).end();
+    });
+  }
 
   router.get('/:groupId/messages/mine', async (req, res) => {
     const groupId = requireUuid(req.params.groupId, 'group');
@@ -360,7 +705,7 @@ export function createGroupsRouter(
       `SELECT id, group_id, status, is_anonymous,
               date_trunc('milliseconds', created_at) AS created_at
        FROM raw_messages
-       WHERE group_id = $1 AND author_id = $2
+       WHERE group_id = $1 AND author_id = $2 AND NOT is_preview
          AND ($3::timestamptz IS NULL
               OR (date_trunc('milliseconds', created_at), id) < ($3::timestamptz, $4::uuid))
        ORDER BY created_at DESC, id DESC
@@ -497,7 +842,7 @@ export function createGroupsRouter(
       `SELECT r.*, u.name AS sender_name
        FROM raw_messages r
        JOIN users u ON u.id = r.author_id
-       WHERE r.id = $1 AND r.group_id = $2`,
+       WHERE r.id = $1 AND r.group_id = $2 AND NOT r.is_preview`,
       [messageId, groupId],
     );
     if (!rows[0]) throw notFound();
@@ -514,24 +859,22 @@ export function createGroupsRouter(
     const body = parseWith(controllerMessageSchema, req.body);
     const rows = await withTransaction(pool, async (client) => {
       const attachment = await claimAttachment(client, body.attachment_id, groupId, req.user!.id);
+      const replyTo = await checkReplyTarget(client, body.reply_to_id, groupId);
       const inserted = await client.query(
         `INSERT INTO published_messages
-           (group_id, author_id, text, is_anonymous, is_controller, attachment_id)
-         VALUES ($1, $2, $3, false, true, $4)
-         RETURNING id, group_id, text, attachment_id, published_at`,
-        [groupId, req.user!.id, body.text, attachment],
+           (group_id, author_id, text, is_anonymous, is_controller, attachment_id, reply_to_id)
+         VALUES ($1, $2, $3, false, true, $4, $5)
+         RETURNING id`,
+        [groupId, req.user!.id, body.text, attachment, replyTo],
       );
       return inserted.rows;
     });
-    const row = rows[0];
-    res.status(201).json({
-      id: row.id,
-      group_id: row.group_id,
-      text: row.text,
-      display_sender: { id: req.user!.id, name: req.user!.name },
-      attachment_id: row.attachment_id,
-      published_at: row.published_at.toISOString(),
-    });
+    const { rows: full } = await pool.query<PublishedRow>(`${PUBLISHED_SELECT} AND p.id = $3`, [
+      groupId,
+      req.user!.id,
+      rows[0].id,
+    ]);
+    res.status(201).json(publishedJson(full[0]));
   });
 
   // Anonymous published rows never stored an author (author_id NULL), so

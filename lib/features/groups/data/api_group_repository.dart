@@ -84,6 +84,7 @@ class ApiGroupRepository implements GroupRepository {
     required String text,
     required bool isAnonymous,
     String? attachmentId,
+    String? replyToId,
   }) {
     return guardApi(() async {
       final response = await _dio.post(
@@ -92,6 +93,7 @@ class ApiGroupRepository implements GroupRepository {
           'text': text,
           'is_anonymous': isAnonymous,
           'attachment_id': ?attachmentId,
+          'reply_to_id': ?replyToId,
         },
       );
       return SentMessage.fromJson(asJsonMap(response.data));
@@ -118,13 +120,161 @@ class ApiGroupRepository implements GroupRepository {
     String groupId, {
     required String text,
     String? attachmentId,
+    String? replyToId,
   }) {
     return guardApi(() async {
       final response = await _dio.post(
         '${Endpoints.groupMessages(groupId)}/controller',
-        data: {'text': text, 'attachment_id': ?attachmentId},
+        data: {
+          'text': text,
+          'attachment_id': ?attachmentId,
+          'reply_to_id': ?replyToId,
+        },
       );
       return PublishedMessage.fromJson(asJsonMap(response.data));
+    });
+  }
+
+  @override
+  Future<MessageHistoryPage> listMessagesBefore(
+    String groupId, {
+    String? before,
+    int? limit,
+  }) {
+    return guardApi(() async {
+      final response = await _dio.get(
+        Endpoints.groupMessages(groupId),
+        queryParameters: {'before': before ?? '', 'limit': ?limit},
+      );
+      final json = asJsonMap(response.data);
+      final items = (json['items'] as List? ?? const [])
+          .map((e) => PublishedMessage.fromJson(asJsonMap(e)))
+          .toList();
+      return (items: items, prevCursor: json['prev_cursor'] as String?);
+    });
+  }
+
+  @override
+  Future<List<PublishedMessage>> searchMessages(String groupId, String query) {
+    return guardApi(() async {
+      final response = await _dio.get(
+        '${Endpoints.groupMessages(groupId)}/search',
+        queryParameters: {'q': query},
+      );
+      return (asJsonMap(response.data)['items'] as List? ?? const [])
+          .map((e) => PublishedMessage.fromJson(asJsonMap(e)))
+          .toList();
+    });
+  }
+
+  @override
+  Future<String> requestPreview(
+    String groupId, {
+    required String text,
+    required bool isAnonymous,
+  }) {
+    return guardApi(() async {
+      final response = await _dio.post(
+        '${Endpoints.groupMessages(groupId)}/preview',
+        data: {'text': text, 'is_anonymous': isAnonymous},
+      );
+      return asJsonMap(response.data)['id'] as String;
+    });
+  }
+
+  @override
+  Future<RewritePreview> getPreview(String groupId, String previewId) {
+    return guardApi(() async {
+      final response = await _dio.get(
+        '${Endpoints.groupMessages(groupId)}/preview/$previewId',
+      );
+      final json = asJsonMap(response.data);
+      final status = json['pipeline_status'];
+      return (
+        ready: status == 'done',
+        failed: status == 'failed',
+        rewrittenText: json['rewritten_text'] as String?,
+      );
+    });
+  }
+
+  @override
+  Future<SentMessage> sendPreview(
+    String groupId,
+    String previewId, {
+    required bool isAnonymous,
+    String? attachmentId,
+    String? replyToId,
+  }) {
+    return guardApi(() async {
+      final response = await _dio.post(
+        '${Endpoints.groupMessages(groupId)}/preview/$previewId/send',
+        data: {
+          'is_anonymous': isAnonymous,
+          'attachment_id': ?attachmentId,
+          'reply_to_id': ?replyToId,
+        },
+      );
+      return SentMessage.fromJson(asJsonMap(response.data));
+    });
+  }
+
+  @override
+  Future<void> discardPreview(String groupId, String previewId) {
+    return guardApi(() async {
+      await _dio.delete(
+        '${Endpoints.groupMessages(groupId)}/preview/$previewId',
+      );
+    });
+  }
+
+  @override
+  Future<void> withdrawMessage(String messageId) {
+    return guardApi(() async {
+      await _dio.post('/messages/$messageId/withdraw');
+    });
+  }
+
+  @override
+  Future<void> setPinned(
+    String groupId,
+    String messageId, {
+    required bool pinned,
+  }) {
+    return guardApi(() async {
+      final path = '${Endpoints.groupMessages(groupId)}/$messageId/pin';
+      if (pinned) {
+        await _dio.post(path);
+      } else {
+        await _dio.delete(path);
+      }
+    });
+  }
+
+  @override
+  Future<PublishedMessage> createPoll(
+    String groupId, {
+    required String question,
+    required List<String> options,
+  }) {
+    return guardApi(() async {
+      final response = await _dio.post(
+        '/groups/$groupId/polls',
+        data: {'question': question, 'options': options},
+      );
+      return PublishedMessage.fromJson(asJsonMap(response.data));
+    });
+  }
+
+  @override
+  Future<void> vote(String groupId, String pollId, int? optionIndex) {
+    return guardApi(() async {
+      final path = '/groups/$groupId/polls/$pollId/vote';
+      if (optionIndex == null) {
+        await _dio.delete(path);
+      } else {
+        await _dio.post(path, data: {'option_index': optionIndex});
+      }
     });
   }
 

@@ -172,6 +172,7 @@ describe('migrations', () => {
       '014_comment_reports.sql',
       '015_reset_verify_token.sql',
       '016_message_attachments.sql',
+      '017_chat_upgrades.sql',
     ]);
   });
 });

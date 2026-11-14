@@ -384,4 +384,40 @@ abstract final class AppStrings {
   static const imageUnavailable = 'Image unavailable';
   static const imageInReview =
       'Photo attached. The controller sees it in review.';
+
+  // Chat upgrades (Run 092)
+  static const searchTooShort = 'Type at least 2 characters to search.';
+  static const previewExpired = 'That preview has expired. Preview again.';
+  static const withdrawTooLate =
+      'The controller has already decided on this message.';
+  static const withdraw = 'Withdraw';
+  static const withdrawConfirm =
+      'Take this message back? The controller will not see it.';
+  static const withdrawn = 'Message withdrawn.';
+  static const previewAction = 'Preview AI wording';
+  static const previewWorking = 'The AI is rewording your draft…';
+  static const previewTitle = 'How the group will read it';
+  static const previewFailed =
+      'The AI could not reword this draft. You can still send it; the '
+      'controller will see it as written.';
+  static const previewSend = 'Send for review';
+  static const previewChange = 'Change draft';
+  static const previewNote =
+      'Only you see this preview. The controller reviews it after you send.';
+  static const loadEarlier = 'Load earlier messages';
+  static const searchHint = 'Search this group';
+  static const searchNone = 'No messages match.';
+  static const pinned = 'Pinned';
+  static const pin = 'Pin to top';
+  static const unpin = 'Unpin';
+  static const newPoll = 'New poll';
+  static const pollQuestion = 'Question';
+  static const pollOption = 'Option';
+  static const addOption = 'Add option';
+  static const postPoll = 'Post poll';
+  static const pollVotesPrivate = 'Votes are counted, never shown by name.';
+  static String voteCount(int n) => n == 1 ? '1 vote' : '$n votes';
+  static const originalMessage = 'Original message';
+  static const olderMessageHint =
+      'That message is further back. Tap "Load earlier messages" first.';
 }

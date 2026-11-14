@@ -115,7 +115,10 @@ describe('message reactions', () => {
       'display_sender',
       'group_id',
       'id',
+      'pinned',
+      'poll',
       'published_at',
+      'reply_to',
       'text',
     ]);
   });

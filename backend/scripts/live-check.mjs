@@ -155,6 +155,44 @@ async function main() {
     check('outsider cannot open the photo', (await call('GET', `/groups/${gid}/attachments/${photoUp.body.id}`, { token: O.token })).status === 404);
   }
 
+  // Rewrite preview before sending: real AI wording, invisible to the controller.
+  const pv = await call('POST', `/groups/${gid}/messages/preview`, {
+    token: M.token, body: { text: 'honestly the sprint planning keeps running over by 30 minutes', is_anonymous: false },
+  });
+  check('rewrite preview requested', pv.status === 202);
+  const pvReady = await waitFor(async () => {
+    const r = await call('GET', `/groups/${gid}/messages/preview/${pv.body.id}`, { token: M.token });
+    return ['done', 'failed'].includes(r.body.pipeline_status) ? r.body : null;
+  }, 90);
+  check('preview shows the AI wording to the sender', pvReady?.pipeline_status === 'done' && !!pvReady.rewritten_text,
+    pvReady ? `pipeline_status=${pvReady.pipeline_status}` : 'still queued');
+  const hiddenQ = await call('GET', `/groups/${gid}/review-queue`, { token: C.token });
+  check('controller does not see an unsent preview', !hiddenQ.body.items.some((x) => x.id === pv.body.id));
+  const pvSent = await call('POST', `/groups/${gid}/messages/preview/${pv.body.id}/send`, { token: M.token, body: { is_anonymous: false } });
+  check('sending a preview queues it for review', pvSent.status === 201 && pvSent.body.status === 'pending');
+
+  // Withdraw before review.
+  const wd = await call('POST', `/messages/${pvSent.body.id}/withdraw`, { token: M.token });
+  check('sender withdraws a pending message', wd.status === 204
+    && !(await call('GET', `/groups/${gid}/review-queue`, { token: C.token })).body.items.some((x) => x.id === pvSent.body.id));
+
+  // Pins, polls (totals only), replies, history and search.
+  const note = await call('POST', `/groups/${gid}/messages/controller`, { token: C.token, body: { text: 'Retro moves to Friday at 4pm.' } });
+  check('controller pins a message', (await call('POST', `/groups/${gid}/messages/${note.body.id}/pin`, { token: C.token })).status === 204);
+  const poll = await call('POST', `/groups/${gid}/polls`, { token: C.token, body: { question: 'Does Friday work?', options: ['Yes', 'No'] } });
+  check('controller posts a poll', poll.status === 201 && poll.body.poll?.options?.length === 2);
+  await call('POST', `/groups/${gid}/polls/${poll.body.poll.id}/vote`, { token: M.token, body: { option_index: 0 } });
+  const reply = await call('POST', `/groups/${gid}/messages/controller`, { token: C.token, body: { text: 'Agenda attached below.', reply_to_id: note.body.id } });
+  const latest = await call('GET', `/groups/${gid}/messages?before=&limit=50`, { token: M.token });
+  const pinnedNow = latest.body.items.find((x) => x.id === note.body.id);
+  const pollNow = latest.body.items.find((x) => x.id === poll.body.id);
+  const replyNow = latest.body.items.find((x) => x.id === reply.body.id);
+  check('pinned message is marked', pinnedNow?.pinned === true);
+  check('poll shows totals, never voters', pollNow?.poll?.total_votes === 1 && !JSON.stringify(pollNow.poll).includes(M.id));
+  check('reply carries the quoted message', replyNow?.reply_to?.id === note.body.id);
+  const found = await call('GET', `/groups/${gid}/messages/search?q=retro`, { token: M.token });
+  check('search finds the message', found.body.items?.some((x) => x.id === note.body.id));
+
   // Named message in the author's chosen tone; then ask for a fresh rewrite.
   const tone = await call('PUT', '/users/me/profile', { token: M.token, body: { rewrite_tone: 'direct' } });
   check('rewrite tone saved (private setting)', tone.status === 200 && tone.body.user.rewrite_tone === 'direct');

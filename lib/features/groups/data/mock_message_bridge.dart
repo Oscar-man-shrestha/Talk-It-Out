@@ -16,6 +16,7 @@ class MockOutgoing {
     required this.senderName,
     required this.createdAt,
     this.attachmentId,
+    this.replyToId,
   });
 
   final String id;
@@ -26,12 +27,16 @@ class MockOutgoing {
   final String senderName;
   final DateTime createdAt;
   final String? attachmentId;
+  final String? replyToId;
 }
 
 class MockMessageBridge {
   final List<PublishedMessage> published = [];
   final List<MyMessageStatus> mine = [];
   final List<MockOutgoing> outgoing = [];
+
+  /// Which published message each sent message replies to.
+  final Map<String, String> replies = {};
 
   /// Uploaded chat images by id (mock storage).
   final Map<String, Uint8List> attachments = {};

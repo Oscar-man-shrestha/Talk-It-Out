@@ -16,6 +16,8 @@ interface RawRow {
   pipeline_status: string;
   rewritten_text: string | null;
   attachment_id: string | null;
+  reply_to_id: string | null;
+  is_preview: boolean;
 }
 
 /**
@@ -33,7 +35,8 @@ async function lockPendingMessageForController(
     [messageId],
   );
   const raw = rows[0] as RawRow | undefined;
-  if (!raw) throw notFound();
+  // A rewrite preview is the sender's unsent draft: not reviewable.
+  if (!raw || raw.is_preview) throw notFound();
   const { rows: roleRows } = await client.query(
     'SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2',
     [raw.group_id, callerId],
@@ -61,8 +64,9 @@ export function createMessagesRouter(pool: Pool, requireAuth: RequireAuth): Rout
       // enforces author_id NULL exactly when the message is anonymous.
       const { rows: published } = await client.query(
         `INSERT INTO published_messages
-           (group_id, author_id, text, is_anonymous, is_controller, attachment_id)
-         VALUES ($1, $2, $3, $4, false, $5)
+           (group_id, author_id, text, is_anonymous, is_controller, attachment_id, reply_to_id)
+         VALUES ($1, $2, $3, $4, false, $5,
+                 (SELECT id FROM published_messages WHERE id = $6 AND group_id = $1))
          RETURNING id`,
         [
           raw.group_id,
@@ -70,6 +74,7 @@ export function createMessagesRouter(pool: Pool, requireAuth: RequireAuth): Rout
           raw.rewritten_text,
           raw.is_anonymous,
           raw.attachment_id ?? null,
+          raw.reply_to_id ?? null,
         ],
       );
       await client.query(
@@ -141,6 +146,36 @@ export function createMessagesRouter(pool: Pool, requireAuth: RequireAuth): Rout
       );
     });
     res.status(202).json({ id: messageId, status: 'pending', pipeline_status: 'queued' });
+  });
+
+  // The sender takes back their own message while it is still waiting for
+  // review. It is deleted outright (with its image and the controller's
+  // "waiting" notification), as if it had never been sent.
+  router.post('/:messageId/withdraw', async (req, res) => {
+    const messageId = req.params.messageId;
+    if (!UUID_RE.test(messageId)) throw notFound();
+    await withTransaction(pool, async (client) => {
+      const { rows } = await client.query(
+        `SELECT id, author_id, status, is_preview, attachment_id
+         FROM raw_messages WHERE id = $1 FOR UPDATE`,
+        [messageId],
+      );
+      const raw = rows[0];
+      if (!raw || raw.is_preview || raw.author_id !== req.user!.id) throw notFound();
+      if (raw.status !== 'pending') {
+        throw conflict('already_decided', 'The controller has already decided on this message.');
+      }
+      await client.query('DELETE FROM jobs WHERE raw_message_id = $1', [messageId]);
+      await client.query(
+        `DELETE FROM notifications WHERE type = 'message_pending_review' AND ref_id = $1`,
+        [messageId],
+      );
+      await client.query('DELETE FROM raw_messages WHERE id = $1', [messageId]);
+      if (raw.attachment_id) {
+        await client.query('DELETE FROM message_attachments WHERE id = $1', [raw.attachment_id]);
+      }
+    });
+    res.status(204).end();
   });
 
   return router;

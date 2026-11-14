@@ -47,10 +47,18 @@ final groupDetailProvider =
       GroupDetailNotifier.new,
     );
 
+/// The chat, newest page first loaded; [loadEarlier] adds older pages on
+/// top. A live refresh reloads the newest page and keeps older ones.
 class GroupMessagesNotifier extends AsyncNotifier<List<PublishedMessage>> {
   GroupMessagesNotifier(this.groupId);
 
   final String groupId;
+
+  /// Cursor for the next older page; null when the start is reached.
+  String? prevCursor;
+  var _loadingEarlier = false;
+
+  bool get hasEarlier => prevCursor != null;
 
   @override
   Future<List<PublishedMessage>> build() async {
@@ -59,8 +67,46 @@ class GroupMessagesNotifier extends AsyncNotifier<List<PublishedMessage>> {
       (e) => e.type == 'chat' && e.groupId == groupId,
       refresh: ref.invalidateSelf,
     );
-    final page = await ref.watch(groupRepositoryProvider).listMessages(groupId);
-    return page.items;
+    final older = state.value ?? const <PublishedMessage>[];
+    final keptCursor = prevCursor;
+    final page = await ref
+        .watch(groupRepositoryProvider)
+        .listMessagesBefore(groupId);
+    final latest = page.items;
+    if (latest.isEmpty) {
+      prevCursor = null;
+      return latest;
+    }
+    // Keep earlier pages already loaded (older than this page).
+    final first = latest.first.publishedAt;
+    final ids = {for (final m in latest) m.id};
+    final kept = [
+      for (final m in older)
+        if (m.publishedAt.isBefore(first) && !ids.contains(m.id)) m,
+    ];
+    prevCursor = kept.isEmpty ? page.prevCursor : keptCursor;
+    return [...kept, ...latest];
+  }
+
+  Future<void> loadEarlier() async {
+    final cursor = prevCursor;
+    final current = state.value;
+    if (cursor == null || current == null || _loadingEarlier) return;
+    _loadingEarlier = true;
+    try {
+      final page = await ref
+          .read(groupRepositoryProvider)
+          .listMessagesBefore(groupId, before: cursor);
+      final ids = {for (final m in current) m.id};
+      prevCursor = page.prevCursor;
+      state = AsyncData([
+        for (final m in page.items)
+          if (!ids.contains(m.id)) m,
+        ...current,
+      ]);
+    } finally {
+      _loadingEarlier = false;
+    }
   }
 }
 

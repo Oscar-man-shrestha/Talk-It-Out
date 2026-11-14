@@ -84,7 +84,10 @@ describe('full moderation flow', () => {
       'display_sender',
       'group_id',
       'id',
+      'pinned',
+      'poll',
       'published_at',
+      'reply_to',
       'text',
     ]);
     expect(published.display_sender).toBeNull();
@@ -199,7 +202,10 @@ describe('full moderation flow', () => {
         'display_sender',
         'group_id',
         'id',
+        'pinned',
+        'poll',
         'published_at',
+        'reply_to',
         'text',
       ]);
       expect(new Date(item.published_at).toString()).not.toBe('Invalid Date');

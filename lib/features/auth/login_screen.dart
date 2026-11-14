@@ -11,15 +11,16 @@ import 'package:talk_it_out/features/auth/data/mock_auth_repository.dart';
 import 'package:talk_it_out/features/auth/google/google_button.dart';
 import 'package:talk_it_out/features/auth/google/google_sign_in_service.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
 
 // Stitch Monochrome Precision design tokens
-const _kPrimary = Color(0xFF000000);
-const _kSurfaceMuted = Color(0xFFF4F4F5);
-const _kBorderSubtle = Color(0xFFE4E4E7);
-const _kBorderStrong = Color(0xFF27272A);
-const _kTextPrimary = Color(0xFF09090B);
-const _kTextSecondary = Color(0xFF71717A);
-const _kTextTertiary = Color(0xFFA1A1AA);
+const _kPrimary = Brand.accent;
+const _kSurfaceMuted = Brand.muted;
+const _kBorderSubtle = Brand.border;
+const _kBorderStrong = Brand.borderStrong;
+const _kTextPrimary = Brand.ink;
+const _kTextSecondary = Brand.inkSoft;
+const _kTextTertiary = Brand.inkFaint;
 
 /// Login screen matching the Stitch Monochrome Precision PNG mockup exactly.
 class LoginScreen extends ConsumerStatefulWidget {
@@ -105,7 +106,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final hPad = isDesktopOrTablet ? (screenWidth - 420) / 2 : 20.0;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Brand.canvas,
       body: SafeArea(
         child: ListView(
           padding: EdgeInsets.fromLTRB(hPad, 28, hPad, 32),

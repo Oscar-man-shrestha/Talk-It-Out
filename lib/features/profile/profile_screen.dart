@@ -14,16 +14,17 @@ import 'package:talk_it_out/features/feed/data/post.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/profile/profile_state.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
 
 // Stitch Monochrome Precision tokens
-const _kPrimary = Color(0xFF09090B);
-const _kSurface = Color(0xFFFFFFFF);
-const _kSurfaceMuted = Color(0xFFF4F4F5);
-const _kSurfaceSubtle = Color(0xFFFAFAFA);
-const _kBorderSubtle = Color(0xFFE4E4E7);
-const _kTextPrimary = Color(0xFF09090B);
-const _kTextSecondary = Color(0xFF71717A);
-const _kTextTertiary = Color(0xFFA1A1AA);
+const _kPrimary = Brand.accent;
+const _kSurface = Brand.card;
+const _kSurfaceMuted = Brand.muted;
+const _kSurfaceSubtle = Brand.canvas;
+const _kBorderSubtle = Brand.border;
+const _kTextPrimary = Brand.ink;
+const _kTextSecondary = Brand.inkSoft;
+const _kTextTertiary = Brand.inkFaint;
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -92,6 +93,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80',
     ),
   ];
+
+  Future<void> _copyLink(String url) async {
+    await Clipboard.setData(ClipboardData(text: url));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(AppStrings.linkCopied),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 
   void _openEditProfileModal() {
     final profile = ref.read(userProfileProvider);
@@ -1114,7 +1126,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onPressed: _openEditProfileModal,
                   ),
                   Material(
-                    color: Colors.black,
+                    color: Brand.accent,
                     shape: const CircleBorder(),
                     child: SizedBox(
                       width: 28,
@@ -1183,7 +1195,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   ? const Color(0xFF18181B)
                                   : (profile.coverStyle == 2
                                         ? const Color(0xFF27272A)
-                                        : const Color(0xFFF4F4F5)),
+                                        : Brand.muted),
                               child: profile.coverImageUrl != null
                                   ? SafeImage(
                                       imageUrl: profile.coverImageUrl,
@@ -1484,25 +1496,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               // Location & Network stats
                               Row(
                                 children: [
-                                  const Icon(
-                                    Icons.location_on_outlined,
-                                    size: 14,
-                                    color: _kTextTertiary,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    profile.location,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: _kTextSecondary,
+                                  if (profile.location.isNotEmpty) ...[
+                                    const Icon(
+                                      Icons.location_on_outlined,
+                                      size: 14,
+                                      color: _kTextTertiary,
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    '•',
-                                    style: TextStyle(color: _kTextTertiary),
-                                  ),
-                                  const SizedBox(width: 8),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      profile.location,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: _kTextSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      '•',
+                                      style: TextStyle(color: _kTextTertiary),
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ] else ...[
+                                    const Icon(
+                                      Icons.diversity_3_outlined,
+                                      size: 14,
+                                      color: _kTextTertiary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                  ],
                                   Text(
                                     groups.length == 1
                                         ? '1 group'
@@ -1521,26 +1542,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 6,
+                                // Only links that are set; tapping copies one.
                                 children: [
-                                  _SocialBadge(
-                                    icon: Icons.public,
-                                    label: profile.linkedinUrl.isNotEmpty
-                                        ? profile.linkedinUrl
-                                        : 'LinkedIn',
-                                    onTap: _openEditProfileModal,
-                                  ),
-                                  _SocialBadge(
-                                    icon: Icons.code,
-                                    label: profile.githubUrl.isNotEmpty
-                                        ? profile.githubUrl
-                                        : 'GitHub',
-                                    onTap: _openEditProfileModal,
-                                  ),
-                                  _SocialBadge(
-                                    icon: Icons.language,
-                                    label: 'Portfolio',
-                                    onTap: _openEditProfileModal,
-                                  ),
+                                  for (final (icon, name, url) in [
+                                    (
+                                      Icons.public,
+                                      'LinkedIn',
+                                      profile.linkedinUrl,
+                                    ),
+                                    (Icons.code, 'GitHub', profile.githubUrl),
+                                    (
+                                      Icons.language,
+                                      'Portfolio',
+                                      profile.websiteUrl,
+                                    ),
+                                  ])
+                                    if (url.trim().isNotEmpty)
+                                      _SocialBadge(
+                                        icon: icon,
+                                        label: name,
+                                        onTap: () => _copyLink(url.trim()),
+                                      ),
+                                  if (profile.linkedinUrl.trim().isEmpty &&
+                                      profile.githubUrl.trim().isEmpty &&
+                                      profile.websiteUrl.trim().isEmpty)
+                                    _SocialBadge(
+                                      icon: Icons.add_link,
+                                      label: 'Add links',
+                                      onTap: _openEditProfileModal,
+                                    ),
                                 ],
                               ),
                             ],
@@ -1587,14 +1617,50 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          profile.bio,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            height: 1.5,
-                            color: _kTextSecondary,
+                        if (profile.bio.trim().isEmpty)
+                          InkWell(
+                            key: const ValueKey('about-empty'),
+                            onTap: _openEditProfileModal,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Brand.accentSoft,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Brand.accentBorder),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(
+                                    Icons.edit_note,
+                                    size: 18,
+                                    color: Brand.accentInk,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      AppStrings.aboutEmpty,
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        height: 1.4,
+                                        color: Brand.accentInk,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          Text(
+                            profile.bio,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              height: 1.5,
+                              color: _kTextSecondary,
+                            ),
                           ),
-                        ),
                         const SizedBox(height: 14),
 
                         // Skills & Endorsements with Add/Remove
@@ -2628,7 +2694,7 @@ class _GridPatternPainter extends CustomPainter {
     final paint = Paint()
       ..color = isDark
           ? Colors.white.withValues(alpha: 0.08)
-          : const Color(0xFFE4E4E7).withValues(alpha: 0.6)
+          : Brand.border.withValues(alpha: 0.6)
       ..strokeWidth = 1.0;
 
     const step = 20.0;
@@ -2986,7 +3052,7 @@ class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
         ),
         FilledButton(
           onPressed: _busy ? null : _save,
-          style: FilledButton.styleFrom(backgroundColor: Colors.black),
+          style: FilledButton.styleFrom(backgroundColor: Brand.accent),
           child: _busy
               ? const SizedBox(
                   width: 16,
@@ -3060,7 +3126,7 @@ class _LogoutAllDialogState extends ConsumerState<_LogoutAllDialog> {
         ),
         FilledButton(
           onPressed: _busy ? null : _go,
-          style: FilledButton.styleFrom(backgroundColor: Colors.black),
+          style: FilledButton.styleFrom(backgroundColor: Brand.accent),
           child: _busy
               ? const SizedBox(
                   width: 16,

@@ -15,16 +15,17 @@ import 'package:talk_it_out/features/feed/data/comment.dart';
 import 'package:talk_it_out/features/feed/data/post.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
 import 'package:talk_it_out/features/feed/saved_posts.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
 
 // Stitch Monochrome Precision tokens
-const _kPrimary = Color(0xFF09090B);
-const _kSurface = Color(0xFFFFFFFF);
-const _kSurfaceMuted = Color(0xFFF4F4F5);
-const _kSurfaceSubtle = Color(0xFFFAFAFA);
-const _kBorderSubtle = Color(0xFFE4E4E7);
-const _kTextPrimary = Color(0xFF09090B);
-const _kTextSecondary = Color(0xFF71717A);
-const _kTextTertiary = Color(0xFFA1A1AA);
+const _kPrimary = Brand.accent;
+const _kSurface = Brand.card;
+const _kSurfaceMuted = Brand.muted;
+const _kSurfaceSubtle = Brand.canvas;
+const _kBorderSubtle = Brand.border;
+const _kTextPrimary = Brand.ink;
+const _kTextSecondary = Brand.inkSoft;
+const _kTextTertiary = Brand.inkFaint;
 
 class PostDetailScreen extends ConsumerStatefulWidget {
   const PostDetailScreen({required this.postId, super.key});

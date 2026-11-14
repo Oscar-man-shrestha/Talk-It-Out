@@ -9,15 +9,16 @@ import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/notifications/data/app_notification.dart';
 import 'package:talk_it_out/features/notifications/notification_providers.dart';
 import 'package:talk_it_out/features/notifications/notification_text.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
 
 // Stitch Monochrome Precision tokens
-const _kPrimary = Color(0xFF000000);
-const _kSurface = Color(0xFFFFFFFF);
-const _kSurfaceMuted = Color(0xFFF4F4F5);
-const _kBorderSubtle = Color(0xFFE4E4E7);
-const _kTextPrimary = Color(0xFF09090B);
-const _kTextSecondary = Color(0xFF71717A);
-const _kTextTertiary = Color(0xFFA1A1AA);
+const _kPrimary = Brand.accent;
+const _kSurface = Brand.card;
+const _kSurfaceMuted = Brand.muted;
+const _kBorderSubtle = Brand.border;
+const _kTextPrimary = Brand.ink;
+const _kTextSecondary = Brand.inkSoft;
+const _kTextTertiary = Brand.inkFaint;
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -81,7 +82,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final hPad = isDesktop ? (screenWidth - 860) / 2 : (isMobile ? 12.0 : 20.0);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Brand.canvas,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(56),
         child: Container(
@@ -147,11 +148,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   const Spacer(),
                   IconButton(
                     icon: const Icon(
-                      Icons.chat_bubble_outline,
+                      Icons.diversity_3_outlined,
                       size: 20,
                       color: _kTextSecondary,
                     ),
-                    tooltip: AppStrings.navGroups,
+                    tooltip: 'Open groups',
                     onPressed: () => context.go('/groups'),
                   ),
                   Container(

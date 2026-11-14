@@ -8,12 +8,13 @@ import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/core/ui/stitch_chrome.dart';
 import 'package:talk_it_out/features/feed/data/post_topic.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
 
-const _ink = Color(0xFF09090B);
-const _muted = Color(0xFF71717A);
-const _faint = Color(0xFFA1A1AA);
-const _border = Color(0xFFE4E4E7);
-const _soft = Color(0xFFF4F4F5);
+const _ink = Brand.ink;
+const _muted = Brand.inkSoft;
+const _faint = Brand.inkFaint;
+const _border = Brand.border;
+const _soft = Brand.muted;
 const _error = Color(0xFFBA1A1A);
 
 /// Limits match the API (`API.md` 42 and endpoint 17).
@@ -117,7 +118,7 @@ class _NewPostScreenState extends ConsumerState<NewPostScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.black),
+            style: FilledButton.styleFrom(backgroundColor: Brand.accent),
             child: const Text(AppStrings.askDiscard),
           ),
         ],
@@ -138,7 +139,7 @@ class _NewPostScreenState extends ConsumerState<NewPostScreen> {
         if (await _confirmDiscard() && context.mounted) context.pop();
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: Brand.canvas,
         appBar: StitchPageHeader(
           title: AppStrings.askTitle,
           leading: BackButton(
@@ -200,10 +201,10 @@ class _NewPostScreenState extends ConsumerState<NewPostScreen> {
                     selected: _topic == topic.id,
                     showCheckmark: false,
                     color: WidgetStatePropertyAll(
-                      _topic == topic.id ? Colors.black : Colors.white,
+                      _topic == topic.id ? Brand.accent : Colors.white,
                     ),
                     side: BorderSide(
-                      color: _topic == topic.id ? Colors.black : _border,
+                      color: _topic == topic.id ? Brand.accent : _border,
                     ),
                     labelStyle: TextStyle(
                       fontSize: 12.5,
@@ -250,7 +251,7 @@ class _NewPostScreenState extends ConsumerState<NewPostScreen> {
                 key: const ValueKey('ask-submit'),
                 onPressed: _busy ? null : _submit,
                 style: FilledButton.styleFrom(
-                  backgroundColor: Colors.black,
+                  backgroundColor: Brand.accent,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: _faint,
                   shape: RoundedRectangleBorder(

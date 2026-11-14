@@ -1,11 +1,11 @@
 {
-    "name": "talk_it_out",
-    "short_name": "talk_it_out",
+    "name": "Talk It Out",
+    "short_name": "Talk It Out",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FBF8F2",
+    "theme_color": "#8F6B45",
+    "description": "Candid team feedback without fear.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

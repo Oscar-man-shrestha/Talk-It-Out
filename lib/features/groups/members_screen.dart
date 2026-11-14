@@ -10,6 +10,7 @@ import 'package:talk_it_out/core/ui/screen_async.dart';
 import 'package:talk_it_out/core/ui/stitch_chrome.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
 
 class MembersScreen extends ConsumerWidget {
   const MembersScreen({required this.groupId, super.key});
@@ -51,7 +52,7 @@ class MembersScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$name was kicked from the group.'),
-            backgroundColor: const Color(0xFF09090B),
+            backgroundColor: Brand.ink,
           ),
         );
       }
@@ -100,7 +101,7 @@ class MembersScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('You left the group.'),
-            backgroundColor: Color(0xFF09090B),
+            backgroundColor: Brand.ink,
           ),
         );
         context.go('/groups');
@@ -116,7 +117,7 @@ class MembersScreen extends ConsumerWidget {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Brand.canvas,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -140,7 +141,7 @@ class MembersScreen extends ConsumerWidget {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF09090B),
+                      color: Brand.ink,
                     ),
                   ),
                   IconButton(
@@ -152,7 +153,7 @@ class MembersScreen extends ConsumerWidget {
               const SizedBox(height: 6),
               const Text(
                 'Request a user to join this agenda room by entering their username or handle.',
-                style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                style: TextStyle(fontSize: 12, color: Brand.inkSoft),
               ),
               const SizedBox(height: 16),
               TextField(
@@ -162,14 +163,14 @@ class MembersScreen extends ConsumerWidget {
                   prefixText: '@',
                   hintText: 'username (e.g. alex_dev, sophia_ai)',
                   filled: true,
-                  fillColor: const Color(0xFFFAFAFA),
+                  fillColor: Brand.canvas,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 12,
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                    borderSide: const BorderSide(color: Brand.border),
                   ),
                   errorText: error,
                 ),
@@ -180,7 +181,7 @@ class MembersScreen extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF71717A),
+                  color: Brand.inkSoft,
                 ),
               ),
               const SizedBox(height: 6),
@@ -200,7 +201,7 @@ class MembersScreen extends ConsumerWidget {
                         '@$handle',
                         style: const TextStyle(fontSize: 11),
                       ),
-                      backgroundColor: const Color(0xFFF4F4F5),
+                      backgroundColor: Brand.muted,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6),
                       ),
@@ -218,7 +219,7 @@ class MembersScreen extends ConsumerWidget {
                 width: double.infinity,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF09090B),
+                    backgroundColor: Brand.ink,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(
@@ -248,7 +249,7 @@ class MembersScreen extends ConsumerWidget {
                             content: Text(
                               'Invitation sent to @$raw. Added to group.',
                             ),
-                            backgroundColor: const Color(0xFF09090B),
+                            backgroundColor: Brand.ink,
                           ),
                         );
                       }
@@ -302,11 +303,7 @@ class MembersScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(32),
             child: Text(
               AppStrings.membersTitle,
-              style: TextStyle(
-                color: isDark
-                    ? const Color(0xFF71717A)
-                    : const Color(0xFF71717A),
-              ),
+              style: TextStyle(color: isDark ? Brand.inkSoft : Brand.inkSoft),
             ),
           ),
         ),
@@ -316,23 +313,15 @@ class MembersScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0xFF18181B)
-                    : const Color(0xFFF4F4F5),
+                color: isDark ? const Color(0xFF18181B) : Brand.muted,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: isDark
-                      ? const Color(0x24FFFFFF)
-                      : const Color(0xFFE4E4E7),
+                  color: isDark ? const Color(0x24FFFFFF) : Brand.border,
                 ),
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.groups_rounded,
-                    color: Color(0xFF09090B),
-                    size: 20,
-                  ),
+                  const Icon(Icons.groups_rounded, color: Brand.ink, size: 20),
                   const SizedBox(width: 10),
                   Text(
                     '${items.length} ${items.length == 1 ? "Member" : "Members"}',
@@ -346,7 +335,7 @@ class MembersScreen extends ConsumerWidget {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF09090B),
+                        color: Brand.ink,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: const Text(
@@ -371,7 +360,7 @@ class MembersScreen extends ConsumerWidget {
                   icon: const Icon(Icons.person_add_alt_1, size: 16),
                   label: const Text('Invite Member by Username'),
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF09090B),
+                    backgroundColor: Brand.ink,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
@@ -405,10 +394,10 @@ class MembersScreen extends ConsumerWidget {
                       height: 40,
                       decoration: BoxDecoration(
                         color: member.role == GroupRole.controller
-                            ? const Color(0xFF09090B)
+                            ? Brand.ink
                             : Colors.white,
                         shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFF09090B)),
+                        border: Border.all(color: Brand.ink),
                       ),
                       child: Center(
                         child: Text(
@@ -418,7 +407,7 @@ class MembersScreen extends ConsumerWidget {
                           style: TextStyle(
                             color: member.role == GroupRole.controller
                                 ? Colors.white
-                                : const Color(0xFF09090B),
+                                : Brand.ink,
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
                           ),
@@ -442,7 +431,7 @@ class MembersScreen extends ConsumerWidget {
                               'Group Creator & Review Controller',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF71717A),
+                                color: Brand.inkSoft,
                               ),
                             ),
                         ],
@@ -455,8 +444,8 @@ class MembersScreen extends ConsumerWidget {
                       ),
                       decoration: BoxDecoration(
                         color: member.role == GroupRole.controller
-                            ? const Color(0xFF09090B)
-                            : const Color(0xFFF4F4F5),
+                            ? Brand.ink
+                            : Brand.muted,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -466,7 +455,7 @@ class MembersScreen extends ConsumerWidget {
                           fontWeight: FontWeight.w600,
                           color: member.role == GroupRole.controller
                               ? Colors.white
-                              : const Color(0xFF09090B),
+                              : Brand.ink,
                         ),
                       ),
                     ),

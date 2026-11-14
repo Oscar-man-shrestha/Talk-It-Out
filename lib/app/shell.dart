@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/notifications/notification_providers.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
 
 class AppShell extends ConsumerWidget {
   const AppShell({required this.navigationShell, super.key});
@@ -19,12 +20,12 @@ class AppShell extends ConsumerWidget {
       bottomNavigationBar: DecoratedBox(
         decoration: const BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+          border: Border(top: BorderSide(color: Brand.border)),
         ),
         child: NavigationBar(
           height: 56,
           indicatorColor: Colors.transparent,
-          backgroundColor: Colors.white,
+          backgroundColor: Brand.canvas,
           elevation: 0,
           selectedIndex: navigationShell.currentIndex,
           onDestinationSelected: (index) {
@@ -37,13 +38,13 @@ class AppShell extends ConsumerWidget {
             NavigationDestination(
               icon: Badge(
                 isLabelVisible: groupUnread > 0,
-                backgroundColor: Colors.black,
+                backgroundColor: Brand.accent,
                 label: Text(unreadBadgeLabel(groupUnread)),
                 child: const Icon(Icons.diversity_3_outlined),
               ),
               selectedIcon: Badge(
                 isLabelVisible: groupUnread > 0,
-                backgroundColor: Colors.black,
+                backgroundColor: Brand.accent,
                 label: Text(unreadBadgeLabel(groupUnread)),
                 child: const Icon(Icons.diversity_3),
               ),

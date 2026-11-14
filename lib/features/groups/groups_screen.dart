@@ -12,12 +12,13 @@ import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/data/published_message.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/profile/profile_state.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
 
-const _border = Color(0xFFE4E4E7);
-const _ink = Color(0xFF09090B);
-const _muted = Color(0xFF71717A);
-const _faint = Color(0xFFA1A1AA);
-const _low = Color(0xFFFAFAFA);
+const _border = Brand.border;
+const _ink = Brand.ink;
+const _muted = Brand.inkSoft;
+const _faint = Brand.inkFaint;
+const _low = Brand.canvas;
 
 class GroupsScreen extends ConsumerStatefulWidget {
   const GroupsScreen({super.key});
@@ -69,7 +70,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Brand.canvas,
       appBar: StitchPageHeader(
         title: AppStrings.navGroups,
         emphasizePageTitle: true,
@@ -87,7 +88,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
           ),
           const SizedBox(width: 8),
           Material(
-            color: Colors.black,
+            color: Brand.accent,
             shape: const CircleBorder(),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -115,7 +116,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/groups/new'),
-        backgroundColor: Colors.black,
+        backgroundColor: Brand.accent,
         foregroundColor: Colors.white,
         elevation: 6,
         shape: const StadiumBorder(),
@@ -173,7 +174,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                               ),
                         border: _fieldBorder(_border),
                         enabledBorder: _fieldBorder(_border),
-                        focusedBorder: _fieldBorder(Colors.black),
+                        focusedBorder: _fieldBorder(Brand.accent),
                       ),
                     ),
                   ),
@@ -181,7 +182,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                   FilledButton.icon(
                     onPressed: () => context.push('/groups/new'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: Colors.black,
+                      backgroundColor: Brand.accent,
                       foregroundColor: Colors.white,
                       fixedSize: const Size.fromHeight(36),
                       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -485,7 +486,7 @@ class _Dot extends StatelessWidget {
       width: 6,
       height: 6,
       decoration: const BoxDecoration(
-        color: Colors.black,
+        color: Brand.accent,
         shape: BoxShape.circle,
       ),
     );
@@ -510,9 +511,9 @@ class _FilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? Colors.black : _low,
+      color: selected ? Brand.accent : _low,
       shape: StadiumBorder(
-        side: BorderSide(color: selected ? Colors.black : _border),
+        side: BorderSide(color: selected ? Brand.accent : _border),
       ),
       child: InkWell(
         onTap: onTap,
@@ -558,7 +559,7 @@ class _FilterChip extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      color: selected ? Colors.black : _ink,
+                      color: selected ? Brand.accent : _ink,
                     ),
                   ),
                 ),
@@ -660,10 +661,10 @@ class _GroupCard extends ConsumerWidget {
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: controller ? Colors.black : _low,
+                          color: controller ? Brand.accent : _low,
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(
-                            color: controller ? Colors.black : _border,
+                            color: controller ? Brand.accent : _border,
                           ),
                         ),
                         child: Text(
@@ -905,9 +906,9 @@ class _Avatar extends StatelessWidget {
             height: 44,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: filled ? Colors.black : _low,
+              color: filled ? Brand.accent : _low,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: filled ? Colors.black : _border),
+              border: Border.all(color: filled ? Brand.accent : _border),
             ),
             child: Text(
               letters,
@@ -936,7 +937,7 @@ class _Avatar extends StatelessWidget {
                   width: 8,
                   height: 8,
                   decoration: const BoxDecoration(
-                    color: Colors.black,
+                    color: Brand.accent,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -963,7 +964,7 @@ class _UnreadBadge extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 6),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: Colors.black,
+          color: Brand.accent,
           borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
@@ -989,7 +990,7 @@ class _LiveDot extends StatelessWidget {
       width: 8,
       height: 8,
       decoration: const BoxDecoration(
-        color: Colors.black,
+        color: Brand.accent,
         shape: BoxShape.circle,
       ),
     );
@@ -1068,7 +1069,7 @@ class _NoMatch extends StatelessWidget {
           FilledButton(
             onPressed: onClear,
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.black,
+              backgroundColor: Brand.accent,
               foregroundColor: Colors.white,
             ),
             child: const Text('Clear Filters & Search'),

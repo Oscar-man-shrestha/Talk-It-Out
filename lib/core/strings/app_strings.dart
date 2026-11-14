@@ -360,4 +360,6 @@ abstract final class AppStrings {
   static const reviewNoneRejected = 'No rejected messages yet.';
   static const reviewDecidedNote =
       'This message has been decided. Decisions are final.';
+
+  static const groupChatTitle = 'Group chat';
 }

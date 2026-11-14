@@ -18,6 +18,7 @@ import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/data/published_message.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/profile/profile_state.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
 
 class GroupChatScreen extends ConsumerStatefulWidget {
   const GroupChatScreen({required this.groupId, super.key});
@@ -81,7 +82,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('You left the group.'),
-            backgroundColor: Color(0xFF09090B),
+            backgroundColor: Brand.ink,
           ),
         );
         context.go('/groups');
@@ -120,9 +121,9 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF09090B) : Colors.white,
+      backgroundColor: isDark ? Brand.ink : Brand.canvas,
       appBar: StitchPageHeader(
-        title: 'Active Session',
+        title: group.value?.agenda ?? AppStrings.groupChatTitle,
         emphasizePageTitle: true,
         leading: IconButton(
           tooltip: 'Back',
@@ -148,11 +149,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                   builder: (ctx) => AlertDialog(
                     title: const Row(
                       children: [
-                        Icon(
-                          Icons.shield_outlined,
-                          size: 20,
-                          color: Color(0xFF09090B),
-                        ),
+                        Icon(Icons.shield_outlined, size: 20, color: Brand.ink),
                         SizedBox(width: 8),
                         Text(
                           'Peer Anonymity Shield',
@@ -195,11 +192,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                 value: 'shield',
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.shield_outlined,
-                      size: 16,
-                      color: Color(0xFF71717A),
-                    ),
+                    Icon(Icons.shield_outlined, size: 16, color: Brand.inkSoft),
                     SizedBox(width: 8),
                     Text('Safety Shield Info'),
                   ],
@@ -228,7 +221,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
               icon: const Icon(Icons.fact_check_outlined),
             ),
           Material(
-            color: Colors.black,
+            color: Brand.accent,
             shape: const CircleBorder(),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -255,9 +248,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
         ],
       ),
       body: Container(
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF09090B) : Colors.white,
-        ),
+        decoration: BoxDecoration(color: isDark ? Brand.ink : Colors.white),
         child: Column(
           children: [
             _MarkGroupOpened(groupId: widget.groupId),
@@ -304,7 +295,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                           child: const Icon(
                             Icons.forum_outlined,
                             size: 32,
-                            color: Color(0xFF09090B),
+                            color: Brand.ink,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -314,7 +305,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFF71717A),
+                            color: Brand.inkSoft,
                           ),
                         ),
                       ],
@@ -353,7 +344,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
               Container(
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+                  border: Border(top: BorderSide(color: Brand.border)),
                 ),
                 padding: EdgeInsets.symmetric(
                   horizontal: isDesktop ? hPad : (isMobile ? 0 : 8.0),
@@ -392,7 +383,7 @@ class _AgendaAnchorPin extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        border: Border.all(color: Brand.border),
         boxShadow: const [
           BoxShadow(
             color: Color(0x06000000),
@@ -403,11 +394,7 @@ class _AgendaAnchorPin extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.push_pin_outlined,
-            size: 16,
-            color: Color(0xFF09090B),
-          ),
+          const Icon(Icons.push_pin_outlined, size: 16, color: Brand.ink),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -417,7 +404,7 @@ class _AgendaAnchorPin extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF09090B),
+                color: Brand.ink,
               ),
             ),
           ),
@@ -502,7 +489,7 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
     setState(() => _showReactionsBar = false);
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: Brand.canvas,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -521,7 +508,7 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF09090B),
+                      color: Brand.ink,
                     ),
                   ),
                   IconButton(
@@ -545,7 +532,7 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF4F4F5),
+                          color: Brand.muted,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
@@ -564,10 +551,10 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
   }
 
   Color _authorColor(String name) {
-    if (name.contains('Anonymous')) return const Color(0xFF71717A);
+    if (name.contains('Anonymous')) return Brand.inkSoft;
     final hash = name.codeUnits.fold(0, (acc, c) => acc + c);
     const colors = [
-      Color(0xFF09090B),
+      Brand.ink,
       Color(0xFF27272A),
       Color(0xFF3F3F46),
       Color(0xFF52525B),
@@ -607,7 +594,7 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Message deleted by Controller.'),
-            backgroundColor: Color(0xFF09090B),
+            backgroundColor: Brand.ink,
           ),
         );
       }
@@ -685,9 +672,7 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                     color: isDark ? const Color(0xFF18181B) : Colors.white,
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                      color: isDark
-                          ? const Color(0xFF27272A)
-                          : const Color(0xFFE4E4E7),
+                      color: isDark ? const Color(0xFF27272A) : Brand.border,
                     ),
                     boxShadow: const [
                       BoxShadow(
@@ -723,13 +708,13 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                           decoration: BoxDecoration(
                             color: isDark
                                 ? const Color(0xFF27272A)
-                                : const Color(0xFFF4F4F5),
+                                : Brand.muted,
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
                             Icons.add,
                             size: 16,
-                            color: Color(0xFF71717A),
+                            color: Brand.inkSoft,
                           ),
                         ),
                       ),
@@ -760,10 +745,8 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                         decoration: BoxDecoration(
                           color: isMe
                               ? (isDark
-                                    ? const Color(0xFF18181B)
-                                    : const Color(
-                                        0xFF09090B,
-                                      )) // Monochrome Black
+                                    ? const Color(0xFF4A3B2C)
+                                    : Brand.accent) // Your messages: indigo
                               : (isDark
                                     ? const Color(0xFF18181B)
                                     : Colors.white), // Monochrome White
@@ -778,7 +761,7 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                                 ? (isDark
                                       ? const Color(0xFF27272A)
                                       : const Color(0xFF27272A))
-                                : const Color(0xFFE4E4E7),
+                                : Brand.border,
                             width: 0.8,
                           ),
                           boxShadow: const [
@@ -821,7 +804,7 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                                         vertical: 1.5,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF09090B),
+                                        color: Brand.ink,
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: const Text(
@@ -851,14 +834,12 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: isMe
-                                      ? const Color(0xFF27272A)
-                                      : const Color(0xFFF4F4F5),
+                                      ? Colors.white.withValues(alpha: 0.16)
+                                      : Brand.muted,
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border(
                                     left: BorderSide(
-                                      color: isMe
-                                          ? Colors.white
-                                          : const Color(0xFF09090B),
+                                      color: isMe ? Colors.white : Brand.ink,
                                       width: 3.5,
                                     ),
                                   ),
@@ -871,9 +852,7 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w700,
-                                        color: isMe
-                                            ? Colors.white
-                                            : const Color(0xFF09090B),
+                                        color: isMe ? Colors.white : Brand.ink,
                                       ),
                                     ),
                                     const SizedBox(height: 2),
@@ -884,8 +863,8 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                                       style: TextStyle(
                                         fontSize: 11.5,
                                         color: isMe
-                                            ? const Color(0xFFA1A1AA)
-                                            : const Color(0xFF71717A),
+                                            ? Brand.accentSoft
+                                            : Brand.inkSoft,
                                       ),
                                     ),
                                   ],
@@ -901,9 +880,7 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                                 height: 1.4,
                                 color: isMe
                                     ? Colors.white
-                                    : (isDark
-                                          ? Colors.white
-                                          : const Color(0xFF09090B)),
+                                    : (isDark ? Colors.white : Brand.ink),
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -920,8 +897,8 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                                       Icons.verified_user_outlined,
                                       size: 11,
                                       color: isMe
-                                          ? const Color(0xFFA1A1AA)
-                                          : const Color(0xFF71717A),
+                                          ? Brand.accentBorder
+                                          : Brand.inkSoft,
                                     ),
                                   ),
                                 Text(
@@ -929,8 +906,8 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                                   style: TextStyle(
                                     fontSize: 10,
                                     color: isMe
-                                        ? const Color(0xFFA1A1AA)
-                                        : const Color(0xFF71717A),
+                                        ? Brand.accentBorder
+                                        : Brand.inkSoft,
                                   ),
                                 ),
                                 if (isMe) ...[
@@ -952,8 +929,8 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
                                   color: isMe
-                                      ? const Color(0xFFA1A1AA)
-                                      : const Color(0xFF71717A),
+                                      ? Brand.accentBorder
+                                      : Brand.inkSoft,
                                   tooltip: 'React',
                                   onPressed: _toggleReactionsBar,
                                 ),
@@ -968,8 +945,8 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                                     Icons.expand_more,
                                     size: 14,
                                     color: isMe
-                                        ? const Color(0xFFA1A1AA)
-                                        : const Color(0xFF71717A),
+                                        ? Brand.accentBorder
+                                        : Brand.inkSoft,
                                   ),
                                   onSelected: (action) {
                                     if (action == 'react') {
@@ -1084,16 +1061,16 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                                       decoration: BoxDecoration(
                                         color: userReacted
                                             ? (isDark
-                                                  ? const Color(0xFF27272A)
-                                                  : const Color(0xFF09090B))
+                                                  ? const Color(0xFF4A3B2C)
+                                                  : Brand.accent)
                                             : (isDark
                                                   ? const Color(0xFF18181B)
-                                                  : const Color(0xFFF4F4F5)),
+                                                  : Brand.muted),
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
                                           color: userReacted
-                                              ? const Color(0xFF09090B)
-                                              : const Color(0xFFE4E4E7),
+                                              ? Brand.accent
+                                              : Brand.border,
                                           width: 0.8,
                                         ),
                                       ),
@@ -1116,9 +1093,7 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                                                   ? Colors.white
                                                   : (isDark
                                                         ? Colors.white70
-                                                        : const Color(
-                                                            0xFF09090B,
-                                                          )),
+                                                        : Brand.ink),
                                             ),
                                           ),
                                         ],
@@ -1198,7 +1173,7 @@ class _ControllerMessageComposerState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Controller message published to group.'),
-            backgroundColor: Color(0xFF09090B),
+            backgroundColor: Brand.ink,
           ),
         );
       }
@@ -1231,7 +1206,7 @@ class _ControllerMessageComposerState
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE4E4E7)),
+            border: Border.all(color: Brand.border),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x14000000),
@@ -1261,7 +1236,7 @@ class _ControllerMessageComposerState
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
+                        border: Border.all(color: Brand.border),
                         boxShadow: const [
                           BoxShadow(
                             color: Color(0x0A000000),
@@ -1323,7 +1298,7 @@ class _ControllerMessageComposerState
                   const SizedBox(width: 8),
                   FilledButton(
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF09090B),
+                      backgroundColor: Brand.accent,
                       foregroundColor: Colors.white,
                       shape: const StadiumBorder(),
                       padding: const EdgeInsets.symmetric(
@@ -1381,11 +1356,9 @@ class _QuotedReplyBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F4F5),
+        color: Brand.muted,
         borderRadius: BorderRadius.circular(8),
-        border: const Border(
-          left: BorderSide(color: Color(0xFF09090B), width: 3.5),
-        ),
+        border: const Border(left: BorderSide(color: Brand.accent, width: 3.5)),
       ),
       child: Row(
         children: [
@@ -1398,7 +1371,7 @@ class _QuotedReplyBar extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF09090B),
+                    color: Brand.ink,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -1406,10 +1379,7 @@ class _QuotedReplyBar extends StatelessWidget {
                   replyingTo.text,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: Color(0xFF71717A),
-                  ),
+                  style: const TextStyle(fontSize: 11.5, color: Brand.inkSoft),
                 ),
               ],
             ),
@@ -1516,7 +1486,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE4E4E7)),
+            border: Border.all(color: Brand.border),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x14000000),
@@ -1535,17 +1505,13 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF4F4F5),
+                  color: Brand.muted,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFF4F4F5)),
+                  border: Border.all(color: Brand.muted),
                 ),
                 child: const Row(
                   children: [
-                    Icon(
-                      Icons.shield_outlined,
-                      size: 16,
-                      color: Color(0xFF09090B),
-                    ),
+                    Icon(Icons.shield_outlined, size: 16, color: Brand.ink),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -1553,7 +1519,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                         style: TextStyle(
                           fontSize: 11,
                           height: 1.3,
-                          color: Color(0xFF71717A),
+                          color: Brand.inkSoft,
                         ),
                       ),
                     ),
@@ -1579,14 +1545,10 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: _anonymous
-                      ? const Color(0xFFF4F4F5)
-                      : const Color(0xFFFAFAFA),
+                  color: _anonymous ? Brand.muted : Brand.canvas,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: _anonymous
-                        ? const Color(0xFF09090B)
-                        : const Color(0xFFE4E4E7),
+                    color: _anonymous ? Brand.accent : Brand.border,
                   ),
                 ),
                 child: Column(
@@ -1608,7 +1570,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                                   : (value) => setState(
                                       () => _anonymous = value ?? false,
                                     ),
-                              activeColor: const Color(0xFF09090B),
+                              activeColor: Brand.accent,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(4),
                               ),
@@ -1620,7 +1582,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF09090B),
+                              color: Brand.ink,
                             ),
                           ),
                         ],
@@ -1632,7 +1594,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                         AppStrings.anonymousDisclosure,
                         style: TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF71717A),
+                          color: Brand.inkSoft,
                           height: 1.25,
                         ),
                       ),
@@ -1665,7 +1627,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
+                        border: Border.all(color: Brand.border),
                         boxShadow: const [
                           BoxShadow(
                             color: Color(0x0A000000),
@@ -1727,7 +1689,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                   const SizedBox(width: 8),
                   FilledButton(
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF09090B),
+                      backgroundColor: Brand.ink,
                       foregroundColor: Colors.white,
                       shape: const StadiumBorder(),
                       padding: const EdgeInsets.symmetric(
@@ -1785,7 +1747,7 @@ class _PendingSubmission extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        border: Border.all(color: Brand.border),
         boxShadow: const [
           BoxShadow(
             color: Color(0x08000000),
@@ -1801,7 +1763,7 @@ class _PendingSubmission extends StatelessWidget {
             Container(
               width: 4,
               decoration: const BoxDecoration(
-                color: Colors.black,
+                color: Brand.accent,
                 borderRadius: BorderRadius.horizontal(
                   left: Radius.circular(12),
                 ),
@@ -1821,7 +1783,7 @@ class _PendingSubmission extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF09090B),
+                              color: Brand.ink,
                             ),
                           ),
                         ),
@@ -1832,9 +1794,9 @@ class _PendingSubmission extends StatelessWidget {
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF4F4F5),
+                            color: Brand.muted,
                             borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: const Color(0xFFE4E4E7)),
+                            border: Border.all(color: Brand.border),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
@@ -1850,7 +1812,7 @@ class _PendingSubmission extends StatelessWidget {
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.3,
-                                  color: Color(0xFF09090B),
+                                  color: Brand.ink,
                                 ),
                               ),
                             ],
@@ -1863,9 +1825,9 @@ class _PendingSubmission extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFAFAFA),
+                        color: Brand.canvas,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
+                        border: Border.all(color: Brand.border),
                       ),
                       child: const Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1875,7 +1837,7 @@ class _PendingSubmission extends StatelessWidget {
                               Icon(
                                 Icons.auto_fix_high,
                                 size: 13,
-                                color: Color(0xFF09090B),
+                                color: Brand.ink,
                               ),
                               SizedBox(width: 5),
                               Text(
@@ -1883,7 +1845,7 @@ class _PendingSubmission extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF71717A),
+                                  color: Brand.inkSoft,
                                 ),
                               ),
                             ],
@@ -1916,7 +1878,7 @@ class _ReviewingPulsePill extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: const Color(0xFFE4E4E7)),
+          border: Border.all(color: Brand.border),
           boxShadow: const [
             BoxShadow(
               color: Color(0x08000000),
@@ -1932,7 +1894,7 @@ class _ReviewingPulsePill extends StatelessWidget {
             SizedBox(width: 6),
             Text(
               'Controller is reviewing submissions in real-time',
-              style: TextStyle(fontSize: 11, color: Color(0xFF71717A)),
+              style: TextStyle(fontSize: 11, color: Brand.inkSoft),
             ),
           ],
         ),
@@ -1950,7 +1912,7 @@ class _PingDot extends StatelessWidget {
       width: 6,
       height: 6,
       decoration: const BoxDecoration(
-        color: Colors.black,
+        color: Brand.accent,
         shape: BoxShape.circle,
       ),
     );
@@ -1965,7 +1927,7 @@ class _SpinningIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Icon(icon, size: size, color: const Color(0xFF09090B));
+    return Icon(icon, size: size, color: Brand.ink);
   }
 }
 
@@ -2001,7 +1963,7 @@ class _SessionBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        border: Border.all(color: Brand.border),
         boxShadow: const [
           BoxShadow(
             color: Color(0x06000000),
@@ -2024,7 +1986,7 @@ class _SessionBanner extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF09090B),
+                        color: Brand.ink,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -2036,7 +1998,7 @@ class _SessionBanner extends StatelessWidget {
                             vertical: 1.5,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.black,
+                            color: Brand.accent,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -2052,17 +2014,14 @@ class _SessionBanner extends StatelessWidget {
                         const SizedBox(width: 6),
                         const Text(
                           '\u2022',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFFA1A1AA),
-                          ),
+                          style: TextStyle(fontSize: 11, color: Brand.inkFaint),
                         ),
                         const SizedBox(width: 6),
                         Text(
                           memberStr,
                           style: const TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF71717A),
+                            color: Brand.inkSoft,
                           ),
                         ),
                       ],
@@ -2114,9 +2073,9 @@ class _SessionBanner extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFFAFAFA),
+                color: Brand.canvas,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
+                border: Border.all(color: Brand.border),
               ),
               child: Row(
                 children: [
@@ -2127,17 +2086,14 @@ class _SessionBanner extends StatelessWidget {
                       'Waiting for controller review',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: Color(0xFF71717A),
-                      ),
+                      style: TextStyle(fontSize: 11.5, color: Brand.inkSoft),
                     ),
                   ),
                   Text(
                     _clock(waitingSince!),
                     style: const TextStyle(
                       fontSize: 10.5,
-                      color: Color(0xFFA1A1AA),
+                      color: Brand.inkFaint,
                     ),
                   ),
                 ],
@@ -2177,19 +2133,19 @@ class _BannerButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              border: Border.all(color: Brand.border),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 15, color: const Color(0xFF09090B)),
+                Icon(icon, size: 15, color: Brand.ink),
                 const SizedBox(width: 4),
                 Text(
                   label,
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF09090B),
+                    color: Brand.ink,
                   ),
                 ),
               ],
@@ -2216,17 +2172,15 @@ class _SenderMark extends StatelessWidget {
       height: 28,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: anonymous ? const Color(0xFFF4F4F5) : Colors.black,
+        color: anonymous ? Brand.muted : Brand.accent,
         shape: BoxShape.circle,
-        border: Border.all(
-          color: anonymous ? const Color(0xFFE4E4E7) : Colors.black,
-        ),
+        border: Border.all(color: anonymous ? Brand.border : Brand.accent),
       ),
       child: anonymous
           ? const Icon(
               Icons.visibility_off_outlined,
               size: 14,
-              color: Color(0xFF09090B),
+              color: Brand.ink,
             )
           : Text(
               _initials(name),
@@ -2250,21 +2204,21 @@ class _ShieldedChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F4F5),
+        color: Brand.muted,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        border: Border.all(color: Brand.border),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.lock_outline, size: 10, color: Color(0xFF09090B)),
+          Icon(Icons.lock_outline, size: 10, color: Brand.ink),
           SizedBox(width: 2),
           Text(
             'Shielded',
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF71717A),
+              color: Brand.inkSoft,
             ),
           ),
         ],

@@ -8,15 +8,16 @@ import 'package:talk_it_out/app/providers.dart';
 import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
 
 // Stitch Monochrome Precision design tokens (same as the login screen).
-const _kPrimary = Color(0xFF000000);
-const _kSurfaceMuted = Color(0xFFF4F4F5);
-const _kBorderSubtle = Color(0xFFE4E4E7);
-const _kBorderStrong = Color(0xFF27272A);
-const _kTextPrimary = Color(0xFF09090B);
-const _kTextSecondary = Color(0xFF71717A);
-const _kTextTertiary = Color(0xFFA1A1AA);
+const _kPrimary = Brand.accent;
+const _kSurfaceMuted = Brand.muted;
+const _kBorderSubtle = Brand.border;
+const _kBorderStrong = Brand.borderStrong;
+const _kTextPrimary = Brand.ink;
+const _kTextSecondary = Brand.inkSoft;
+const _kTextTertiary = Brand.inkFaint;
 const _kError = Color(0xFFBA1A1A);
 
 enum _Step { email, code, password }
@@ -190,7 +191,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     };
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Brand.canvas,
       body: SafeArea(
         child: ListView(
           padding: EdgeInsets.fromLTRB(hPad, 28, hPad, 32),

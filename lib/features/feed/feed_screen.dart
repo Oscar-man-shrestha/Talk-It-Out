@@ -13,13 +13,14 @@ import 'package:talk_it_out/features/feed/data/post_topic.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
 import 'package:talk_it_out/features/feed/saved_posts.dart';
 import 'package:talk_it_out/features/profile/profile_state.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
 
-const _border = Color(0xFFE4E4E7);
-const _ink = Color(0xFF09090B);
-const _muted = Color(0xFF71717A);
-const _faint = Color(0xFFA1A1AA);
-const _chip = Color(0xFFF4F4F5);
-const _low = Color(0xFFFAFAFA);
+const _border = Brand.border;
+const _ink = Brand.ink;
+const _muted = Brand.inkSoft;
+const _faint = Brand.inkFaint;
+const _chip = Brand.muted;
+const _low = Brand.canvas;
 
 /// "All Topics" plus the fixed feed topics (`API.md` 42).
 final _topics = <(IconData, String, PostTopic?)>[
@@ -219,7 +220,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           ),
           const SizedBox(width: 8),
           Material(
-            color: Colors.black,
+            color: Brand.accent,
             shape: const CircleBorder(),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -247,7 +248,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/feed/new'),
-        backgroundColor: Colors.black,
+        backgroundColor: Brand.accent,
         foregroundColor: Colors.white,
         elevation: 6,
         shape: const StadiumBorder(),
@@ -330,7 +331,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   suffixIcon: const Icon(Icons.tune, size: 18, color: _muted),
                   border: _fieldBorder(_border),
                   enabledBorder: _fieldBorder(_border),
-                  focusedBorder: _fieldBorder(Colors.black),
+                  focusedBorder: _fieldBorder(Brand.accent),
                 ),
               ),
               const SizedBox(height: 10),
@@ -505,7 +506,7 @@ class _Hero extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: onAsk,
                   style: FilledButton.styleFrom(
-                    backgroundColor: Colors.black,
+                    backgroundColor: Brand.accent,
                     foregroundColor: Colors.white,
                     fixedSize: const Size.fromHeight(40),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -580,7 +581,7 @@ class _OutlinePill extends StatelessWidget {
               width: 6,
               height: 6,
               decoration: const BoxDecoration(
-                color: Colors.black,
+                color: Brand.accent,
                 shape: BoxShape.circle,
               ),
             ),
@@ -616,7 +617,7 @@ class _TopicChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: active ? Colors.black : Colors.white,
+      color: active ? Brand.accent : Colors.white,
       borderRadius: BorderRadius.circular(4),
       child: InkWell(
         onTap: onTap,
@@ -626,7 +627,7 @@ class _TopicChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: active ? Colors.black : _border),
+            border: Border.all(color: active ? Brand.accent : _border),
           ),
           child: Row(
             children: [
@@ -801,7 +802,7 @@ class _Toggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: active ? Colors.black : Colors.transparent,
+      color: active ? Brand.accent : Colors.transparent,
       borderRadius: BorderRadius.circular(4),
       child: InkWell(
         onTap: onTap,
@@ -852,9 +853,9 @@ class _VoiceTile extends StatelessWidget {
             height: 24,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: first ? Colors.black : const Color(0xFFE4E4E7),
+              color: first ? Brand.accent : Brand.border,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: first ? Colors.black : _border),
+              border: Border.all(color: first ? Brand.accent : _border),
             ),
             child: Text(
               letters,
@@ -998,7 +999,7 @@ class PostCard extends StatelessWidget {
                     height: 32,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: Colors.black,
+                      color: Brand.accent,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -1176,7 +1177,7 @@ class PostCard extends StatelessWidget {
                   Text(
                     post.commentCount == 0
                         ? 'Awaiting first answer'
-                        : '${post.commentCount} ${AppStrings.commentsTitle}',
+                        : AppStrings.commentCount(post.commentCount),
                     style: const TextStyle(fontSize: 11, color: _muted),
                   ),
                 ],
@@ -1210,7 +1211,7 @@ class PostCard extends StatelessWidget {
                   const Spacer(),
                   if (showAnswer)
                     Material(
-                      color: Colors.black,
+                      color: Brand.accent,
                       borderRadius: BorderRadius.circular(4),
                       child: InkWell(
                         onTap: onOpen,
@@ -1273,7 +1274,7 @@ class _CountButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final foreground = filled ? Colors.white : (tinted ? _ink : _muted);
     return Material(
-      color: filled ? Colors.black : (tinted ? _chip : Colors.white),
+      color: filled ? Brand.accent : (tinted ? _chip : Colors.white),
       borderRadius: BorderRadius.circular(4),
       child: InkWell(
         onTap: onTap,
@@ -1283,7 +1284,7 @@ class _CountButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: filled ? Colors.black : _border),
+            border: Border.all(color: filled ? Brand.accent : _border),
           ),
           child: Row(
             children: [

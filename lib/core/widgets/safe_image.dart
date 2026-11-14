@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
 
 class SafeImage extends StatelessWidget {
   const SafeImage({
@@ -64,12 +65,12 @@ class SafeImage extends StatelessWidget {
     return Container(
       width: width,
       height: height,
-      color: fallbackColor ?? const Color(0xFFE4E4E7),
+      color: fallbackColor ?? Brand.border,
       child: Center(
         child: Icon(
           fallbackIcon,
           size: (width != null && width! < 40) ? 18 : 28,
-          color: const Color(0xFF71717A),
+          color: Brand.inkSoft,
         ),
       ),
     );

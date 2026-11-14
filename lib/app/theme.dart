@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
 
-/// Colors for the Stitch "Monochrome Precision" design system.
-const _black = Color(0xFF09090B);
+/// Colors for the Stitch "Monochrome Precision" design system, with the
+/// warm cream and latte palette from [Brand] for interactive and selected elements.
+const _black = Brand.ink;
 const _pureBlack = Color(0xFF000000);
 const _pureWhite = Color(0xFFFFFFFF);
-const _zinc50 = Color(0xFFFAFAFA);
-const _zinc100 = Color(0xFFF4F4F5);
-const _zinc200 = Color(0xFFE4E4E7);
-const _zinc400 = Color(0xFFA1A1AA);
-const _zinc500 = Color(0xFF71717A);
+const _cream = Brand.card;
+const _zinc50 = Brand.canvas;
+const _zinc100 = Brand.muted;
+const _zinc200 = Brand.border;
+const _zinc400 = Brand.inkFaint;
+const _zinc500 = Brand.inkSoft;
 const _zinc800 = Color(0xFF27272A);
 const _zinc900 = Color(0xFF18181B);
 const _zinc950 = Color(0xFF09090B);
@@ -26,17 +29,17 @@ ThemeData _buildTheme(Brightness brightness) {
   );
 
   final scaffold = isDark ? _zinc950 : _zinc50;
-  final surface = isDark ? _zinc900 : _pureWhite;
-  final card = isDark ? _zinc900 : _pureWhite;
-  final primary = isDark ? _pureWhite : _pureBlack;
+  final surface = isDark ? _zinc900 : _cream;
+  final card = isDark ? _zinc900 : _cream;
+  final primary = isDark ? Brand.accentOnDark : Brand.accent;
   final onPrimary = isDark ? _pureBlack : _pureWhite;
 
   final colorScheme = ColorScheme(
     brightness: brightness,
     primary: primary,
     onPrimary: onPrimary,
-    primaryContainer: isDark ? _zinc800 : _zinc900,
-    onPrimaryContainer: isDark ? _zinc100 : _pureWhite,
+    primaryContainer: isDark ? const Color(0xFF4A3B2C) : Brand.accentSoft,
+    onPrimaryContainer: isDark ? Brand.accentSoft : Brand.accentInk,
     secondary: isDark ? _zinc400 : _zinc500,
     onSecondary: isDark ? _pureBlack : _pureWhite,
     secondaryContainer: isDark ? _zinc800 : _zinc100,
@@ -55,7 +58,7 @@ ThemeData _buildTheme(Brightness brightness) {
     surfaceContainerLowest: isDark ? _zinc950 : _pureWhite,
     surfaceContainerLow: isDark ? _zinc900 : _zinc50,
     surfaceContainer: card,
-    surfaceContainerHigh: isDark ? _zinc800 : const Color(0xFFECECEE),
+    surfaceContainerHigh: isDark ? _zinc800 : const Color(0xFFEFE6D8),
     surfaceContainerHighest: isDark ? _zinc800 : _zinc200,
   );
 
@@ -98,18 +101,14 @@ ThemeData _buildTheme(Brightness brightness) {
         return TextStyle(
           fontSize: 12,
           fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-          color: selected
-              ? colorScheme.onSurface
-              : colorScheme.onSurfaceVariant,
+          color: selected ? primary : colorScheme.onSurfaceVariant,
         );
       }),
       iconTheme: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
         return IconThemeData(
           size: 24,
-          color: selected
-              ? colorScheme.onSurface
-              : colorScheme.onSurfaceVariant,
+          color: selected ? primary : colorScheme.onSurfaceVariant,
         );
       }),
     ),

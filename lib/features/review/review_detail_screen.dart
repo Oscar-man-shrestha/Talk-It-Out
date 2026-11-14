@@ -13,17 +13,18 @@ import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/review/data/raw_message.dart';
 import 'package:talk_it_out/features/review/review_providers.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
 
 // Stitch Monochrome Precision Tokens
-const _kPrimary = Color(0xFF000000);
-const _kSurface = Color(0xFFFFFFFF);
-const _kSurfaceMuted = Color(0xFFF4F4F5);
-const _kSurfaceSubtle = Color(0xFFFAFAFA);
-const _kBorderSubtle = Color(0xFFE4E4E7);
-const _kBorderStrong = Color(0xFF27272A);
-const _kBorderHairline = Color(0xFFF4F4F5);
-const _kTextPrimary = Color(0xFF09090B);
-const _kTextSecondary = Color(0xFF71717A);
+const _kPrimary = Brand.accent;
+const _kSurface = Brand.card;
+const _kSurfaceMuted = Brand.muted;
+const _kSurfaceSubtle = Brand.canvas;
+const _kBorderSubtle = Brand.border;
+const _kBorderStrong = Brand.borderStrong;
+const _kBorderHairline = Brand.muted;
+const _kTextPrimary = Brand.ink;
+const _kTextSecondary = Brand.inkSoft;
 const _kError = Color(0xFFBA1A1A);
 
 class ReviewDetailScreen extends ConsumerStatefulWidget {
@@ -213,7 +214,7 @@ class _ReviewDetailAppBar extends StatelessWidget
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
-                  color: Colors.black,
+                  color: Brand.accent,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: const Center(

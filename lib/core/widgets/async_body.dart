@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
 
 enum AsyncScreenStatus { loading, empty, error, success }
 
@@ -112,7 +113,7 @@ class _LoadingBodyState extends State<_LoadingBody>
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                    border: Border.all(color: Brand.border),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,9 +183,7 @@ class _LoadingBodyState extends State<_LoadingBody>
                       height: 12,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Color(0xFF09090B),
-                        ),
+                        valueColor: AlwaysStoppedAnimation<Color>(Brand.ink),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -195,7 +194,7 @@ class _LoadingBodyState extends State<_LoadingBody>
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.8,
-                        color: const Color(0xFF71717A).withValues(
+                        color: Brand.inkSoft.withValues(
                           alpha: 0.6 + 0.4 * (t < 0.5 ? t * 2 : (1 - t) * 2),
                         ),
                       ),
@@ -224,11 +223,7 @@ class _LoadingBodyState extends State<_LoadingBody>
         gradient: LinearGradient(
           begin: Alignment(-1.5 + 3.0 * t, 0),
           end: Alignment(-0.5 + 3.0 * t, 0),
-          colors: const [
-            Color(0xFFF4F4F5),
-            Color(0xFFE4E4E7),
-            Color(0xFFF4F4F5),
-          ],
+          colors: const [Brand.muted, Brand.border, Brand.muted],
         ),
       ),
     );

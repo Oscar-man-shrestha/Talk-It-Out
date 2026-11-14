@@ -129,6 +129,8 @@ abstract final class AppStrings {
   static const loading = 'Loading';
   static const retry = 'Try again';
   static const errorGeneric = 'Something went wrong. Please try again.';
+  static const serverUnreachable =
+      'Can\'t reach the server. Check your connection and try again.';
   static const notAllowed = 'You are not allowed to do that.';
   static const notFound = 'We could not find that.';
   static const profileTitle = 'Profile';

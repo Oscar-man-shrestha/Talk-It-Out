@@ -49,6 +49,16 @@ RepositoryException repositoryExceptionFromDio(DioException error) {
     }
   }
 
+  // No response at all: the server is down or the network is off.
+  if (error.response == null &&
+      error.type != DioExceptionType.cancel &&
+      error.type != DioExceptionType.badCertificate) {
+    return const RepositoryException(
+      code: 'offline',
+      message: AppStrings.serverUnreachable,
+    );
+  }
+
   final status = error.response?.statusCode;
   if (status == 401) {
     return const RepositoryException(

@@ -2804,6 +2804,6 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - **Reset emails:** SMTP settings are the user's to add in `backend/.env` (the agent does not handle passwords). On the last check the file had no mail lines, so reset codes are off until they are added.
 - **Files created:** `pipeline/scripts/compare_models.py`
 - **Files modified:** `pipeline/talkitout_pipeline/language.py`, `pipeline/tests/test_language.py`, `lib/core/api/api_guard.dart`, `lib/core/strings/app_strings.dart`, `test/api_guard_test.dart`
-- **Commands run and results:** pipeline 156 OK; backend 214 passed, lint and type-check clean; Flutter 95 passed, analyze 0; `npm run check:live` 57/57 with real 3B rewrites.
+- **Commands run and results:** pipeline 154 OK; backend 214 passed, lint and type-check clean; Flutter 95 passed, analyze 0; `npm run check:live` 57/57 with real 3B rewrites.
 - **Next steps:** User adds the Gmail lines to `backend/.env`; then restart the backend and run `npm run mail:test -- <address>`. Optional: remove `qwen2.5:7b` (`ollama rm qwen2.5:7b`) to get 4.7 GB of disk back.
 

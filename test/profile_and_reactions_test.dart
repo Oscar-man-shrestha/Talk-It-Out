@@ -232,7 +232,7 @@ void main() {
       );
     });
 
-    test('mock repository toggles and rejects unknown emoji', () async {
+    test('mock repository toggles any emoji and rejects plain text', () async {
       final groups = MockGroupRepository(
         _fast,
         MockBoard(),
@@ -252,7 +252,7 @@ void main() {
         (before.counts[kReactionEmojis.first] ?? 0) + 1,
       );
       expect(
-        groups.toggleReaction(MockIds.notesGroup, id, emoji: '🤖'),
+        groups.toggleReaction(MockIds.notesGroup, id, emoji: 'ok'),
         throwsA(isA<RepositoryException>()),
       );
     });

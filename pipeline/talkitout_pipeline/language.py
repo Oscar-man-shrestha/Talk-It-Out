@@ -109,10 +109,29 @@ _CONTENT_WORDS = frozenset(
     good great fine bad better best ready done pending important urgent
     quick quickly fast slow new old first second last next final small
     big large short long free busy available unavailable possible
-    impossible""".split()
+    impossible seconds broken unusable useless again every nobody
+    somebody someone anyone everyone nothing something anything
+    everything ignore ignoring ignored load loads loaded show shows
+    shown keep keeps kept stop stops stopped wrong right slow""".split()
 )
 
-_ENGLISH_VOCABULARY = _FUNCTION_WORDS | _CONTENT_WORDS
+# English contractions: frequent in informal (exactly the heated) messages
+# and never Spanish/French/German words.
+_CONTRACTIONS = frozenset(
+    """it's i'm i've i'll i'd don't doesn't didn't can't won't isn't aren't
+    wasn't weren't haven't hasn't hadn't shouldn't couldn't wouldn't we're
+    we've we'll they're they've you're you've that's there's what's who's
+    let's here's""".split()
+)
+
+_ENGLISH_VOCABULARY = _FUNCTION_WORDS | _CONTENT_WORDS | _CONTRACTIONS
+
+
+def _recognized(word: str) -> bool:
+    if word in _ENGLISH_VOCABULARY:
+        return True
+    # English-specific endings on longer words ("loading", "honestly").
+    return len(word) >= 5 and word.endswith(("ing", "ly"))
 
 
 def _is_non_latin(ch: str) -> bool:
@@ -138,7 +157,7 @@ def looks_like_english(text: str) -> bool:
     words = _WORD_RE.findall(text.lower())
     if not words:
         return True
-    recognized = sum(1 for word in words if word in _ENGLISH_VOCABULARY)
+    recognized = sum(1 for word in words if _recognized(word))
     # One-third coverage: ordinary English clears it easily; foreign
     # sentences that merely share a stray short word ("a", "me") do not.
     if recognized / len(words) >= 0.34:

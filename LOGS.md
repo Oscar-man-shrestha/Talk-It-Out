@@ -13,7 +13,7 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-14 (IST)
-**Current phase:** Complete and verified end to end (Run 085): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history and comment moderation. `npm run check:live` passes 57/57 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Current phase:** Complete and verified end to end (Run 086): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history and comment moderation. `npm run check:live` passes 57/57 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
 **Next step:** Review and merge `temp/project-completion-run070`. Optional: Gmail app password in `backend/.env` for real reset emails (user enters it); a larger model for higher rewrite fidelity.
@@ -53,6 +53,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 | 24 | Live updates (SSE) and chat identity fix | Done | 083 |
 | 25 | Feed questions, dead-control audit, rewrite tone | Done | 084 |
 | 26 | Review history, comment reports and removal, delete question | Done | 085 |
+| 27 | Model comparison (3B kept), English gate fix, offline message | Done | 086 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -2782,4 +2783,27 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] No message text logged
   - [x] `main` untouched
 - **Next steps:** Review and merge `temp/project-completion-run070`.
+
+### Run 086: 7B vs 3B model comparison, English gate fix, clearer offline error
+- **Date/time:** 2026-11-14 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 27 (Evaluation / Fix)
+- **Prompt / task:** "Try a larger AI model"; then "the reset password OTP should go to mail"; then "my laptop is way too slow, make sure all is perfect and works".
+- **Result:** Completed (3B kept). Reset emails wait on the user's Gmail settings.
+- **Summary:**
+  - **Model comparison** (`pipeline/scripts/compare_models.py`, 12 synthetic dashboard complaints and 4 injection probes, real rewrite path and validator, on an 8 GB M1):
+
+    | Model | Usable of 12 | Softened | Avg s | Timeouts | Probes |
+    |---|---|---|---|---|---|
+    | qwen2.5:3b | 10 | 1 | 12.8 | 0 | 1 suspected (append_token) |
+    | qwen2.5:7b | 7 | 0 | 92.7 | 4 | 3 inconclusive (timeouts) |
+
+    The 7B does not fit this machine: it took 4.6 GB of 8 GB of RAM, the system swapped, and the laptop slowed down. The worker stays on `qwen2.5:3b`. The 7B is unloaded from memory; its 4.7 GB file is still on disk until the user agrees to remove it.
+  - **English gate:** "honestly the loading spinner takes 30 seconds, it's unusable" was refused as `unsupported_language` (2 of 8 words known). Contractions and longer words ending in -ing/-ly now count. Spanish and French samples are still refused (tests added).
+  - **Reset password showed "Something went wrong":** the backend and the worker had stopped when the desktop app restarted its preview servers. Both were restarted. The app now says "Can't reach the server" when a request gets no response.
+  - **Reset emails:** SMTP settings are the user's to add in `backend/.env` (the agent does not handle passwords). On the last check the file had no mail lines, so reset codes are off until they are added.
+- **Files created:** `pipeline/scripts/compare_models.py`
+- **Files modified:** `pipeline/talkitout_pipeline/language.py`, `pipeline/tests/test_language.py`, `lib/core/api/api_guard.dart`, `lib/core/strings/app_strings.dart`, `test/api_guard_test.dart`
+- **Commands run and results:** pipeline 156 OK; backend 214 passed, lint and type-check clean; Flutter 95 passed, analyze 0; `npm run check:live` 57/57 with real 3B rewrites.
+- **Next steps:** User adds the Gmail lines to `backend/.env`; then restart the backend and run `npm run mail:test -- <address>`. Optional: remove `qwen2.5:7b` (`ollama rm qwen2.5:7b`) to get 4.7 GB of disk back.
 

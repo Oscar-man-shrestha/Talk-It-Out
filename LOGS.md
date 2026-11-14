@@ -13,7 +13,7 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-14 (IST)
-**Current phase:** Complete and verified end to end (Run 089): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history and comment moderation. `npm run check:live` passes 57/57 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Current phase:** Complete and verified end to end (Run 091): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 64/64 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
 **Next step:** Review and merge `temp/project-completion-run070`. Optional: Gmail app password in `backend/.env` for real reset emails (user enters it); a larger model for higher rewrite fidelity.
@@ -57,6 +57,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 | 28 | Three-step password reset, designed email, AI injection fix | Done | 087 |
 | 29 | Site walk-through fixes, palette tokens | Done | 088 |
 | 30 | Final palette: black, white and light cream | Done | 089 |
+| 31 | Photos in group chats with metadata stripping | Done | 091 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -2873,4 +2874,24 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
     - Sign-up's persona card ("Maya Lin" / "Julian Vance" with filled passwords).
     - The avatar picker's stock photos of strangers with made-up names. The "Initial" option now shows the user's own initials.
 - **Commands run and results:** Flutter 95 passed (the profile test now also asserts that no Display ID, Rotate, 12h left or AI Clarity appear), analyze 0; live build checked.
+
+### Run 091: Photos in group chats, with hidden details removed
+- **Date/time:** 2026-11-14 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 31 (Feature)
+- **Prompt / task:** "Why can't they share images and files like WhatsApp?" then "Yes, build it" (safe image sharing).
+- **Result:** Completed (images only; other file types stay out)
+- **Summary:**
+  - **Why not plain files:** a photo or document can identify an anonymous sender (GPS, camera serial, author name), and the AI rewrites only text.
+  - **Upload:** `POST /groups/:id/attachments` (members, 5 MB, PNG/JPEG/WebP; migration 016). `src/imageStrip.ts` rewrites the file without EXIF/XMP, comments and PNG/WebP text chunks, using only the container formats (no new dependency). The JPEG orientation is kept in a minimal EXIF block so phone photos are not shown sideways. Unparseable files are refused.
+  - **Message flow:** the image follows its message. The controller sees it in review (detail card plus a "Photo attached" marker in the queue). On accept it is published with the rewrite; on reject or delete the bytes are deleted. It is served only to the uploader, the controller (in review) and members (once published), always `private`, and the uploader is never returned. A caption is required because the AI rewrites text.
+  - **Hard rules:**
+    - The worker payload is unchanged: text only, no identity, no image.
+    - An anonymous published message still has `display_sender: null`.
+    - My messages is still status only.
+  - **App:** the attach button picks a photo and shows a preview above the message box. The preview tells anonymous senders that location and camera details are removed but what the photo shows is not. Photos appear in chat bubbles (tap to view full size, pinch to zoom) and in the controller's review.
+- **Files created:** `backend/migrations/016_message_attachments.sql`, `backend/src/imageStrip.ts`, `backend/src/routes/attachments.ts`, `backend/test/attachments.test.ts`, `lib/features/groups/chat_image.dart`, `test/chat_image_test.dart`
+- **Files modified:** `groups.ts`, `messages.ts`, `routes/index.ts`, contract/flow/group-ops/reactions/validation-sweep tests, `live-check.mjs`, group and review data layers, `group_chat_screen.dart`, `review_detail_screen.dart`, `review_queue_screen.dart`, `app_strings.dart`, `API.md` (48, 49), `README.md`
+- **Commands run and results:** backend 223 passed, lint and type-check clean; Flutter 98 passed, analyze 0; `npm run check:live` 64/64 with real 3B rewrites. The live check uploads a JPEG with fake GPS and camera text, sends it anonymously, accepts it, and checks that the served bytes have no GPS or camera text and that an outsider gets 404. Chat screen checked in the browser. A photo was not posted into the user's real group.
+- **Next steps:** Review and merge `temp/project-completion-run070`. Possible later work: an automated NSFW check on images; other file types (PDF) only with document metadata removal.
 

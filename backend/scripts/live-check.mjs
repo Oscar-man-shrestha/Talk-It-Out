@@ -119,6 +119,42 @@ async function main() {
     check('reaction toggle (counts only)', r1.status === 200 && r1.body.reactions['👍'] === 1 && !JSON.stringify(r1.body).includes(M.id));
   }
 
+  // Photo with hidden details: stripped on upload, shown after approval.
+  const seg = (m, payload) => { const h = Buffer.from([0xff, m, 0, 0]); h.writeUInt16BE(payload.length + 2, 2); return Buffer.concat([h, payload]); };
+  const jpeg = Buffer.concat([
+    Buffer.from([0xff, 0xd8]),
+    seg(0xe0, Buffer.from('JFIF\0\x01\x01\0\0\x01\0\x01\0\0', 'latin1')),
+    seg(0xe1, Buffer.from('Exif\0\0MM\0*\0\0\0\x08\0\0GPSLatitude 27.71 LiveCheckCamera', 'latin1')),
+    seg(0xda, Buffer.from([1, 1, 0, 0, 0x3f, 0])),
+    Buffer.from([0x12, 0x34, 0xff, 0xd9]),
+  ]);
+  const photoForm = new FormData();
+  photoForm.append('file', new Blob([jpeg], { type: 'image/jpeg' }), 'photo.jpg');
+  const photoUp = await call('POST', `/groups/${gid}/attachments`, { token: M.token, raw: photoForm });
+  check('photo upload (hidden details removed)', photoUp.status === 201 && photoUp.body.byte_size < jpeg.length, JSON.stringify(photoUp.body));
+  const withPhoto = await call('POST', `/groups/${gid}/messages`, {
+    token: M.token,
+    body: { text: 'The export screen cuts off the last column, see the photo.', is_anonymous: true, attachment_id: photoUp.body.id },
+  });
+  check('anonymous message with a photo is queued', withPhoto.status === 201);
+  const photoItem = await waitFor(async () => {
+    const q = await call('GET', `/groups/${gid}/review-queue`, { token: C.token });
+    const it = q.body.items?.find((x) => x.id === withPhoto.body.id);
+    return it && ['done', 'failed'].includes(it.pipeline_status) ? it : null;
+  }, 90);
+  check('controller sees the photo in review', photoItem?.attachment_id === photoUp.body.id);
+  if (photoItem?.pipeline_status === 'done') {
+    const acc2 = await call('POST', `/messages/${withPhoto.body.id}/accept`, { token: C.token });
+    const chat2 = await call('GET', `/groups/${gid}/messages`, { token: M.token });
+    const pub2 = chat2.body.items.find((x) => x.id === acc2.body.published_message_id);
+    check('published photo stays anonymous', pub2?.attachment_id === photoUp.body.id && pub2.display_sender === null);
+    const img = await call('GET', `/groups/${gid}/attachments/${photoUp.body.id}`, { token: M.token });
+    const bytes = Buffer.from(img.body);
+    check('served photo has no GPS or camera details',
+      img.status === 200 && !bytes.toString('latin1').includes('GPSLatitude') && !bytes.toString('latin1').includes('LiveCheckCamera'));
+    check('outsider cannot open the photo', (await call('GET', `/groups/${gid}/attachments/${photoUp.body.id}`, { token: O.token })).status === 404);
+  }
+
   // Named message in the author's chosen tone; then ask for a fresh rewrite.
   const tone = await call('PUT', '/users/me/profile', { token: M.token, body: { rewrite_tone: 'direct' } });
   check('rewrite tone saved (private setting)', tone.status === 200 && tone.body.user.rewrite_tone === 'direct');

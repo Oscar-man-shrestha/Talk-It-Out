@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:talk_it_out/core/models/enums.dart';
 import 'package:talk_it_out/core/models/group.dart';
 import 'package:talk_it_out/core/models/group_member.dart';
@@ -30,12 +32,26 @@ abstract class GroupRepository {
     String groupId, {
     required String text,
     required bool isAnonymous,
+    String? attachmentId,
   });
 
   Future<PublishedMessage> sendControllerMessage(
     String groupId, {
     required String text,
+    String? attachmentId,
   });
+
+  /// Uploads a chat image (API.md 49). The server removes hidden photo
+  /// details (location, camera, author) before storing it. Returns the id
+  /// to send with the message.
+  Future<String> uploadAttachment(
+    String groupId, {
+    required Uint8List bytes,
+    required String filename,
+  });
+
+  /// The image bytes, if the caller may see them.
+  Future<Uint8List> fetchAttachment(String groupId, String attachmentId);
 
   Future<void> deleteMessage(String groupId, String messageId);
 

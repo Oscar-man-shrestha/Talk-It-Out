@@ -14,6 +14,7 @@ import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/review/data/raw_message.dart';
 import 'package:talk_it_out/features/review/review_providers.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/features/groups/chat_image.dart';
 
 // Stitch Monochrome Precision Tokens
 const _kPrimary = Brand.accent;
@@ -355,6 +356,10 @@ class ReviewDetailBody extends StatelessWidget {
 
               // 4. Card 1: Original Contributor Draft
               _OriginalDraftCard(message: message),
+              if (message.attachmentId != null) ...[
+                const SizedBox(height: 12),
+                _AttachedImageCard(message: message),
+              ],
               const SizedBox(height: 16),
 
               // 5. Card 2: AI Structured Proposal
@@ -1199,6 +1204,59 @@ class _ErrorBanner extends StatelessWidget {
               error,
               style: const TextStyle(fontSize: 13, color: _kError),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The photo sent with the message. Published with the rewrite on accept,
+/// deleted on reject. Hidden photo details were removed on upload.
+class _AttachedImageCard extends StatelessWidget {
+  const _AttachedImageCard({required this.message});
+
+  final RawMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('review-image'),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Brand.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Brand.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.image_outlined, size: 16, color: Brand.inkSoft),
+              SizedBox(width: 6),
+              Text(
+                'ATTACHED PHOTO',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6,
+                  color: Brand.inkSoft,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Published with the rewrite if you accept. Check it does not '
+            'show who sent it.',
+            style: TextStyle(fontSize: 11.5, color: Brand.inkSoft),
+          ),
+          const SizedBox(height: 10),
+          ChatImage(
+            groupId: message.groupId,
+            attachmentId: message.attachmentId!,
+            maxHeight: 320,
           ),
         ],
       ),

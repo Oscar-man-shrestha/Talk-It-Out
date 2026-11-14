@@ -22,6 +22,7 @@ _PublishedMessage _$PublishedMessageFromJson(Map<String, dynamic> json) =>
           : DisplaySender.fromJson(
               json['display_sender'] as Map<String, dynamic>,
             ),
+      attachmentId: json['attachment_id'] as String?,
       publishedAt: DateTime.parse(json['published_at'] as String),
     );
 
@@ -31,5 +32,6 @@ Map<String, dynamic> _$PublishedMessageToJson(_PublishedMessage instance) =>
       'group_id': instance.groupId,
       'text': instance.text,
       'display_sender': instance.displaySender?.toJson(),
+      'attachment_id': instance.attachmentId,
       'published_at': instance.publishedAt.toIso8601String(),
     };

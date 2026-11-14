@@ -167,6 +167,7 @@ class MockReviewRepository implements ReviewRepository {
       pipelineStatus: PipelineStatus.done,
       status: MessageStatus.pending,
       createdAt: item.createdAt,
+      attachmentId: item.attachmentId,
     );
   }
 
@@ -196,6 +197,7 @@ class MockReviewRepository implements ReviewRepository {
         displaySender: message.isAnonymous
             ? null
             : DisplaySender(id: message.senderId, name: message.senderName),
+        attachmentId: message.attachmentId,
         publishedAt: DateTime.now().toUtc(),
       ),
     );

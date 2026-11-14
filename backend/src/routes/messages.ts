@@ -15,6 +15,7 @@ interface RawRow {
   status: string;
   pipeline_status: string;
   rewritten_text: string | null;
+  attachment_id: string | null;
 }
 
 /**
@@ -59,14 +60,16 @@ export function createMessagesRouter(pool: Pool, requireAuth: RequireAuth): Rout
       // Publish only the rewrite. The CHECK constraint on published_messages
       // enforces author_id NULL exactly when the message is anonymous.
       const { rows: published } = await client.query(
-        `INSERT INTO published_messages (group_id, author_id, text, is_anonymous, is_controller)
-         VALUES ($1, $2, $3, $4, false)
+        `INSERT INTO published_messages
+           (group_id, author_id, text, is_anonymous, is_controller, attachment_id)
+         VALUES ($1, $2, $3, $4, false, $5)
          RETURNING id`,
         [
           raw.group_id,
           raw.is_anonymous ? null : raw.author_id,
           raw.rewritten_text,
           raw.is_anonymous,
+          raw.attachment_id ?? null,
         ],
       );
       await client.query(
@@ -92,6 +95,10 @@ export function createMessagesRouter(pool: Pool, requireAuth: RequireAuth): Rout
          WHERE id = $1`,
         [raw.id, req.user!.id],
       );
+      // A rejected message's image is deleted: it will never be shown.
+      if (raw.attachment_id) {
+        await client.query('DELETE FROM message_attachments WHERE id = $1', [raw.attachment_id]);
+      }
       // Rejection notification carries no reason.
       await client.query(
         `INSERT INTO notifications (recipient_id, type, ref_id, group_id)

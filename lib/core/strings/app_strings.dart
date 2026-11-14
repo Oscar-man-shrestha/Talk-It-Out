@@ -63,10 +63,6 @@ abstract final class AppStrings {
   static const feedEmpty = 'No posts yet.';
 
   static const emojiTooltip = 'Emoji';
-  static const attachTooltip = 'Attachments';
-  static const attachTextOnly =
-      'Group chats are text only, so nothing in a file can reveal who '
-      'wrote a message.';
   static const copyLink = 'Copy link';
   static const copyQuestion = 'Copy question';
   static const linkCopied = 'Link copied.';
@@ -374,4 +370,18 @@ abstract final class AppStrings {
   static const anonymityCardNote =
       'The AI also rewrites the wording, so your style does not give you away. '
       'Nothing is published until the controller approves it.';
+
+  // Chat images
+  static const attachImage = 'Add a photo';
+  static const removeImage = 'Remove photo';
+  static const imageUnreadable = 'That image could not be read. Try another.';
+  static const imageCaptionNeeded = 'Add a caption to send with the photo.';
+  static const imagePrivacyNamed =
+      'Location and camera details are removed before anyone sees it.';
+  static const imagePrivacyAnonymous =
+      'Location and camera details are removed. Check the photo itself does '
+      'not show who you are: your face, desk, screen name, or handwriting.';
+  static const imageUnavailable = 'Image unavailable';
+  static const imageInReview =
+      'Photo attached. The controller sees it in review.';
 }

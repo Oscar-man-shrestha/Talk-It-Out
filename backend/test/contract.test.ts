@@ -20,6 +20,7 @@ beforeEach(resetDb);
 afterAll(closePool);
 
 const RAW_MESSAGE_KEYS = [
+  'attachment_id',
   'created_at',
   'decided_at',
   'group_id',
@@ -123,6 +124,7 @@ describe('client-model contract', () => {
     expect(items).toHaveLength(2);
     for (const item of items) {
       expect(Object.keys(item).sort()).toEqual([
+        'attachment_id',
         'display_sender',
         'group_id',
         'id',

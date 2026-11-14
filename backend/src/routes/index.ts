@@ -12,6 +12,7 @@ import { createGroupsRouter } from './groups';
 import { createMessagesRouter } from './messages';
 import { createNotificationsRouter } from './notifications';
 import { createPasswordResetRouter } from './passwordReset';
+import { createAttachmentsRouter } from './attachments';
 import { createSecurityRouter } from './security';
 import { createMediaRouter, createProfilesRouter } from './profiles';
 import { createNotificationsReadAllRouter, createReactionsRouter } from './reactions';
@@ -82,6 +83,7 @@ export function createApiRouter(
   router.use('/auth', createSecurityRouter(pool, requireAuth, appConfig));
   router.use('/auth', createGoogleAuthRouter(pool, appConfig));
   router.use('/groups', createReactionsRouter(pool, requireAuth));
+  router.use('/groups', createAttachmentsRouter(pool, requireAuth));
   router.use('/notifications', createNotificationsReadAllRouter(pool, requireAuth));
   router.use('/users', createProfilesRouter(pool, requireAuth));
   router.use('/users', createAccountRouter(pool, requireAuth));

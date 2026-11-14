@@ -20,6 +20,9 @@ abstract class PublishedMessage with _$PublishedMessage {
     required String groupId,
     required String text,
     DisplaySender? displaySender,
+
+    /// An image sent with the message (API.md 49), served to group members.
+    String? attachmentId,
     required DateTime publishedAt,
   }) = _PublishedMessage;
 

@@ -111,6 +111,7 @@ describe('message reactions', () => {
     });
     const chat = await api.get(app, `/groups/${groupId}/messages`, contributor.token);
     expect(Object.keys(chat.body.items[0]).sort()).toEqual([
+      'attachment_id',
       'display_sender',
       'group_id',
       'id',

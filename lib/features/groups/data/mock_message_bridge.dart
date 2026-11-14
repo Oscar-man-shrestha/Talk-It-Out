@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/data/published_message.dart';
 
@@ -13,6 +15,7 @@ class MockOutgoing {
     required this.senderId,
     required this.senderName,
     required this.createdAt,
+    this.attachmentId,
   });
 
   final String id;
@@ -22,10 +25,14 @@ class MockOutgoing {
   final String senderId;
   final String senderName;
   final DateTime createdAt;
+  final String? attachmentId;
 }
 
 class MockMessageBridge {
   final List<PublishedMessage> published = [];
   final List<MyMessageStatus> mine = [];
   final List<MockOutgoing> outgoing = [];
+
+  /// Uploaded chat images by id (mock storage).
+  final Map<String, Uint8List> attachments = {};
 }

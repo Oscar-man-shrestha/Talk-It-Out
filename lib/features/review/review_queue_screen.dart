@@ -1059,6 +1059,21 @@ class _QueueCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
 
+          if (message.attachmentId != null) ...[
+            Row(
+              key: ValueKey('queue-image-${message.id}'),
+              children: const [
+                Icon(Icons.image_outlined, size: 14, color: _kTextSecondary),
+                SizedBox(width: 4),
+                Text(
+                  'Photo attached',
+                  style: TextStyle(fontSize: 11, color: _kTextSecondary),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
+
           // Raw Input Block
           Container(
             padding: const EdgeInsets.all(12),

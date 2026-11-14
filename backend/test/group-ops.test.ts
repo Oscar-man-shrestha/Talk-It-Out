@@ -27,6 +27,7 @@ describe('controller direct messages', () => {
     );
     expect(res.status).toBe(201);
     expect(Object.keys(res.body).sort()).toEqual([
+      'attachment_id',
       'display_sender',
       'group_id',
       'id',

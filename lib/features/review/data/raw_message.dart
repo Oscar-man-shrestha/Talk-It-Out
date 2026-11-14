@@ -30,6 +30,9 @@ abstract class RawMessage with _$RawMessage {
 
     /// When the controller accepted or rejected it; null while pending.
     DateTime? decidedAt,
+
+    /// An image sent with the message, shown to the controller in review.
+    String? attachmentId,
   }) = _RawMessage;
 
   bool get rewriteUnavailable => pipelineStatus == PipelineStatus.failed;

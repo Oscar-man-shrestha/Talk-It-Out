@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:talk_it_out/core/api/api_guard.dart';
 import 'package:talk_it_out/core/api/endpoints.dart';
@@ -81,11 +83,16 @@ class ApiGroupRepository implements GroupRepository {
     String groupId, {
     required String text,
     required bool isAnonymous,
+    String? attachmentId,
   }) {
     return guardApi(() async {
       final response = await _dio.post(
         Endpoints.groupMessages(groupId),
-        data: {'text': text, 'is_anonymous': isAnonymous},
+        data: {
+          'text': text,
+          'is_anonymous': isAnonymous,
+          'attachment_id': ?attachmentId,
+        },
       );
       return SentMessage.fromJson(asJsonMap(response.data));
     });
@@ -110,13 +117,43 @@ class ApiGroupRepository implements GroupRepository {
   Future<PublishedMessage> sendControllerMessage(
     String groupId, {
     required String text,
+    String? attachmentId,
   }) {
     return guardApi(() async {
       final response = await _dio.post(
         '${Endpoints.groupMessages(groupId)}/controller',
-        data: {'text': text},
+        data: {'text': text, 'attachment_id': ?attachmentId},
       );
       return PublishedMessage.fromJson(asJsonMap(response.data));
+    });
+  }
+
+  @override
+  Future<String> uploadAttachment(
+    String groupId, {
+    required Uint8List bytes,
+    required String filename,
+  }) {
+    return guardApi(() async {
+      final form = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: filename),
+      });
+      final response = await _dio.post(
+        Endpoints.groupAttachments(groupId),
+        data: form,
+      );
+      return asJsonMap(response.data)['id'] as String;
+    });
+  }
+
+  @override
+  Future<Uint8List> fetchAttachment(String groupId, String attachmentId) {
+    return guardApi(() async {
+      final response = await _dio.get<List<int>>(
+        Endpoints.groupAttachment(groupId, attachmentId),
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return Uint8List.fromList(response.data ?? const []);
     });
   }
 

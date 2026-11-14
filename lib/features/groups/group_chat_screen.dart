@@ -19,6 +19,7 @@ import 'package:talk_it_out/features/groups/data/published_message.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/profile/profile_state.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/features/groups/chat_image.dart';
 
 class GroupChatScreen extends ConsumerStatefulWidget {
   const GroupChatScreen({required this.groupId, super.key});
@@ -872,6 +873,14 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                               ),
                             ],
 
+                            if (widget.message.attachmentId != null) ...[
+                              ChatImage(
+                                groupId: widget.groupId,
+                                attachmentId: widget.message.attachmentId!,
+                              ),
+                              const SizedBox(height: 6),
+                            ],
+
                             // Message text
                             Text(
                               messageBody,
@@ -1140,6 +1149,19 @@ class _ControllerMessageComposerState
     extends ConsumerState<_ControllerMessageComposer> {
   final _text = TextEditingController();
   var _busy = false;
+  PickedImage? _image;
+
+  Future<void> _pickImage() async {
+    try {
+      final picked = await pickChatImage();
+      if (picked != null && mounted) setState(() => _image = picked);
+    } on RepositoryException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -1149,7 +1171,14 @@ class _ControllerMessageComposerState
 
   Future<void> _sendControllerNote() async {
     final rawText = _text.text.trim();
-    if (rawText.isEmpty) return;
+    if (rawText.isEmpty) {
+      if (_image != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.imageCaptionNeeded)),
+        );
+      }
+      return;
+    }
 
     setState(() => _busy = true);
     try {
@@ -1163,10 +1192,22 @@ class _ControllerMessageComposerState
         fullText = '> Replying to $sender: "$snippet"\n\n$rawText';
       }
 
-      await ref
-          .read(groupRepositoryProvider)
-          .sendControllerMessage(widget.groupId, text: fullText);
+      final repo = ref.read(groupRepositoryProvider);
+      final image = _image;
+      final attachmentId = image == null
+          ? null
+          : await repo.uploadAttachment(
+              widget.groupId,
+              bytes: image.bytes,
+              filename: image.filename,
+            );
+      await repo.sendControllerMessage(
+        widget.groupId,
+        text: fullText,
+        attachmentId: attachmentId,
+      );
       _text.clear();
+      _image = null;
       widget.onClearReply?.call();
       ref.invalidate(groupMessagesProvider(widget.groupId));
       if (mounted) {
@@ -1177,10 +1218,16 @@ class _ControllerMessageComposerState
           ),
         );
       }
-    } catch (e) {
+    } on RepositoryException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed to send: $e')));
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text(AppStrings.errorGeneric)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -1227,6 +1274,14 @@ class _ControllerMessageComposerState
                 const SizedBox(height: 8),
               ],
 
+              if (_image != null) ...[
+                PendingImagePreview(
+                  image: _image!,
+                  anonymous: false,
+                  onRemove: _busy ? null : () => setState(() => _image = null),
+                ),
+                const SizedBox(height: 8),
+              ],
               // Chat Input Row (Message Pill + Black Send Button) - Identical to Contributor
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -1282,13 +1337,8 @@ class _ControllerMessageComposerState
                               color: Color(0xFF8696A0),
                               size: 20,
                             ),
-                            tooltip: AppStrings.attachTooltip,
-                            onPressed: () => ScaffoldMessenger.of(context)
-                                .showSnackBar(
-                                  const SnackBar(
-                                    content: Text(AppStrings.attachTextOnly),
-                                  ),
-                                ),
+                            tooltip: AppStrings.attachImage,
+                            onPressed: _busy ? null : _pickImage,
                           ),
                           const SizedBox(width: 4),
                         ],
@@ -1418,6 +1468,7 @@ class MessageComposer extends ConsumerStatefulWidget {
 class _MessageComposerState extends ConsumerState<MessageComposer> {
   final _text = TextEditingController();
   var _anonymous = false;
+  PickedImage? _image;
   var _busy = false;
   String? _error;
 
@@ -1427,9 +1478,23 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     super.dispose();
   }
 
+  Future<void> _pickImage() async {
+    try {
+      final picked = await pickChatImage();
+      if (picked != null && mounted) setState(() => _image = picked);
+    } on RepositoryException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    }
+  }
+
   Future<void> _send() async {
     final rawText = _text.text.trim();
-    if (rawText.isEmpty) return;
+    if (rawText.isEmpty) {
+      if (_image != null) {
+        setState(() => _error = AppStrings.imageCaptionNeeded);
+      }
+      return;
+    }
 
     setState(() {
       _busy = true;
@@ -1446,11 +1511,24 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
         fullText = '> Replying to $sender: "$snippet"\n\n$rawText';
       }
 
-      await ref
-          .read(groupRepositoryProvider)
-          .sendMessage(widget.groupId, text: fullText, isAnonymous: _anonymous);
+      final repo = ref.read(groupRepositoryProvider);
+      final image = _image;
+      final attachmentId = image == null
+          ? null
+          : await repo.uploadAttachment(
+              widget.groupId,
+              bytes: image.bytes,
+              filename: image.filename,
+            );
+      await repo.sendMessage(
+        widget.groupId,
+        text: fullText,
+        isAnonymous: _anonymous,
+        attachmentId: attachmentId,
+      );
       _text.clear();
       _anonymous = false;
+      _image = null;
       widget.onClearReply?.call();
       ref.invalidate(myMessagesProvider(widget.groupId));
       if (mounted) {
@@ -1618,6 +1696,14 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                   ),
                 ),
 
+              if (_image != null) ...[
+                PendingImagePreview(
+                  image: _image!,
+                  anonymous: _anonymous,
+                  onRemove: _busy ? null : () => setState(() => _image = null),
+                ),
+                const SizedBox(height: 8),
+              ],
               // Chat Input Row (Message Pill + Black Send Button)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -1673,13 +1759,8 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                               color: Color(0xFF8696A0),
                               size: 20,
                             ),
-                            tooltip: AppStrings.attachTooltip,
-                            onPressed: () => ScaffoldMessenger.of(context)
-                                .showSnackBar(
-                                  const SnackBar(
-                                    content: Text(AppStrings.attachTextOnly),
-                                  ),
-                                ),
+                            tooltip: AppStrings.attachImage,
+                            onPressed: _busy ? null : _pickImage,
                           ),
                           const SizedBox(width: 4),
                         ],

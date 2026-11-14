@@ -47,6 +47,12 @@ abstract final class Endpoints {
   static String reviewCounts(String groupId) =>
       '/groups/$groupId/review-counts';
 
+  static String groupAttachments(String groupId) =>
+      '/groups/$groupId/attachments';
+
+  static String groupAttachment(String groupId, String attachmentId) =>
+      '/groups/$groupId/attachments/$attachmentId';
+
   static String reviewMessage(String groupId, String messageId) =>
       '/groups/$groupId/review-queue/$messageId';
 

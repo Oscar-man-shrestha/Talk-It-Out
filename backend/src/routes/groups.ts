@@ -27,9 +27,15 @@ const addMemberSchema = z.object({
     .default('contributor'),
 });
 
+const attachmentId = z
+  .string()
+  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'Attach the image again.')
+  .nullish();
+
 const sendMessageSchema = z.object({
-  text: z.string().trim().min(1, 'Write a message before sending.'),
+  text: z.string().trim().min(1, 'Add a caption before sending.'),
   is_anonymous: z.boolean().default(false),
+  attachment_id: attachmentId,
 });
 
 const controllerMessageSchema = z.object({
@@ -38,7 +44,34 @@ const controllerMessageSchema = z.object({
     .trim()
     .min(1, 'Write a message before sending.')
     .max(5000, 'Message is too long.'),
+  attachment_id: attachmentId,
 });
+
+/**
+ * Checks that an uploaded image may go on a new message: it belongs to
+ * this group, the caller uploaded it, and no message uses it yet. Locks it
+ * for the rest of the transaction.
+ */
+async function claimAttachment(
+  client: PoolClient,
+  id: string | null | undefined,
+  groupId: string,
+  userId: string,
+): Promise<string | null> {
+  if (!id) return null;
+  const { rows } = await client.query(
+    `SELECT a.id FROM message_attachments a
+     WHERE a.id = $1 AND a.group_id = $2 AND a.uploader_id = $3
+       AND NOT EXISTS (SELECT 1 FROM raw_messages r WHERE r.attachment_id = a.id)
+       AND NOT EXISTS (SELECT 1 FROM published_messages p WHERE p.attachment_id = a.id)
+     FOR UPDATE`,
+    [id, groupId, userId],
+  );
+  if (!rows[0]) {
+    throw badRequest('invalid_attachment', 'That image is no longer available. Attach it again.');
+  }
+  return rows[0].id as string;
+}
 
 /**
  * Pending messages only count toward the controller's queue while their
@@ -255,11 +288,12 @@ export function createGroupsRouter(
     const body = parseWith(submitSchema, req.body);
 
     const result = await withTransaction(pool, async (client) => {
+      const attachment = await claimAttachment(client, body.attachment_id, groupId, req.user!.id);
       const { rows } = await client.query(
-        `INSERT INTO raw_messages (group_id, author_id, original_text, is_anonymous)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO raw_messages (group_id, author_id, original_text, is_anonymous, attachment_id)
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING id, group_id, status, created_at`,
-        [groupId, req.user!.id, body.text, body.is_anonymous],
+        [groupId, req.user!.id, body.text, body.is_anonymous, attachment],
       );
       const raw = rows[0];
       // Outbox job: holds only the raw message id, never text or identity.
@@ -288,7 +322,7 @@ export function createGroupsRouter(
     await requireMember(pool, groupId, req.user!.id);
     const { limit, cursor } = parseListQuery(req);
     const { rows } = await pool.query(
-      `SELECT p.id, p.group_id, p.text,
+      `SELECT p.id, p.group_id, p.text, p.attachment_id,
               date_trunc('milliseconds', p.published_at) AS published_at,
               u.id AS author_id, u.name AS author_name
        FROM published_messages p
@@ -311,6 +345,7 @@ export function createGroupsRouter(
         display_sender: row.author_id
           ? { id: row.author_id, name: row.author_name }
           : null,
+        attachment_id: row.attachment_id,
         published_at: row.published_at.toISOString(),
       }),
     );
@@ -362,6 +397,7 @@ export function createGroupsRouter(
     status: string;
     created_at: Date;
     decided_at: Date | null;
+    attachment_id: string | null;
   }) => ({
     id: row.id,
     group_id: row.group_id,
@@ -381,6 +417,7 @@ export function createGroupsRouter(
     status: row.status,
     created_at: row.created_at.toISOString(),
     decided_at: row.decided_at ? row.decided_at.toISOString() : null,
+    attachment_id: row.attachment_id,
   });
 
   const REVIEW_STATUSES = ['pending', 'accepted', 'rejected'] as const;
@@ -409,7 +446,7 @@ export function createGroupsRouter(
     const { rows } = await pool.query(
       `SELECT r.id, r.group_id, r.author_id, r.original_text, r.rewritten_text,
               r.is_anonymous, r.intent_preservation_score, r.relevance_score,
-              r.relevance_label, r.pipeline_status, r.status,
+              r.relevance_label, r.pipeline_status, r.status, r.attachment_id,
               date_trunc('milliseconds', r.created_at) AS created_at,
               date_trunc('milliseconds', r.decided_at) AS decided_at,
               date_trunc('milliseconds', ${sortColumn}) AS sort_at,
@@ -475,18 +512,24 @@ export function createGroupsRouter(
     const role = await memberRole(pool, groupId, req.user!.id);
     if (role !== 'controller') throw forbidden();
     const body = parseWith(controllerMessageSchema, req.body);
-    const { rows } = await pool.query(
-      `INSERT INTO published_messages (group_id, author_id, text, is_anonymous, is_controller)
-       VALUES ($1, $2, $3, false, true)
-       RETURNING id, group_id, text, published_at`,
-      [groupId, req.user!.id, body.text],
-    );
+    const rows = await withTransaction(pool, async (client) => {
+      const attachment = await claimAttachment(client, body.attachment_id, groupId, req.user!.id);
+      const inserted = await client.query(
+        `INSERT INTO published_messages
+           (group_id, author_id, text, is_anonymous, is_controller, attachment_id)
+         VALUES ($1, $2, $3, false, true, $4)
+         RETURNING id, group_id, text, attachment_id, published_at`,
+        [groupId, req.user!.id, body.text, attachment],
+      );
+      return inserted.rows;
+    });
     const row = rows[0];
     res.status(201).json({
       id: row.id,
       group_id: row.group_id,
       text: row.text,
       display_sender: { id: req.user!.id, name: req.user!.name },
+      attachment_id: row.attachment_id,
       published_at: row.published_at.toISOString(),
     });
   });
@@ -500,11 +543,19 @@ export function createGroupsRouter(
     if (!(await groupExists(pool, groupId))) throw notFound();
     const role = await memberRole(pool, groupId, req.user!.id);
     if (role !== 'controller') throw forbidden();
-    const { rowCount } = await pool.query(
-      'DELETE FROM published_messages WHERE id = $1 AND group_id = $2',
-      [messageId, groupId],
-    );
-    if (rowCount === 0) throw notFound();
+    const deleted = await withTransaction(pool, async (client) => {
+      const { rows } = await client.query(
+        'DELETE FROM published_messages WHERE id = $1 AND group_id = $2 RETURNING attachment_id',
+        [messageId, groupId],
+      );
+      if (!rows[0]) return false;
+      // The image goes with the message.
+      if (rows[0].attachment_id) {
+        await client.query('DELETE FROM message_attachments WHERE id = $1', [rows[0].attachment_id]);
+      }
+      return true;
+    });
+    if (!deleted) throw notFound();
     res.status(204).end();
   });
 

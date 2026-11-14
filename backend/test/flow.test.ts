@@ -80,6 +80,7 @@ describe('full moderation flow', () => {
     expect(chat.body.items).toHaveLength(1);
     const published = chat.body.items[0];
     expect(Object.keys(published).sort()).toEqual([
+      'attachment_id',
       'display_sender',
       'group_id',
       'id',
@@ -194,6 +195,7 @@ describe('full moderation flow', () => {
     expect(Object.keys(chat.body).sort()).toEqual(['items', 'next_cursor']);
     for (const item of chat.body.items) {
       expect(Object.keys(item).sort()).toEqual([
+        'attachment_id',
         'display_sender',
         'group_id',
         'id',

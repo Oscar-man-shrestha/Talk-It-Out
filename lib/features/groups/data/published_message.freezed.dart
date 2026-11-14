@@ -289,7 +289,8 @@ as String,
 /// @nodoc
 mixin _$PublishedMessage {
 
- String get id; String get groupId; String get text; DisplaySender? get displaySender; DateTime get publishedAt;
+ String get id; String get groupId; String get text; DisplaySender? get displaySender;/// An image sent with the message (API.md 49), served to group members.
+ String? get attachmentId; DateTime get publishedAt;
 /// Create a copy of PublishedMessage
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -303,20 +304,20 @@ $PublishedMessageCopyWith<PublishedMessage> get copyWith => _$PublishedMessageCo
 @override
 bool operator ==(Object other) {
   final _this = this as PublishedMessage;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublishedMessage&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.groupId, _this.groupId) || other.groupId == _this.groupId)&&(identical(other.text, _this.text) || other.text == _this.text)&&(identical(other.displaySender, _this.displaySender) || other.displaySender == _this.displaySender)&&(identical(other.publishedAt, _this.publishedAt) || other.publishedAt == _this.publishedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublishedMessage&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.groupId, _this.groupId) || other.groupId == _this.groupId)&&(identical(other.text, _this.text) || other.text == _this.text)&&(identical(other.displaySender, _this.displaySender) || other.displaySender == _this.displaySender)&&(identical(other.attachmentId, _this.attachmentId) || other.attachmentId == _this.attachmentId)&&(identical(other.publishedAt, _this.publishedAt) || other.publishedAt == _this.publishedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as PublishedMessage;
-  return Object.hash(runtimeType,_this.id,_this.groupId,_this.text,_this.displaySender,_this.publishedAt);
+  return Object.hash(runtimeType,_this.id,_this.groupId,_this.text,_this.displaySender,_this.attachmentId,_this.publishedAt);
 }
 
 @override
 String toString() {
   final _this = this as PublishedMessage;
-  return 'PublishedMessage(id: ${_this.id}, groupId: ${_this.groupId}, text: ${_this.text}, displaySender: ${_this.displaySender}, publishedAt: ${_this.publishedAt})';
+  return 'PublishedMessage(id: ${_this.id}, groupId: ${_this.groupId}, text: ${_this.text}, displaySender: ${_this.displaySender}, attachmentId: ${_this.attachmentId}, publishedAt: ${_this.publishedAt})';
 }
 
 
@@ -327,7 +328,7 @@ abstract mixin class $PublishedMessageCopyWith<$Res>  {
   factory $PublishedMessageCopyWith(PublishedMessage value, $Res Function(PublishedMessage) _then) = _$PublishedMessageCopyWithImpl;
 @useResult
 $Res call({
- String id, String groupId, String text, DisplaySender? displaySender, DateTime publishedAt
+ String id, String groupId, String text, DisplaySender? displaySender, String? attachmentId, DateTime publishedAt
 });
 
 
@@ -344,13 +345,14 @@ class _$PublishedMessageCopyWithImpl<$Res>
 
 /// Create a copy of PublishedMessage
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? groupId = null,Object? text = null,Object? displaySender = freezed,Object? publishedAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? groupId = null,Object? text = null,Object? displaySender = freezed,Object? attachmentId = freezed,Object? publishedAt = null,}) {
   return _then(PublishedMessage(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,groupId: null == groupId ? _self.groupId : groupId // ignore: cast_nullable_to_non_nullable
 as String,text: null == text ? _self.text : text // ignore: cast_nullable_to_non_nullable
 as String,displaySender: freezed == displaySender ? _self.displaySender : displaySender // ignore: cast_nullable_to_non_nullable
-as DisplaySender?,publishedAt: null == publishedAt ? _self.publishedAt : publishedAt // ignore: cast_nullable_to_non_nullable
+as DisplaySender?,attachmentId: freezed == attachmentId ? _self.attachmentId : attachmentId // ignore: cast_nullable_to_non_nullable
+as String?,publishedAt: null == publishedAt ? _self.publishedAt : publishedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,
   ));
 }
@@ -448,10 +450,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String groupId,  String text,  DisplaySender? displaySender,  DateTime publishedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String groupId,  String text,  DisplaySender? displaySender,  String? attachmentId,  DateTime publishedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PublishedMessage() when $default != null:
-return $default(_that.id,_that.groupId,_that.text,_that.displaySender,_that.publishedAt);case _:
+return $default(_that.id,_that.groupId,_that.text,_that.displaySender,_that.attachmentId,_that.publishedAt);case _:
   return orElse();
 
 }
@@ -469,10 +471,10 @@ return $default(_that.id,_that.groupId,_that.text,_that.displaySender,_that.publ
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String groupId,  String text,  DisplaySender? displaySender,  DateTime publishedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String groupId,  String text,  DisplaySender? displaySender,  String? attachmentId,  DateTime publishedAt)  $default,) {final _that = this;
 switch (_that) {
 case _PublishedMessage():
-return $default(_that.id,_that.groupId,_that.text,_that.displaySender,_that.publishedAt);case _:
+return $default(_that.id,_that.groupId,_that.text,_that.displaySender,_that.attachmentId,_that.publishedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -489,10 +491,10 @@ return $default(_that.id,_that.groupId,_that.text,_that.displaySender,_that.publ
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String groupId,  String text,  DisplaySender? displaySender,  DateTime publishedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String groupId,  String text,  DisplaySender? displaySender,  String? attachmentId,  DateTime publishedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _PublishedMessage() when $default != null:
-return $default(_that.id,_that.groupId,_that.text,_that.displaySender,_that.publishedAt);case _:
+return $default(_that.id,_that.groupId,_that.text,_that.displaySender,_that.attachmentId,_that.publishedAt);case _:
   return null;
 
 }
@@ -504,13 +506,15 @@ return $default(_that.id,_that.groupId,_that.text,_that.displaySender,_that.publ
 @JsonSerializable()
 
 class _PublishedMessage implements PublishedMessage {
-  const _PublishedMessage({required this.id, required this.groupId, required this.text, this.displaySender, required this.publishedAt});
+  const _PublishedMessage({required this.id, required this.groupId, required this.text, this.displaySender, this.attachmentId, required this.publishedAt});
   factory _PublishedMessage.fromJson(Map<String, dynamic> json) => _$PublishedMessageFromJson(json);
 
 @override final  String id;
 @override final  String groupId;
 @override final  String text;
 @override final  DisplaySender? displaySender;
+/// An image sent with the message (API.md 49), served to group members.
+@override final  String? attachmentId;
 @override final  DateTime publishedAt;
 
 /// Create a copy of PublishedMessage
@@ -526,18 +530,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublishedMessage&&(identical(other.id, id) || other.id == id)&&(identical(other.groupId, groupId) || other.groupId == groupId)&&(identical(other.text, text) || other.text == text)&&(identical(other.displaySender, displaySender) || other.displaySender == displaySender)&&(identical(other.publishedAt, publishedAt) || other.publishedAt == publishedAt));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublishedMessage&&(identical(other.id, id) || other.id == id)&&(identical(other.groupId, groupId) || other.groupId == groupId)&&(identical(other.text, text) || other.text == text)&&(identical(other.displaySender, displaySender) || other.displaySender == displaySender)&&(identical(other.attachmentId, attachmentId) || other.attachmentId == attachmentId)&&(identical(other.publishedAt, publishedAt) || other.publishedAt == publishedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,groupId,text,displaySender,publishedAt);
+    return Object.hash(runtimeType,id,groupId,text,displaySender,attachmentId,publishedAt);
 }
 
 @override
 String toString() {
-    return 'PublishedMessage(id: $id, groupId: $groupId, text: $text, displaySender: $displaySender, publishedAt: $publishedAt)';
+    return 'PublishedMessage(id: $id, groupId: $groupId, text: $text, displaySender: $displaySender, attachmentId: $attachmentId, publishedAt: $publishedAt)';
 }
 
 
@@ -548,7 +552,7 @@ abstract mixin class _$PublishedMessageCopyWith<$Res> implements $PublishedMessa
   factory _$PublishedMessageCopyWith(_PublishedMessage value, $Res Function(_PublishedMessage) _then) = __$PublishedMessageCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String groupId, String text, DisplaySender? displaySender, DateTime publishedAt
+ String id, String groupId, String text, DisplaySender? displaySender, String? attachmentId, DateTime publishedAt
 });
 
 
@@ -565,13 +569,14 @@ class __$PublishedMessageCopyWithImpl<$Res>
 
 /// Create a copy of PublishedMessage
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? groupId = null,Object? text = null,Object? displaySender = freezed,Object? publishedAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? groupId = null,Object? text = null,Object? displaySender = freezed,Object? attachmentId = freezed,Object? publishedAt = null,}) {
   return _then(_PublishedMessage(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,groupId: null == groupId ? _self.groupId : groupId // ignore: cast_nullable_to_non_nullable
 as String,text: null == text ? _self.text : text // ignore: cast_nullable_to_non_nullable
 as String,displaySender: freezed == displaySender ? _self.displaySender : displaySender // ignore: cast_nullable_to_non_nullable
-as DisplaySender?,publishedAt: null == publishedAt ? _self.publishedAt : publishedAt // ignore: cast_nullable_to_non_nullable
+as DisplaySender?,attachmentId: freezed == attachmentId ? _self.attachmentId : attachmentId // ignore: cast_nullable_to_non_nullable
+as String?,publishedAt: null == publishedAt ? _self.publishedAt : publishedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,
   ));
 }

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/mock/mock_board.dart';
 import 'package:talk_it_out/core/mock/mock_controls.dart';
@@ -130,6 +132,7 @@ class MockGroupRepository implements GroupRepository {
     String groupId, {
     required String text,
     required bool isAnonymous,
+    String? attachmentId,
   }) {
     return runMock(_controls, () {
       final group = _requireGroup(groupId);
@@ -167,6 +170,7 @@ class MockGroupRepository implements GroupRepository {
           senderId: MockIds.priya,
           senderName: 'Priya',
           createdAt: createdAt,
+          attachmentId: attachmentId,
         ),
       );
       return SentMessage(
@@ -182,6 +186,7 @@ class MockGroupRepository implements GroupRepository {
   Future<PublishedMessage> sendControllerMessage(
     String groupId, {
     required String text,
+    String? attachmentId,
   }) {
     return runMock(_controls, () {
       final group = _requireGroup(groupId);
@@ -207,10 +212,45 @@ class MockGroupRepository implements GroupRepository {
           id: MockIds.priya,
           name: 'Priya (Controller)',
         ),
+        attachmentId: attachmentId,
         publishedAt: DateTime.now().toUtc(),
       );
       _bridge.published.add(msg);
       return msg;
+    });
+  }
+
+  @override
+  Future<String> uploadAttachment(
+    String groupId, {
+    required Uint8List bytes,
+    required String filename,
+  }) {
+    return runMock(_controls, () {
+      _requireGroup(groupId);
+      if (bytes.isEmpty) {
+        throw const RepositoryException(
+          code: 'validation',
+          message: AppStrings.imageUnreadable,
+        );
+      }
+      final id = 'att${_bridge.attachments.length + 1}';
+      _bridge.attachments[id] = bytes;
+      return id;
+    });
+  }
+
+  @override
+  Future<Uint8List> fetchAttachment(String groupId, String attachmentId) {
+    return runMock(_controls, () {
+      final bytes = _bridge.attachments[attachmentId];
+      if (bytes == null) {
+        throw const RepositoryException(
+          code: 'not_found',
+          message: AppStrings.notFound,
+        );
+      }
+      return bytes;
     });
   }
 

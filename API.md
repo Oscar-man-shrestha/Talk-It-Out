@@ -515,3 +515,20 @@ Controller only (`403` otherwise). `status` is `pending` (default, oldest first)
 ### 47. `DELETE /posts/:postId` (delete your own question)
 Author only (`403` otherwise, `404` if it is gone). Removes the question with its likes, comments, reports and pending analysis jobs. A group started from it keeps running; its `source_post_id` becomes `null`.
 
+### 48. `POST /auth/password-reset/verify` (code step of password reset)
+`{email, code}` → `200 {"reset_token": "<64 hex>"}` for a correct, live code. A wrong code is `400 invalid_code`, and its message says how many tries are left. `POST /auth/password-reset/confirm` then takes `{email, reset_token, new_password}` (`{email, code, new_password}` still works). `POST /auth/password-reset` now answers `404 no_account` for an unknown email, `429 too_soon` within a minute of the last code, `502 email_failed` when the mail cannot be sent, and `202 {"status":"sent","expires_in_minutes":15}`.
+
+### 49. Chat images (`/groups/:groupId/attachments`)
+- `POST /groups/:groupId/attachments` (any group member, multipart field `file`, PNG/JPEG/WebP, at most 5 MB) → `201 {"id", "content_type", "byte_size"}`.
+  - Hidden details are removed before storing: EXIF/XMP (GPS, camera, serial, time), comments, and PNG/WebP text chunks. Only a JPEG's orientation is kept.
+  - Not a real image: `415`.
+- Send it with a message by adding `"attachment_id"` to `POST /groups/:groupId/messages` or `/messages/controller`. A caption is still required: the AI rewrites the text, never the image. An image can go on one message only, and only its uploader can attach it (`400 invalid_attachment`).
+- Raw messages (review) and published messages now include `attachment_id` (null when there is none).
+- `GET /groups/:groupId/attachments/:id` serves the bytes with `Cache-Control: private`:
+  - to its uploader;
+  - to the controller while the message is in review;
+  - to every member once it is published;
+  - anyone else gets `404`.
+- The image is deleted when its message is rejected or deleted. The uploader is never returned.
+- **What stripping cannot hide:** what the photo itself shows. The app warns anonymous senders, and the controller checks the image before approving.
+

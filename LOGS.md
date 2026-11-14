@@ -13,7 +13,7 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-14 (IST)
-**Current phase:** Complete and verified end to end (Run 093): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Current phase:** Complete and verified end to end (Run 094): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
 **Next step:** Review and merge `temp/project-completion-run070`. Optional: Gmail app password in `backend/.env` for real reset emails (user enters it); a larger model for higher rewrite fidelity.
@@ -60,6 +60,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 | 31 | Photos in group chats with metadata stripping | Done | 091 |
 | 32 | Chat: replies, withdraw, preview, history, search, pins, polls | Done | 092 |
 | 33 | Emoji keyboard, any-emoji reactions, chat polish, chat-list groups page | Done | 093 |
+| 34 | Discovery: fuzzy people search, @handles, interests, For You, NLP search, startup plan | Done | 094 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -2934,4 +2935,43 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
 - **Commands run and results:** backend 230 passed, lint clean; Flutter 106 passed (including new date and emoji helper tests), analyze 0; live check 75/75 against the local backend; groups list, date divider, jump button and emoji keyboard checked in the browser at phone width.
 - **Live update (user asked):** rebuilt `build/web-live` (API on port 3001, same Google client ID) into a new folder and swapped it in. Migration 018 was already applied. `live-check.mjs` now also sends a flag and a ZWJ reaction and checks that plain text is refused: 77/77 passed against the live backend. The live site's groups list was checked in the browser.
 - **Sign-in lockout fix:** the live check's sign-ups and logins from this Mac used up the shared limit of 10 auth requests per 15 minutes, and the user got "Too many requests" on the sign-in page. Set `RATE_LIMIT_AUTH=200` in the local, gitignored `backend/.env` only (the shipped default stays 10) and restarted the backend. 12 failed logins in a row now get 401, not 429.
+
+### Run 094: Discovery and NLP (people search, @handles, interests, For You)
+- **Date/time:** 2026-11-14 to 2026-11-15 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 34 (Feature / NLP / Planning)
+- **Prompt / task:** "Add members with username search using NLP, so near names are suggested, like Instagram. Make the feed use NLP: ask the user's interests and show preferred posts first, like an Instagram or Pinterest For You page. Use NLP wherever possible, take ideas from famous social media, research and make a proper plan for a startup."
+- **Result:** Completed
+- **Summary:**
+  - **Plan:** `docs/STARTUP_PLAN.md` covers:
+    - research on what Instagram, Pinterest, TikTok, X, Reddit, LinkedIn, Quora, Blind and WhatsApp do best, and what we take from each;
+    - the NLP map (built now, Phase 2, Phase 3);
+    - data promises, the roadmap, metrics, business model, launch plan and risks.
+  - **NLP module** (`backend/src/nlp`, pure functions, 18 unit tests):
+    - text: folding, stop words and a light stemmer;
+    - names: Damerau-Levenshtein, Jaro-Winkler and a phonetic key for English and romanised South Asian names;
+    - topics: a 15-interest lexicon classifier;
+    - ranking: TF-IDF and cosine similarity, BM25 search with typo and prefix expansion, and the For You ranker (score → filter → diversity → exploration, with a reason for every post).
+  - **Migration 019:**
+    - `pg_trgm` plus trigram indexes on names and usernames, and a SQL `talk_sound()` sound-key index (so "rhoan" finds "Rohan");
+    - `users.username_chosen` and `users.interests_set_at`;
+    - `user_interests` and `feed_events`, both erased with the account through ON DELETE CASCADE.
+  - **API 52–56:** people search and suggestions, adding members by id, @handles, interests, For You, signals, feed search with "did you mean", and topic ideas.
+  - **Privacy fix:** other people's profiles no longer return the email-derived `username` until the person chooses a handle.
+  - **App:**
+    - Instagram-style Add Members sheet: search as you type, bold matches, "similar names" hint, suggested people, multi-select chips, Add (n). It replaces the old box with made-up suggestions, both on the Members screen and in the chat menu.
+    - Pinterest-style interest picker, opened once, only while the feed is on screen.
+    - Feed: For you / Latest tabs, a reason line and ⋯ menu ("Why you're seeing this", Not interested with Undo, Edit interests) on each post, a typo-tolerant server search with "Showing results for …", and opens reported as a signal.
+    - Topic suggestion while writing a question.
+    - Profile: @handle editor (live availability check, ideas when taken) and a Feed interests card.
+    - The demo build has matching mock versions.
+  - **Bugs found by tests and fixed:**
+    - For You did not refresh after posting, deleting or answering.
+    - The first-run prompt could open over "Ask a question".
+    - The demo matcher allowed a typo on one-letter queries.
+- **Commands run and results:**
+  - backend 261 passed, type-check and lint clean;
+  - Flutter 113 passed, analyze 0;
+  - `live-check.mjs` 83/83 against the local backend, with 6 new discovery checks.
+- **Not done:** the live web build was not rebuilt. The disk filled up (about 0.3 GB free) during `flutter build web`; the build was stopped, and only its own unfinished output folder was removed. The live site still serves the previous build, so the new screens are not on it yet. The backend already serves the new API.
 

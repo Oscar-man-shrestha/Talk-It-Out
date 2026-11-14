@@ -561,3 +561,39 @@ Published messages now also carry:
 
 Plain text or several emoji in one reaction give `422`. One person can add at most 10 different reactions to a message (`400 too_many_reactions`). Responses list emoji in the order they were first used. They are still counts only, plus your own reactions, and never say who reacted (migration 018 drops the old six-emoji check).
 
+### 52. People search and suggestions
+- `GET /users/search?q=&group_id=&limit=` (q 1–60 chars, limit ≤ 25, default 12).
+  - **Matching:** names are matched by prefix, with typos (edit distance, including swapped letters) and by sound (a phonetic key). Chosen @handles are matched by prefix. An email-derived username that was never chosen matches only exactly.
+  - **Ranking:** people who share groups with you come first among equal matches.
+  - **Items:** `{id, name, handle|null, headline, avatar_url, shared_groups, in_group, match}`, where `match` is one of `exact | prefix | similar | sounds_like`.
+  - **`similar_only`:** true when nothing matched exactly or by prefix.
+  - **`group_id`:** you must be a member of that group (otherwise `404`); `in_group` marks people already in it.
+  - Results never include an email or a private username.
+- `GET /users/suggested?group_id=&limit=`: people from your groups and authors of questions you liked or answered. People already in `group_id` are left out. Each item carries a `reason` ("In 2 of your groups").
+- `POST /groups/:id/members` now also accepts `{user_id}` instead of `{username}`. With neither, the response is `422`.
+
+### 53. @handles
+- `GET /users/me/handle` returns `{handle|null, suggestions[]}`, with suggestions made from your name.
+- `GET /users/handle-available?handle=` returns `{handle, available, problem|null, suggestions[]}`.
+- `PUT /users/me/handle {handle}`:
+  - Rules: 3–30 characters of `a-z 0-9 . _`; no leading, trailing or double dot; reserved words refused (`422`).
+  - Taken: `409 handle_taken` with `suggestions`.
+- Profiles now return `handle`. On someone else's profile, `username` is `null` until that person has chosen a handle.
+
+### 54. Interests
+- `GET /users/me/interests` returns `{interests[], chosen, available[{id,label,emoji,blurb}]}` (15 interests).
+- `PUT /users/me/interests {interests[]}` replaces the list. An empty list is allowed: it records that the picker was skipped.
+
+### 55. For You feed
+- `GET /posts?mode=for_you&limit=&cursor=` returns the usual post items plus `reason {kind, text, interest?}` and `interests[]` (the post's top topics).
+  - **`kind`:** `interest | learned | similar | network | popular | new | explore`.
+  - **Score:** interests (picked, plus learned from likes, answers, saves and opens with a 30-day fade), TF-IDF similarity to what you engaged with, engagement with time decay, a bonus for people in your groups, and freshness.
+  - **Filters:** posts you marked "Not interested" are hidden. Re-ranking keeps one topic from appearing three times in a row and one author from appearing twice in a row. Every fifth slot holds a post from outside your interests.
+  - **Candidates:** the last 120 days, up to 400 posts.
+  - Without `mode`, `GET /posts` is unchanged.
+- `POST /posts/:id/signals {kind: open|save|not_interested, on?: bool}` returns `204`; `on: false` undoes it. The app sends `open` and `not_interested` only. Bookmarks stay on the device, as before.
+
+### 56. Feed search and topic ideas
+- `GET /posts/search?q=` returns `{items, did_you_mean|null}`. Ranking is BM25 over titles (counted twice) and bodies, with stemming, typo tolerance and prefix matching on the last word.
+- `POST /posts/classify {title?, content}` returns `{topic|null, interests[{id,label,emoji,score}]}`. `topic` is one of the six question topics.
+

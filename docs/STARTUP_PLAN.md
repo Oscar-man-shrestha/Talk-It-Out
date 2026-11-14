@@ -39,7 +39,7 @@ Rule for all of it: **anonymous group messages are never used for ranking, profi
 | **Topic tagging of posts** | Tokenise, drop stop words, stem (Porter-style), match a weighted phrase lexicon for 15 interests. Titles count double. Multi-label scores, stored per post. | Zero-shot, explainable, fast, testable. No training data needed yet. |
 | **Topic suggestion while writing** | The same classifier on the draft. | Fewer wrong topics, less effort. |
 | **For You feed** | Score = interest match + content similarity (TF-IDF cosine between the post and what you engaged with) + engagement with time decay + shared-group bonus + freshness. Then filter hidden posts and re-rank for diversity (no more than 2 in a row on one topic), with a small exploration share. Each post gets a reason ("Because you follow Career growth"). | A transparent hybrid that works from day one with few users, and the shape every big feed uses. |
-| **Learning interests** | Like +0.5, answer +1, save +0.75, open +0.2, "Not interested" −1.5 on the post's topics. Old signals fade. | Implicit feedback, as Pinterest and TikTok do. |
+| **Learning interests** | Like +0.5, answer +1, open +0.2, "Not interested" −1.5 on the post's topics. Old signals fade. The API also accepts saves (+0.75), but the app keeps bookmarks on the device as promised; sending saves would need opt-in. | Implicit feedback, as Pinterest and TikTok do. |
 | **Feed search** | BM25 ranking with stemming and typo tolerance (fuzzy term match). | Search that understands "promotion" ≈ "promoted" and survives typos. |
 
 ### Phase 2 (next 4–6 weeks)

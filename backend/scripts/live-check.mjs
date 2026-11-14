@@ -242,6 +242,24 @@ async function main() {
   check('author deletes their question', (await call('DELETE', `/posts/${extra.body.id}`, { token: O.token })).status === 204
     && (await call('GET', `/posts/${extra.body.id}`, { token: M.token })).status === 404);
   check('like', (await call('POST', `/posts/${post.body.id}/reactions`, { token: C.token, body: { type: 'like' } })).body.reaction_count === 1);
+
+  // --- Discovery: interests, For You, search, topic ideas, people --------
+  const ints = await call('PUT', '/users/me/interests', { token: O.token, body: { interests: ['culture', 'wellbeing', 'learning'] } });
+  check('interests saved', ints.status === 200 && ints.body.chosen === true);
+  const fy = await call('GET', '/posts?mode=for_you&limit=50', { token: O.token });
+  const fyItem = fy.body.items?.find((p) => p.id === post.body.id);
+  check('For You ranks with a reason', fy.status === 200 && typeof fyItem?.reason?.text === 'string');
+  check('not interested hides a post', (await call('POST', `/posts/${post.body.id}/signals`, { token: O.token, body: { kind: 'not_interested' } })).status === 204
+    && !(await call('GET', '/posts?mode=for_you&limit=50', { token: O.token })).body.items?.some((p) => p.id === post.body.id));
+  await call('POST', `/posts/${post.body.id}/signals`, { token: O.token, body: { kind: 'not_interested', on: false } });
+  const fs = await call('GET', `/posts/search?q=${encodeURIComponent(`questoin ${run}`)}`, { token: O.token });
+  check('feed search survives a typo', fs.status === 200 && fs.body.items?.some((p) => p.id === post.body.id));
+  const idea = await call('POST', '/posts/classify', { token: O.token, body: { title: 'Is my salary fair?', content: 'No raise or bonus this year.' } });
+  check('topic idea for a draft', idea.body.topic === 'compensation');
+  const nameBits = (C.name || '').split(' ');
+  const typoName = nameBits[0].length >= 4 ? nameBits[0].slice(0, 2) + nameBits[0][3] + nameBits[0][2] + nameBits[0].slice(4) : nameBits[0];
+  const ppl = await call('GET', `/users/search?q=${encodeURIComponent(typoName)}`, { token: M.token });
+  check('people search finds a typo\'d name', ppl.status === 200 && ppl.body.items?.some((p) => p.id === C.id) && !JSON.stringify(ppl.body).includes('@example'));
   const conv = await call('POST', `/posts/${post.body.id}/group`, { token: M.token });
   check('post -> group (author becomes controller)', conv.status === 201 && conv.body.my_role === 'controller');
 

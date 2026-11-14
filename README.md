@@ -28,6 +28,7 @@
 - [Project Architecture & Directory Structure](#-project-architecture--directory-structure)
 - [Non-Negotiable Privacy Hard Rules](#-non-negotiable-privacy-hard-rules)
 - [Technology Stack](#-technology-stack)
+- [Contact](#-contact)
 - [License](#-license)
 
 ---
@@ -265,6 +266,12 @@ pipeline/                  # Python rewrite worker (stdlib only), tests, model s
 - **Backend:** Express 5, TypeScript, PostgreSQL 16 (plain SQL migrations), zod, argon2, JWT access plus rotating refresh tokens, vitest + supertest
 - **Rewrite worker:** Python 3.10+ (stdlib only) calling a self-hosted OpenAI-compatible model (vLLM, Qwen2.5-3B-Instruct)
 - **Visual Design:** **Monochrome Precision** (black and white with subtle borders, 48dp minimum touch targets)
+
+---
+
+## ✉️ Contact
+
+Project email: **talkitoutapp.mail@gmail.com**. Password-reset codes are sent from this address too.
 
 ---
 

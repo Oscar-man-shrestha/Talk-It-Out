@@ -6,8 +6,9 @@ the `flutter run` / `flutter build` command line.
 
 ## 1. Email codes with Gmail (password reset)
 
-1. Turn on **2-Step Verification** for the Gmail account that will send
-   the emails: <https://myaccount.google.com/security>.
+The project's official sender is **talkitoutapp.mail@gmail.com**.
+
+1. Turn on **2-Step Verification** for that Gmail account: <https://myaccount.google.com/security>.
 2. Open <https://myaccount.google.com/apppasswords>, create an app
    password named "Talk It Out", and copy the 16 letters.
 3. In `backend/.env` set:
@@ -15,13 +16,13 @@ the `flutter run` / `flutter build` command line.
    MAIL_TRANSPORT=smtp
    SMTP_HOST=smtp.gmail.com
    SMTP_PORT=465
-   SMTP_USER=you@gmail.com
+   SMTP_USER=talkitoutapp.mail@gmail.com
    SMTP_PASS=abcd efgh ijkl mnop
    ```
    (Spaces in the app password are fine. Leave `SMTP_URL` empty.)
 4. Restart the backend and check it:
    ```bash
-   cd backend && npm run mail:test -- you@gmail.com
+   cd backend && npm run mail:test -- talkitoutapp.mail@gmail.com
    ```
    `sent via smtp ...` means it works. `EAUTH` means the user or app
    password is wrong (your normal Gmail password does not work here).

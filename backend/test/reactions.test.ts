@@ -73,7 +73,7 @@ describe('message reactions', () => {
 
     expect((await api.get(app, path)).status).toBe(401);
     expect((await api.post(app, path, outsider.token, { emoji: '👍' })).status).toBe(403);
-    const bad = await api.post(app, path, contributor.token, { emoji: '💩' });
+    const bad = await api.post(app, path, contributor.token, { emoji: 'lol' });
     expect(bad.status).toBe(422);
     expect(bad.body.error.code).toBe('validation');
     const missing = await api.get(
@@ -151,5 +151,34 @@ describe('notifications read-all', () => {
       marked_count: 0,
     });
     expect((await api.post(app, '/notifications/read-all')).status).toBe(401);
+  });
+});
+
+describe('any emoji (Run 093)', () => {
+  it('accepts any single emoji, refuses text or several, caps at 10 per person', async () => {
+    const app = testApp();
+    const { controller, contributor, groupId } = await seedGroup(app);
+    const ann = await api.post(app, `/groups/${groupId}/messages/controller`, controller.token, {
+      text: 'Ship it?',
+    });
+    const path = `/groups/${groupId}/messages/${ann.body.id}/reactions`;
+    for (const emoji of ['😂', '👍🏽', '🇳🇵', '❤️‍🔥', '👨‍👩‍👧', '1️⃣']) {
+      const res = await api.post(app, path, contributor.token, { emoji });
+      expect(res.status, emoji).toBe(200);
+    }
+    for (const bad of ['ok', '😂😂', 'a😂', '', '1']) {
+      expect((await api.post(app, path, contributor.token, { emoji: bad })).status, bad).toBe(422);
+    }
+    const view = await api.get(app, path, controller.token);
+    expect(Object.keys(view.body.reactions)).toEqual(['😂', '👍🏽', '🇳🇵', '❤️‍🔥', '👨‍👩‍👧', '1️⃣']);
+    expect(view.body.my_reactions).toEqual([]);
+    expect(JSON.stringify(view.body)).not.toContain(contributor.id);
+
+    for (const emoji of ['🍕', '🎉', '🚀', '👀']) {
+      expect((await api.post(app, path, contributor.token, { emoji })).status).toBe(200);
+    }
+    const eleventh = await api.post(app, path, contributor.token, { emoji: '🙏' });
+    expect(eleventh.status).toBe(400);
+    expect(eleventh.body.error.code).toBe('too_many_reactions');
   });
 });

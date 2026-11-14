@@ -1,4 +1,5 @@
-/// The reactions the backend accepts (`API.md` endpoint 33).
+/// The quick-reaction bar. Any single emoji can be a reaction (API.md 51);
+/// these six are one tap away, the rest are in the emoji picker.
 const kReactionEmojis = ['👍', '❤️', '🔥', '💡', '👏', '🎯'];
 
 /// Reaction counts for one published message.

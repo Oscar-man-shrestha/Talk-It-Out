@@ -21,6 +21,7 @@ import 'package:talk_it_out/features/profile/profile_state.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/groups/chat_image.dart';
 import 'package:talk_it_out/features/groups/chat_extras.dart';
+import 'package:talk_it_out/features/groups/emoji_picker.dart';
 
 class GroupChatScreen extends ConsumerStatefulWidget {
   const GroupChatScreen({required this.groupId, super.key});
@@ -554,69 +555,10 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
     setState(() => _showReactionsBar = false);
   }
 
-  void _showAllEmojis() {
-    setState(() => _showReactionsBar = false);
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Brand.canvas,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'React with Emoji',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Brand.ink,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () => Navigator.of(ctx).pop(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  for (final emoji in kReactionEmojis)
-                    InkWell(
-                      borderRadius: BorderRadius.circular(10),
-                      onTap: () {
-                        Navigator.of(ctx).pop();
-                        _reactWith(emoji);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Brand.muted,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          emoji,
-                          style: const TextStyle(fontSize: 22),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  /// The full emoji keyboard; the picked emoji becomes a reaction.
+  Future<void> _showAllEmojis() async {
+    final emoji = await pickEmoji(context);
+    if (emoji != null && mounted) _reactWith(emoji);
   }
 
   Color _authorColor(String name) {
@@ -2659,57 +2601,4 @@ String _clock(DateTime value) {
   final minute = local.minute.toString().padLeft(2, '0');
   final suffix = local.hour >= 12 ? 'PM' : 'AM';
   return '$hour12:$minute $suffix';
-}
-
-const _emojis = [
-  '😀', '😊', '🙂', '😉', '😅', '😂', '🙏', '👍', '👎', '👏', //
-  '🙌', '💪', '🤝', '👀', '🤔', '😐', '😕', '😟', '😢', '😮', //
-  '😤', '😴', '🥳', '🎉', '✅', '❌', '⚠️', '💡', '📌', '🔥', //
-  '❤️', '💙', '⭐', '☕', '📅', '⏰', '📈', '📉', '🚀', '🛠️',
-];
-
-/// A small emoji palette that inserts the picked emoji at the cursor.
-Future<void> showEmojiPicker(
-  BuildContext context,
-  TextEditingController controller,
-) {
-  return showModalBottomSheet<void>(
-    context: context,
-    showDragHandle: true,
-    builder: (sheetContext) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-        child: GridView.count(
-          key: const ValueKey('emoji-picker'),
-          crossAxisCount: 8,
-          shrinkWrap: true,
-          children: [
-            for (final emoji in _emojis)
-              InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () {
-                  _insertAtCursor(controller, emoji);
-                  Navigator.of(sheetContext).pop();
-                },
-                child: Center(
-                  child: Text(emoji, style: const TextStyle(fontSize: 24)),
-                ),
-              ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-void _insertAtCursor(TextEditingController controller, String insert) {
-  final value = controller.value;
-  final selection = value.selection;
-  final start = selection.isValid ? selection.start : value.text.length;
-  final end = selection.isValid ? selection.end : value.text.length;
-  final text = value.text.replaceRange(start, end, insert);
-  controller.value = TextEditingValue(
-    text: text,
-    selection: TextSelection.collapsed(offset: start + insert.length),
-  );
 }

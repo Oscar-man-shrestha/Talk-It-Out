@@ -1,3 +1,5 @@
+import 'package:flutter/widgets.dart' show StringCharacters;
+
 import 'dart:typed_data';
 
 import 'package:talk_it_out/core/errors/repository_exception.dart';
@@ -505,7 +507,7 @@ class MockGroupRepository implements GroupRepository {
   }) {
     return runMock(_controls, () {
       _requireGroup(groupId);
-      if (!kReactionEmojis.contains(emoji)) {
+      if (emoji.trim().isEmpty || emoji.characters.length != 1) {
         throw const RepositoryException(
           code: 'validation',
           message: AppStrings.reactionRequired,

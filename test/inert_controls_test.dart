@@ -9,7 +9,7 @@ import 'package:talk_it_out/features/auth/data/mock_auth_repository.dart';
 import 'package:talk_it_out/features/feed/saved_posts.dart';
 import 'package:talk_it_out/features/profile/data/mock_profile_repository.dart';
 import 'package:talk_it_out/features/profile/data/profile.dart';
-import 'package:talk_it_out/features/groups/group_chat_screen.dart';
+import 'package:talk_it_out/features/groups/emoji_picker.dart';
 import 'package:talk_it_out/features/review/data/mock_review_repository.dart';
 
 void main() {
@@ -80,10 +80,19 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('emoji-picker')), findsOneWidget);
+    // Opens on Smileys (no recents yet); search finds the thumbs up.
+    await tester.enterText(find.byKey(const ValueKey('emoji-search')), 'thumbs');
+    await tester.pumpAndSettle();
     await tester.tap(find.text('👍'));
     await tester.pumpAndSettle();
     expect(controller.text, 'Thanks👍 all');
     expect(controller.selection.baseOffset, 8);
-    expect(find.byKey(const ValueKey('emoji-picker')), findsNothing);
+    // Stays open like a phone's emoji keyboard; ⌫ removes the whole emoji.
+    expect(find.byKey(const ValueKey('emoji-picker')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('emoji-backspace')));
+    await tester.pumpAndSettle();
+    expect(controller.text, 'Thanks all');
+    // The emoji is now in Recent.
+    expect(RecentEmoji.items.first, '👍');
   });
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
@@ -182,6 +183,13 @@ class BlockedPeopleScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: Brand.canvas,
         surfaceTintColor: Colors.transparent,
+        // Opened from a link there is nothing to pop: go somewhere useful.
+        leading: IconButton(
+          tooltip: 'Back',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/profile'),
+        ),
         title: const Text(
           'Blocked people',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),

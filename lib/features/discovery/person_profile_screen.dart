@@ -49,6 +49,13 @@ class PersonProfileScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: Brand.canvas,
         surfaceTintColor: Colors.transparent,
+        // Opened from a link there is nothing to pop: go somewhere useful.
+        leading: IconButton(
+          tooltip: 'Back',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/feed'),
+        ),
         title: Text(
           data == null
               ? ''

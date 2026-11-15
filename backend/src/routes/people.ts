@@ -161,6 +161,11 @@ export function createPeopleRouter(pool: Pool, requireAuth: RequireAuth): Router
            OR (u.username_chosen AND $3 <% lower(u.username))
            OR talk_name_sounds(u.name) && talk_name_sounds($3)
          )
+         -- Best candidates first, so a large user base never pushes an
+         -- exact match out of the re-ranked window.
+         ORDER BY (lower(u.username) = $3) DESC,
+                  (lower(u.name) LIKE $5 ESCAPE '!') DESC,
+                  greatest(similarity(lower(u.name), $3), word_similarity($3, lower(u.name))) DESC
          LIMIT 300`,
         [me, query.group_id ?? null, q, `%${escapeLike(q)}%`, `${escapeLike(q)}%`],
       );

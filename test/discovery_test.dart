@@ -12,6 +12,7 @@ import 'package:talk_it_out/features/discovery/data/name_match.dart';
 import 'package:talk_it_out/features/discovery/discovery_providers.dart';
 import 'package:talk_it_out/features/discovery/handle_editor.dart';
 import 'package:talk_it_out/features/discovery/interest_picker_screen.dart';
+import 'package:talk_it_out/features/discovery/recent_people.dart';
 import 'package:talk_it_out/features/feed/feed_screen.dart';
 
 ProviderContainer _container() {
@@ -23,6 +24,7 @@ ProviderContainer _container() {
       mockControlsProvider.overrideWithValue(
         MockControls(delay: Duration.zero),
       ),
+      recentPeopleStorageProvider.overrideWithValue(null),
     ],
   );
   addTearDown(container.dispose);
@@ -145,6 +147,11 @@ void main() {
             .items
             .map((m) => m.userId);
     expect(members, containsAll(['u4', 'u6']));
+    // Both now show as Recent, on this device only.
+    expect(
+      container.read(recentPeopleProvider).map((p) => p.id),
+      containsAll(['u4', 'u6']),
+    );
   });
 
   testWidgets('Interest picker needs 3 picks, then saves', (tester) async {

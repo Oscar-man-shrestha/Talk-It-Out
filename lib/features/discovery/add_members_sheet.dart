@@ -6,6 +6,7 @@ import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
+import 'package:talk_it_out/features/discovery/recent_people.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 
 /// Instagram-style "Add people": search with typo-tolerant suggestions,
@@ -124,14 +125,19 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
     setState(() => _adding = true);
     final repo = ref.read(groupRepositoryProvider);
     final added = <String>[];
+    final addedPeople = <PersonResult>[];
     final failed = <String>[];
     for (final person in _selected.values) {
       try {
         await repo.addMember(widget.groupId, userId: person.id);
         added.add(person.name);
+        addedPeople.add(person);
       } on RepositoryException catch (e) {
         failed.add('${person.name}: ${e.message}');
       }
+    }
+    if (addedPeople.isNotEmpty) {
+      ref.read(recentPeopleProvider.notifier).addAll(addedPeople);
     }
     ref.invalidate(membersProvider(widget.groupId));
     ref.invalidate(groupDetailProvider(widget.groupId));
@@ -169,6 +175,30 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
         ? (_results?.items ?? const <PersonResult>[])
         : (_suggested ?? const <PersonResult>[]);
     final count = _selected.length;
+    // Recent people, marked when they are already in this group.
+    final memberIds = {
+      for (final m
+          in ref.watch(membersProvider(widget.groupId)).value ?? const [])
+        m.userId,
+    };
+    final suggestedIds = {
+      for (final p in _suggested ?? const <PersonResult>[]) p.id,
+    };
+    final recent = showingSearch
+        ? const <PersonResult>[]
+        : [
+            for (final p in ref.watch(recentPeopleProvider))
+              if (!suggestedIds.contains(p.id))
+                PersonResult(
+                  id: p.id,
+                  name: p.name,
+                  handle: p.handle,
+                  headline: p.headline,
+                  avatarUrl: p.avatarUrl,
+                  inGroup: memberIds.contains(p.id),
+                  reason: 'Recently added',
+                ),
+          ];
 
     return Column(
       children: [
@@ -310,6 +340,29 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
                   icon: Icons.auto_fix_high,
                   text: 'No exact match. Showing names that look or sound similar.',
                 ),
+              if (recent.isNotEmpty) ...[
+                Row(
+                  children: [
+                    const Expanded(child: _SectionTitle('Recent')),
+                    TextButton(
+                      key: const ValueKey('recent-clear'),
+                      onPressed: () =>
+                          ref.read(recentPeopleProvider.notifier).clear(),
+                      child: const Text(
+                        'Clear',
+                        style: TextStyle(color: Brand.inkSoft),
+                      ),
+                    ),
+                  ],
+                ),
+                for (final p in recent)
+                  _PersonTile(
+                    person: p,
+                    query: '',
+                    selected: _selected.containsKey(p.id),
+                    onTap: () => _toggle(p),
+                  ),
+              ],
               if (!showingSearch)
                 const _SectionTitle('Suggested')
               else if (people.isNotEmpty)

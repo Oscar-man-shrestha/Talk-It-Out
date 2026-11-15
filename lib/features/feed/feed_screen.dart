@@ -91,6 +91,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       if (router == null || !(ModalRoute.of(context)?.isCurrent ?? false)) {
         return;
       }
+      // Only on the feed itself: never over "Ask", a question, or while a
+      // deep link is still loading.
+      final path = router.routerDelegate.currentConfiguration.uri.path;
+      if (path != '/feed') return;
       ref.read(interestPromptShownProvider.notifier).set();
       router.push('/feed/interests?first=1');
     });

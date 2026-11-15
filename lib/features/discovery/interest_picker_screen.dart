@@ -206,7 +206,22 @@ class _InterestTile extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(option.emoji, style: const TextStyle(fontSize: 30)),
+                    // A light circle keeps the emoji visible on the dark
+                    // selected tile, and the dark colour keeps a
+                    // single-colour fallback font readable.
+                    Container(
+                      width: 46,
+                      height: 46,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: selected ? Colors.white : Brand.accentSoft,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        option.emoji,
+                        style: const TextStyle(fontSize: 24, color: Brand.ink),
+                      ),
+                    ),
                     const Spacer(),
                     Text(
                       option.label,

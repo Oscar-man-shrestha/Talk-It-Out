@@ -1,5 +1,6 @@
 import supertest from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { pruneFeedEvents } from '../src/retention';
 import { api, closePool, ensureSchema, registerUser, resetDb, testApp, testPool } from './helpers';
 
 beforeAll(ensureSchema);
@@ -303,6 +304,20 @@ describe('feed search and topic ideas (API 56)', () => {
     expect(res.body.items[0]).toMatchObject({ title: 'How should I ask for a raise?', comment_count: 0 });
     const none = await api.post(app, '/posts/similar', me.token, { content: 'Totally unrelated gardening tips' });
     expect(none.body.items).toEqual([]);
+  });
+
+  it('prunes feed signals older than 180 days', async () => {
+    const app = testApp();
+    const me = await registerUser(app, 'Oscar', 'o@example.com');
+    const p = await api.post(app, '/posts', me.token, { content: 'hello there' });
+    await api.post(app, `/posts/${p.body.id}/signals`, me.token, { kind: 'open' });
+    await api.post(app, `/posts/${p.body.id}/signals`, me.token, { kind: 'save' });
+    await testPool().query(
+      "UPDATE feed_events SET created_at = now() - interval '181 days' WHERE kind = 'open'",
+    );
+    expect(await pruneFeedEvents(testPool())).toBe(1);
+    const left = await testPool().query('SELECT kind FROM feed_events');
+    expect(left.rows.map((r) => r.kind)).toEqual(['save']);
   });
 });
 

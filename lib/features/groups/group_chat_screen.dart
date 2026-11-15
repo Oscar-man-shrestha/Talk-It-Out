@@ -23,6 +23,7 @@ import 'package:talk_it_out/features/groups/chat_image.dart';
 import 'package:talk_it_out/features/groups/chat_extras.dart';
 import 'package:talk_it_out/features/groups/emoji_picker.dart';
 import 'package:talk_it_out/features/discovery/add_members_sheet.dart';
+import 'package:talk_it_out/features/groups/tone_hint.dart';
 
 class GroupChatScreen extends ConsumerStatefulWidget {
   const GroupChatScreen({required this.groupId, super.key});
@@ -1634,6 +1635,17 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   PickedImage? _image;
   var _busy = false;
   String? _error;
+  ToneHint? _tone;
+
+  @override
+  void initState() {
+    super.initState();
+    // On-device only: the draft is checked as it is typed, never sent.
+    _text.addListener(() {
+      final hint = checkTone(_text.text);
+      if (hint?.kind != _tone?.kind) setState(() => _tone = hint);
+    });
+  }
 
   @override
   void dispose() {
@@ -1888,6 +1900,41 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                 ),
                 const SizedBox(height: 8),
               ],
+              if (_tone != null)
+                Container(
+                  key: const ValueKey('tone-hint'),
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                  decoration: BoxDecoration(
+                    color: Brand.accentSoft,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Brand.accentBorder),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 1),
+                        child: Icon(
+                          Icons.spa_outlined,
+                          size: 16,
+                          color: Brand.accentInk,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${_tone!.message} Preview AI wording can help.',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            height: 1.35,
+                            color: Brand.accentInk,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton.icon(

@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: 15 November 2026
+Last updated: 16 November 2026
 
 Talk It Out helps teams say difficult things safely: group messages can be sent anonymously, an AI rewrites them in a calm tone, and a group controller reviews them before anyone else sees them. This policy explains what we collect, why, who can see it, and how to delete it.
 
@@ -18,7 +18,7 @@ Talk It Out helps teams say difficult things safely: group messages can be sent 
 
 **Safety.** People you block and questions you report.
 
-**On your device only.** Saved questions, recent people in Add Members and your sign-in tokens stay on your device and are never sent to us.
+**On your device only.** Saved questions, recent people in Add Members, the accounts offered under "Continue as" on the sign-in screen (name and email, never a password) and your sign-in tokens stay on your device and are never sent to us.
 
 We do not collect your contacts, location, microphone or camera (other than a photo you choose to attach), and we do not use advertising or tracking SDKs.
 
@@ -28,7 +28,8 @@ We do not collect your contacts, location, microphone or camera (other than a ph
 - **Your original wording:** only you and the group's controller. Other members see only the approved rewrite.
 - **Questions, comments and your name on them:** every signed-in user. The public feed is never anonymous.
 - **Your profile:** signed-in users, except people you blocked or who blocked you. Your email is shown only to you.
-- **Who reported or reacted:** nobody. Only counts are shown.
+- **Who liked a question:** signed-in users can see who liked a public question, like on other social apps (people you blocked, or who blocked you, are left out).
+- **Reactions in groups and who reported anything:** nobody. Group reactions show counts only, so they can never reveal an anonymous member.
 
 ## How we use it
 

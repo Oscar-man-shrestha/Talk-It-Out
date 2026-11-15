@@ -340,3 +340,21 @@ enum ReportReason {
   final String id;
   final String label;
 }
+
+/// Who liked a question (`API.md` 64).
+class LikersPage {
+  const LikersPage({required this.items, required this.total});
+
+  factory LikersPage.fromJson(Map<String, dynamic> json) => LikersPage(
+    items: [
+      for (final x in _maps(json['items']))
+        PersonResult.fromJson({...x, if (x['is_me'] == true) 'reason': 'You'}),
+    ],
+    total: _int(json['total']),
+  );
+
+  final List<PersonResult> items;
+
+  /// All likes, including people hidden from you by a block.
+  final int total;
+}

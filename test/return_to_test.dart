@@ -40,6 +40,9 @@ void main() {
     expect(_where(tester), '/login?from=%2Ffeed');
 
     // Mock builds start filled with the sample account.
+    // Demo builds start empty; the sample account is one tap away.
+    await tester.tap(find.byKey(const ValueKey('login-demo-account')));
+    await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, AppStrings.loginAction));
     await tester.pumpAndSettle();
     expect(_where(tester), '/feed');
@@ -66,6 +69,9 @@ void main() {
     GoRouter.of(tester.element(find.byType(Navigator).first))
         .go('/login?from=%2F%2Fevil.example%2Fx');
     await tester.pumpAndSettle();
+    // Demo builds start empty; the sample account is one tap away.
+    await tester.tap(find.byKey(const ValueKey('login-demo-account')));
+    await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, AppStrings.loginAction));
     await tester.pumpAndSettle();
     expect(_where(tester), '/groups');

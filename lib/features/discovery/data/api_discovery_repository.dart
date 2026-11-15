@@ -199,4 +199,12 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
       await _dio.delete('/posts/$postId/report');
     });
   }
+
+  @override
+  Future<LikersPage> likers(String postId) {
+    return guardApi(() async {
+      final response = await _dio.get('/posts/$postId/likes');
+      return LikersPage.fromJson(asJsonMap(response.data));
+    });
+  }
 }

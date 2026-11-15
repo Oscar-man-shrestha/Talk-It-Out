@@ -42,15 +42,15 @@ void main() {
     tester,
   ) async {
     await _pumpApp(tester);
-    // Mock builds start filled with the documented sample account.
+    // The form starts empty, even in demo builds: nothing is pre-filled.
     final fields = find.byType(TextField);
-    expect(
-      tester.widget<TextField>(fields.at(0)).controller!.text,
-      MockAuthRepository.mockEmail,
-    );
+    expect(tester.widget<TextField>(fields.at(0)).controller!.text, isEmpty);
+    expect(tester.widget<TextField>(fields.at(1)).controller!.text, isEmpty);
+    expect(find.byKey(const ValueKey('login-demo-account')), findsOneWidget);
 
     // An unknown email used to be silently swapped for the sample account.
     await tester.enterText(fields.at(0), 'stranger@elsewhere.org');
+    await tester.enterText(fields.at(1), 'whatever123');
     await tester.tap(_signIn);
     await tester.pumpAndSettle();
     expect(find.text(AppStrings.wrongLogin), findsOneWidget);

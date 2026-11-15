@@ -8,6 +8,7 @@ import 'package:talk_it_out/app/providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/features/auth/data/mock_auth_repository.dart';
+import 'package:talk_it_out/features/auth/saved_accounts.dart';
 import 'package:talk_it_out/features/auth/google/google_button.dart';
 import 'package:talk_it_out/features/auth/google/google_sign_in_service.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
@@ -38,24 +39,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   var _keepSession = true;
   String? _error;
 
-  /// Mock builds start filled with the seeded sample account from `API.md`.
-  /// Live builds start empty: there is no shared demo account on a server.
+  /// The form always starts empty. Demo builds offer an explicit "Use the
+  /// demo account" button instead of filling it in.
   bool get _useMock => ref.read(appConfigProvider).useMock;
-
-  @override
-  void initState() {
-    super.initState();
-    if (_useMock) {
-      _email.text = MockAuthRepository.mockEmail;
-      _password.text = MockAuthRepository.mockPassword;
-    }
-  }
+  final _passwordFocus = FocusNode();
 
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _passwordFocus.dispose();
     super.dispose();
+  }
+
+  /// "Continue as...": fills the email and asks only for the password.
+  void _choose(SavedAccount account) {
+    setState(() {
+      _email.text = account.email;
+      _password.clear();
+      _error = null;
+    });
+    _passwordFocus.requestFocus();
+  }
+
+  void _useDemoAccount() {
+    setState(() {
+      _email.text = MockAuthRepository.mockEmail;
+      _password.text = MockAuthRepository.mockPassword;
+      _error = null;
+    });
   }
 
   Future<void> _submit() async {
@@ -145,6 +157,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
             const SizedBox(height: 22),
+            _SavedAccounts(
+              chosenEmail: _email.text.trim(),
+              onChoose: _busy ? null : _choose,
+              onUseAnother: () => setState(() {
+                _email.clear();
+                _password.clear();
+              }),
+            ),
+            if (_useMock) ...[
+              OutlinedButton.icon(
+                key: const ValueKey('login-demo-account'),
+                onPressed: _busy ? null : _useDemoAccount,
+                icon: const Icon(Icons.play_circle_outline, size: 18),
+                label: const Text('Use the demo account (Priya)'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _kTextPrimary,
+                  minimumSize: const Size.fromHeight(42),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // Email Label Row
             Row(
@@ -245,6 +278,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Expanded(
                     child: TextField(
                       controller: _password,
+                      focusNode: _passwordFocus,
                       obscureText: _obscure,
                       style: const TextStyle(
                         fontSize: 13,
@@ -399,6 +433,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
             _GoogleSignInSection(keepSession: _keepSession, disabled: _busy),
+            const SizedBox(height: 14),
+            // Sign up: easy to find, right under the sign-in options.
+            Row(
+              children: [
+                const Expanded(child: Divider(color: _kBorderSubtle)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Text(
+                    'New to Talk It Out?',
+                    style: TextStyle(fontSize: 12, color: _kTextSecondary),
+                  ),
+                ),
+                const Expanded(child: Divider(color: _kBorderSubtle)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton(
+                key: const ValueKey('login-create-account'),
+                onPressed: _busy ? null : () => context.go('/register'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _kTextPrimary,
+                  side: const BorderSide(color: _kTextPrimary, width: 1.2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Create an account',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
             const SizedBox(height: 22),
 
             // Protocol Notice Card: Zero-Knowledge Moderation
@@ -548,14 +617,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   const Text(
-                    "Don't have an invitation code?",
+                    "Don't have an account?",
                     style: TextStyle(fontSize: 12, color: _kTextSecondary),
                   ),
                   const SizedBox(width: 4),
                   GestureDetector(
                     onTap: _busy ? null : () => context.go('/register'),
                     child: const Text(
-                      'Request access',
+                      'Sign up',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -764,6 +833,128 @@ class _GoogleSignInSectionState extends ConsumerState<_GoogleSignInSection> {
               style: const TextStyle(color: Color(0xFFBA1A1A), fontSize: 12),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Accounts used on this device, newest first, like Instagram's login
+/// screen. Choosing one fills the email; the password is always typed.
+class _SavedAccounts extends ConsumerWidget {
+  const _SavedAccounts({
+    required this.chosenEmail,
+    required this.onChoose,
+    required this.onUseAnother,
+  });
+
+  final String chosenEmail;
+  final ValueChanged<SavedAccount>? onChoose;
+  final VoidCallback onUseAnother;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final accounts = ref.watch(savedAccountsProvider);
+    if (accounts.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Continue as',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: _kTextPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          for (final a in accounts)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Material(
+                color: a.email == chosenEmail ? Brand.accentSoft : Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(
+                  key: ValueKey('saved-account-${a.email}'),
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: onChoose == null ? null : () => onChoose!(a),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: a.email == chosenEmail
+                            ? _kTextPrimary
+                            : _kBorderSubtle,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 17,
+                          backgroundColor: _kTextPrimary,
+                          child: Text(
+                            a.initials,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                a.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: _kTextPrimary,
+                                ),
+                              ),
+                              Text(
+                                a.maskedEmail,
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: _kTextSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          key: ValueKey('forget-account-${a.email}'),
+                          tooltip: 'Remove from this device',
+                          icon: const Icon(
+                            Icons.close,
+                            size: 18,
+                            color: _kTextSecondary,
+                          ),
+                          onPressed: () {
+                            ref
+                                .read(savedAccountsProvider.notifier)
+                                .forget(a.email);
+                            if (a.email == chosenEmail) onUseAnother();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          TextButton(
+            key: const ValueKey('use-another-account'),
+            onPressed: onUseAnother,
+            child: const Text('Use another account'),
+          ),
         ],
       ),
     );

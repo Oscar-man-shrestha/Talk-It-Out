@@ -5,6 +5,7 @@ import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/models/user.dart';
 import 'package:talk_it_out/features/auth/auth_events.dart';
 import 'package:talk_it_out/features/auth/data/auth_session.dart';
+import 'package:talk_it_out/features/auth/saved_accounts.dart';
 
 class SessionNotifier extends AsyncNotifier<User?> {
   @override
@@ -79,6 +80,8 @@ class SessionNotifier extends AsyncNotifier<User?> {
           .issueRefreshToken();
       if (refresh != null) await tokens.writeRefresh(refresh);
     }
+    // Offered as "Continue as..." after signing out (name and email only).
+    ref.read(savedAccountsProvider.notifier).remember(session.user);
     state = AsyncData(session.user);
   }
 
@@ -87,6 +90,8 @@ class SessionNotifier extends AsyncNotifier<User?> {
   /// the user signed in when the server refuses.
   Future<void> deleteAccount({required String password}) async {
     await ref.read(authRepositoryProvider).deleteAccount(password: password);
+    final email = state.value?.email;
+    if (email != null) ref.read(savedAccountsProvider.notifier).forget(email);
     await ref.read(tokenStoreProvider).clear();
     state = const AsyncData(null);
   }

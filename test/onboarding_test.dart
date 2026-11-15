@@ -76,6 +76,20 @@ void main() {
     expect(inviteCodeFrom('abcd1345ef'), isNull);
   });
 
+  testWidgets('the login screen has a clear way to create an account', (
+    tester,
+  ) async {
+    await _pumpApp(tester);
+    expect(_where(tester), startsWith('/login'));
+    final create = find.byKey(const ValueKey('login-create-account'));
+    expect(find.text('Create an account'), findsOneWidget);
+    await tester.ensureVisible(create);
+    await tester.tap(create);
+    await tester.pumpAndSettle();
+    expect(_where(tester), '/register');
+    await _close(tester);
+  });
+
   testWidgets('a new account gets the welcome tour, then the feed', (
     tester,
   ) async {

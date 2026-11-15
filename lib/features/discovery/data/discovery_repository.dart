@@ -56,4 +56,7 @@ abstract class DiscoveryRepository {
   Future<void> reportPost(String postId, ReportReason reason);
 
   Future<void> withdrawReport(String postId);
+
+  /// Who liked a question, you first (`API.md` 64).
+  Future<LikersPage> likers(String postId);
 }

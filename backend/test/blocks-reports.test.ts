@@ -108,4 +108,25 @@ describe('someone else\'s profile', () => {
     expect(posts.body.items.map((p: { id: string }) => p.id)).toEqual([q.body.id]);
     expect((await api.get(app, '/users/not-a-uuid/posts', me.token)).status).toBe(404);
   });
+
+  it('lists who liked a question (API 64), you first, without blocked people', async () => {
+    const app = testApp();
+    const author = await registerUser(app, 'Author', 'a@example.com');
+    const me = await registerUser(app, 'Me Person', 'me@example.com');
+    const fan = await registerUser(app, 'Fan One', 'fan@example.com');
+    const troll = await registerUser(app, 'Troll', 'troll@example.com');
+    const q = await api.post(app, '/posts', author.token, { content: 'Liked question' });
+    for (const u of [fan, me, troll]) {
+      await api.post(app, `/posts/${q.body.id}/reactions`, u.token, { type: 'like' });
+    }
+    await api.post(app, `/users/${troll.id}/block`, me.token);
+    const res = await api.get(app, `/posts/${q.body.id}/likes`, me.token);
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(3);
+    expect(res.body.items.map((i: { name: string }) => i.name)).toEqual(['Me Person', 'Fan One']);
+    expect(res.body.items[0]).toMatchObject({ is_me: true, handle: null, avatar_url: null });
+    expect(JSON.stringify(res.body)).not.toContain('@example');
+    expect((await api.get(app, '/posts/not-a-uuid/likes', me.token)).status).toBe(404);
+  });
 });
+

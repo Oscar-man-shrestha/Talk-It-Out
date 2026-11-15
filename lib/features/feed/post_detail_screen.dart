@@ -20,6 +20,7 @@ import 'package:talk_it_out/features/discovery/discovery_providers.dart';
 import 'package:talk_it_out/features/discovery/safety_actions.dart';
 import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
 import 'package:talk_it_out/core/share/share_links.dart';
+import 'package:talk_it_out/features/discovery/likers_sheet.dart';
 
 // Stitch Monochrome Precision tokens
 const _kPrimary = Brand.accent;
@@ -753,6 +754,27 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                         ),
                                       ],
                                     ),
+                                    if (post.reactionCount > 0) ...[
+                                      const SizedBox(width: 6),
+                                      TextButton(
+                                        key: const ValueKey('liked-by'),
+                                        onPressed: () =>
+                                            showLikersSheet(context, post.id),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: _kTextSecondary,
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                        child: const Text(
+                                          'Liked by',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            decoration:
+                                                TextDecoration.underline,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                                 const Row(

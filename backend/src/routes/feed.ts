@@ -6,6 +6,7 @@ import { buildPage, parseListQuery, PageCursor } from '../pagination';
 import { RequireAuth } from '../middleware/auth';
 import { uniqueConstraint, withTransaction } from '../db';
 import { blockedEitherWay, notBlockedSql, visiblePostSql } from '../blocks';
+import { mediaUrl } from './profiles';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -235,6 +236,45 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
     if (!rows[0]) throw notFound();
     if (await blockedEitherWay(pool, req.user!.id, rows[0].author_id)) throw notFound();
     res.json(postJson(rows[0]));
+  });
+
+  // GET /posts/:postId/likes (API.md 64): who liked a question, newest
+  // first. The feed is public and named, so likers are shown (like
+  // Facebook); group chat reactions stay counts only. People who blocked
+  // you, or whom you blocked, are left out of the list.
+  router.get('/:postId/likes', async (req, res) => {
+    const postId = req.params.postId;
+    if (!UUID_RE.test(postId)) throw notFound();
+    const me = req.user!.id;
+    const author = await postAuthor(pool, postId);
+    if (author === null || (await blockedEitherWay(pool, me, author))) throw notFound();
+    const raw = Number(req.query.limit ?? 50);
+    const limit = Number.isFinite(raw) ? Math.min(100, Math.max(1, Math.round(raw))) : 50;
+    const { rows } = await pool.query(
+      `SELECT u.id, u.name, u.username, u.username_chosen, p.avatar_media_id,
+              count(*) OVER ()::int AS shown
+       FROM post_likes l
+       JOIN users u ON u.id = l.user_id
+       LEFT JOIN user_profiles p ON p.user_id = u.id
+       WHERE l.post_id = $1 AND ${notBlockedSql('$2', 'u.id')}
+       ORDER BY (u.id = $2) DESC, l.created_at DESC
+       LIMIT $3`,
+      [postId, me, limit],
+    );
+    const total = await pool.query<{ n: number }>(
+      'SELECT count(*)::int AS n FROM post_likes WHERE post_id = $1',
+      [postId],
+    );
+    res.json({
+      items: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        handle: r.username_chosen ? r.username : null,
+        avatar_url: mediaUrl(req, r.avatar_media_id),
+        is_me: r.id === me,
+      })),
+      total: total.rows[0].n,
+    });
   });
 
   router.post('/:postId/reactions', async (req, res) => {

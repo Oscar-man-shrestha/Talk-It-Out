@@ -489,4 +489,41 @@ class MockDiscoveryRepository implements DiscoveryRepository {
   @override
   Future<void> withdrawReport(String postId) =>
       runMock(_controls, () => _board.reportedPostIds.remove(postId));
+
+  @override
+  Future<LikersPage> likers(String postId) async {
+    final post = await _feed.getPost(postId);
+    return runMock(_controls, () {
+      // Demo: a stable set of sample people, sized to the like count.
+      final others =
+          [
+            for (final p in _people)
+              if (p.id != post.author.id &&
+                  !_board.blockedUserIds.contains(p.id))
+                p,
+          ]..sort(
+            (a, b) =>
+                (a.id + postId).hashCode.compareTo((b.id + postId).hashCode),
+          );
+      final mine = post.myReaction != null;
+      final wanted = (post.reactionCount - (mine ? 1 : 0)).clamp(
+        0,
+        others.length,
+      );
+      return LikersPage(
+        items: [
+          if (mine)
+            const PersonResult(id: MockIds.priya, name: 'Priya', reason: 'You'),
+          for (final p in others.take(wanted))
+            PersonResult(
+              id: p.id,
+              name: p.name,
+              handle: p.handle,
+              headline: p.headline,
+            ),
+        ],
+        total: post.reactionCount,
+      );
+    });
+  }
 }

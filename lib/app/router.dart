@@ -26,6 +26,7 @@ import 'package:talk_it_out/features/profile/profile_screen.dart';
 import 'package:talk_it_out/features/review/review_detail_screen.dart';
 import 'package:talk_it_out/features/review/review_queue_screen.dart';
 import 'package:talk_it_out/features/invites/join_group_screen.dart';
+import 'package:talk_it_out/features/onboarding/welcome_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -67,6 +68,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/people/:userId',
         builder: (context, state) =>
             PersonProfileScreen(userId: state.pathParameters['userId']!),
+      ),
+      GoRoute(
+        path: '/welcome',
+        builder: (context, state) => const WelcomeScreen(),
       ),
       GoRoute(
         path: '/join/:code',
@@ -238,7 +243,12 @@ Future<String?> _redirect(Ref ref, Uri uri) async {
     if (signingIn) return null;
     return via('/login');
   }
-  if (signingIn || location == '/loading') return pending ?? '/groups';
+  if (signingIn || location == '/loading') {
+    // An invite link or shared page wins; otherwise new accounts get the
+    // welcome tour.
+    return pending ??
+        (ref.read(justRegisteredProvider) ? '/welcome' : '/groups');
+  }
 
   final review = RegExp(r'^/groups/([^/]+)/review(?:/|$)').firstMatch(location);
   if (review == null) return null;

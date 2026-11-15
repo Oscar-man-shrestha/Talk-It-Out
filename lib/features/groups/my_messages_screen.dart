@@ -6,6 +6,7 @@ import 'package:talk_it_out/core/ui/screen_async.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
+import 'package:talk_it_out/core/ui/empty_state.dart';
 
 /// Status-only ledger for the signed-in member's submissions.
 ///
@@ -29,7 +30,22 @@ class MyMessagesScreen extends ConsumerWidget {
         status: asyncStatus(messages, isEmpty: items.isEmpty),
         errorMessage: errorText(messages.error),
         onRetry: () => ref.invalidate(myMessagesProvider(groupId)),
-        empty: const Center(child: Text(AppStrings.myMessagesEmpty)),
+        empty: EmptyState(
+          key: const ValueKey('my-messages-empty'),
+          icon: Icons.outbox_outlined,
+          title: 'Nothing sent yet',
+          body:
+              '${AppStrings.myMessagesEmpty} Each message you send shows its '
+              'review status here: waiting, published or not published. Only you '
+              'see this list.',
+          actions: [
+            EmptyAction(
+              'Write a message',
+              () => Navigator.of(context).maybePop(),
+              icon: Icons.edit_outlined,
+            ),
+          ],
+        ),
         child: ListView.separated(
           padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 32),
           itemCount: items.length,

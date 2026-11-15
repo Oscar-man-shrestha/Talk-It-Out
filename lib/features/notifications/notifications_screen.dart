@@ -10,6 +10,7 @@ import 'package:talk_it_out/features/notifications/data/app_notification.dart';
 import 'package:talk_it_out/features/notifications/notification_providers.dart';
 import 'package:talk_it_out/features/notifications/notification_text.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/core/ui/empty_state.dart';
 
 // Stitch Monochrome Precision tokens
 const _kPrimary = Brand.accent;
@@ -285,12 +286,24 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
             if (visible.isEmpty)
               const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(
-                  child: Text(
-                    AppStrings.notificationsEmpty,
-                    style: TextStyle(fontSize: 12.5, color: _kTextSecondary),
-                  ),
+                padding: EdgeInsets.only(top: 8),
+                child: EmptyState(
+                  key: ValueKey('notifications-empty'),
+                  inList: true,
+                  icon: Icons.notifications_none,
+                  title: "You're all caught up",
+                  body: AppStrings.notificationsEmpty,
+                  points: [
+                    (
+                      Icons.fact_check_outlined,
+                      'When a message you sent is published or not published',
+                    ),
+                    (
+                      Icons.forum_outlined,
+                      'When someone answers your question',
+                    ),
+                    (Icons.group_add_outlined, 'When you are added to a group'),
+                  ],
                 ),
               ),
             for (final item in visible) ...[

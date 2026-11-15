@@ -13,7 +13,7 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-14 (IST)
-**Current phase:** Complete and verified end to end (Run 098): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Current phase:** Complete and verified end to end (Run 099): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
 **Next step:** Review and merge `temp/project-completion-run070`. Optional: Gmail app password in `backend/.env` for real reset emails (user enters it); a larger model for higher rewrite fidelity.
@@ -65,6 +65,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 | 36 | Overnight polish: tone hint, recent people, retention, own-question-first, starter questions | Done | 096 |
 | 37 | Safety: block people, report questions, other people's profiles | Done | 097 |
 | 38 | Play Store readiness, invite links, sharing, Catch up summaries, endless feed | Done | 098 |
+| 39 | Welcome tour for new accounts, helpful empty screens, join with a pasted link | Done | 099 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -3086,3 +3087,28 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - No Android build was made: the Android command-line tools are missing and the disk has under 1 GB free.
   - Push notifications, crash reporting, cloud hosting and verified https app links need the user's accounts (`docs/PLAY_STORE.md` section 8).
 - **Commands run and results:** backend 285 passed, type-check and lint clean; Flutter 135 passed, analyze 0, format clean.
+
+### Run 099: Onboarding and empty states
+- **Date/time:** 2026-11-16 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 39 (Product polish)
+- **Prompt / task:** "Onboarding + empty states."
+- **Result:** Completed
+- **Summary:**
+  - **Welcome tour** (`/welcome`), shown once, right after creating an account:
+    - four pages: speak up safely (with the exact anonymity disclosure), calm AI rewrite, controller review, and the community Q&A;
+    - then "Where do you want to start?": create a group, join with an invite link, or explore questions;
+    - Skip goes to Groups.
+    - Signing in to an existing account never shows it. The flag is kept in memory, set at registration.
+    - An invite link or shared page someone was opening takes priority over the tour.
+  - **Empty screens:** a shared `EmptyState` widget (`lib/core/ui/empty_state.dart`) with an explanation and next steps.
+    - Groups with no groups: "Start your first safe space", three how-it-works points, and Create / Join with an invite link / Explore.
+    - Notifications: what you will be told about.
+    - My messages: what the status list is, and that only you see it.
+  - **Join with an invite link:** paste a web link, a `talkitout://` link or a bare code. The code is extracted and opens the Join screen.
+- **Bugs found by tests and fixed:**
+  - the paste box's text field was cleaned up while the box was still closing (an error and a layout crash);
+  - the onboarding tests themselves left timers running.
+- **Not done:** Google sign-ins that create a new account do not show the tour yet; the API does not say whether a Google sign-in was new.
+- **Commands run and results:** Flutter all passed (`flutter test --timeout 120s`), analyze 0, format clean. The backend was unchanged in this run (285 passed in Run 098).
+

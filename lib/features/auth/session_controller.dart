@@ -54,6 +54,8 @@ class SessionNotifier extends AsyncNotifier<User?> {
     final session = await ref
         .read(authRepositoryProvider)
         .register(name: name, email: email, password: password);
+    // A brand-new account sees the welcome tour once (`/welcome`).
+    ref.read(justRegisteredProvider.notifier).mark(true);
     await _storeSession(session);
   }
 
@@ -132,4 +134,17 @@ class SessionNotifier extends AsyncNotifier<User?> {
 
 final sessionProvider = AsyncNotifierProvider<SessionNotifier, User?>(
   SessionNotifier.new,
+);
+
+/// True between creating an account and finishing (or skipping) the
+/// welcome tour. Kept in memory: people who sign in again never see it.
+class JustRegisteredNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void mark(bool value) => state = value;
+}
+
+final justRegisteredProvider = NotifierProvider<JustRegisteredNotifier, bool>(
+  JustRegisteredNotifier.new,
 );

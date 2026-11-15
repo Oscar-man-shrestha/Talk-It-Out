@@ -13,6 +13,8 @@ import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/profile/profile_state.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/groups/group_chat_screen.dart';
+import 'package:talk_it_out/core/ui/empty_state.dart';
+import 'package:talk_it_out/features/invites/join_with_link.dart';
 
 const _border = Brand.border;
 const _ink = Brand.ink;
@@ -1011,11 +1013,41 @@ class _EmptyGroupsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Text(AppStrings.groupsEmpty, textAlign: TextAlign.center),
-      ),
+    return EmptyState(
+      key: const ValueKey('groups-empty'),
+      icon: Icons.diversity_3_outlined,
+      title: 'Start your first safe space',
+      body: AppStrings.groupsEmpty,
+      points: const [
+        (
+          Icons.visibility_off_outlined,
+          'Members can write anonymously. Only the controller sees who sent it.',
+        ),
+        (Icons.auto_awesome, 'Every message is rewritten in a calm tone.'),
+        (
+          Icons.verified_user_outlined,
+          'The controller reviews each message before the group sees it.',
+        ),
+      ],
+      actions: [
+        EmptyAction(
+          'Create a group',
+          () => context.push('/groups/new'),
+          icon: Icons.add,
+          key: const ValueKey('groups-empty-create'),
+        ),
+        EmptyAction(
+          'Join with an invite link',
+          () => showJoinWithLinkDialog(context),
+          icon: Icons.link,
+          key: const ValueKey('groups-empty-join'),
+        ),
+        EmptyAction(
+          'Explore questions',
+          () => context.go('/feed'),
+          icon: Icons.explore_outlined,
+        ),
+      ],
     );
   }
 }

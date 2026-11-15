@@ -103,7 +103,8 @@ export type ReasonKind =
   | 'network'
   | 'popular'
   | 'new'
-  | 'explore';
+  | 'explore'
+  | 'yours';
 
 export interface Reason {
   kind: ReasonKind;
@@ -221,7 +222,11 @@ export function rankForYou(candidates: RankPost[], viewer: ViewerProfile): Ranke
     const fresh = Math.exp(-Math.max(0, ageDays) / 3);
     const network = p.inMyGroups ? 1 : 0;
     let score = 0.4 * interest + 0.2 * similar + 0.2 * popular + 0.12 * fresh + 0.08 * network;
-    if (p.authorId === viewer.userId) score -= 0.3;
+    // Your own question: on top for its first hour (so you see it went out,
+    // as on Instagram), then rarely.
+    const mineFresh = p.authorId === viewer.userId && now - p.createdAt.getTime() < 3600000;
+    if (mineFresh) score += 1;
+    else if (p.authorId === viewer.userId) score -= 0.3;
     // Already liked or answered: rarely worth showing again.
     if (p.engagedByMe) score -= 0.5;
     return {
@@ -296,6 +301,9 @@ export function rankForYou(candidates: RankPost[], viewer: ViewerProfile): Ranke
 
   function reasonFor(s: Scored, explore: boolean): Reason {
     const primary = s.interests[0];
+    if (s.post.authorId === viewer.userId && now - s.post.createdAt.getTime() < 3600000) {
+      return { kind: 'yours', text: 'Your new question' };
+    }
     if (explore && primary) {
       return { kind: 'explore', text: `Something new: ${labelOf(primary)}`, interest: primary };
     }

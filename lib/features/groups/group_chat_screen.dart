@@ -24,6 +24,7 @@ import 'package:talk_it_out/features/groups/chat_extras.dart';
 import 'package:talk_it_out/features/groups/emoji_picker.dart';
 import 'package:talk_it_out/features/discovery/add_members_sheet.dart';
 import 'package:talk_it_out/features/groups/tone_hint.dart';
+import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
 
 class GroupChatScreen extends ConsumerStatefulWidget {
   const GroupChatScreen({required this.groupId, super.key});
@@ -873,14 +874,26 @@ class _PublishedMessageTileState extends ConsumerState<PublishedMessageTile> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Flexible(
-                                    child: Text(
-                                      senderName,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: isDark
-                                            ? Colors.white
-                                            : authorColor,
+                                    // Named senders open their profile;
+                                    // anonymous ones have nothing to open.
+                                    child: GestureDetector(
+                                      onTap:
+                                          widget.message.displaySender == null
+                                          ? null
+                                          : () => openPerson(
+                                              context,
+                                              ref,
+                                              widget.message.displaySender!.id,
+                                            ),
+                                      child: Text(
+                                        senderName,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: isDark
+                                              ? Colors.white
+                                              : authorColor,
+                                        ),
                                       ),
                                     ),
                                   ),

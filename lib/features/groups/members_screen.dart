@@ -10,6 +10,7 @@ import 'package:talk_it_out/core/ui/screen_async.dart';
 import 'package:talk_it_out/core/ui/stitch_chrome.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/discovery/add_members_sheet.dart';
+import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 
@@ -222,27 +223,31 @@ class MembersScreen extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: member.role == GroupRole.controller
-                            ? Brand.ink
-                            : Colors.white,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Brand.ink),
-                      ),
-                      child: Center(
-                        child: Text(
-                          member.name.isNotEmpty
-                              ? member.name[0].toUpperCase()
-                              : '?',
-                          style: TextStyle(
-                            color: member.role == GroupRole.controller
-                                ? Colors.white
-                                : Brand.ink,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
+                    GestureDetector(
+                      key: ValueKey('member-${member.userId}'),
+                      onTap: () => openPerson(context, ref, member.userId),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: member.role == GroupRole.controller
+                              ? Brand.ink
+                              : Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Brand.ink),
+                        ),
+                        child: Center(
+                          child: Text(
+                            member.name.isNotEmpty
+                                ? member.name[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                              color: member.role == GroupRole.controller
+                                  ? Colors.white
+                                  : Brand.ink,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                            ),
                           ),
                         ),
                       ),
@@ -252,11 +257,15 @@ class MembersScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            member.name,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
+                          GestureDetector(
+                            onTap: () =>
+                                openPerson(context, ref, member.userId),
+                            child: Text(
+                              member.name,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                           if (member.role == GroupRole.controller)

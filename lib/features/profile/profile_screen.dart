@@ -1563,6 +1563,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     },
                   ),
                   const SizedBox(height: 12),
+                  Material(
+                    color: _kSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    child: ListTile(
+                      key: const ValueKey('profile-blocked'),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: _kBorderSubtle),
+                      ),
+                      leading: const Icon(Icons.block, color: _kTextSecondary),
+                      title: const Text(
+                        'Blocked people',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'People you blocked cannot find you or see your questions.',
+                        style: TextStyle(fontSize: 11.5),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => context.push('/blocked'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
 
                   // 2. LinkedIn-Style "About" Section with Dynamic Skills
                   Container(

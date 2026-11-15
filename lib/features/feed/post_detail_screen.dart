@@ -17,6 +17,8 @@ import 'package:talk_it_out/features/feed/feed_providers.dart';
 import 'package:talk_it_out/features/feed/saved_posts.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/discovery/discovery_providers.dart';
+import 'package:talk_it_out/features/discovery/safety_actions.dart';
+import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
 
 // Stitch Monochrome Precision tokens
 const _kPrimary = Brand.accent;
@@ -149,6 +151,20 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
         await _createGroup();
       case 'delete':
         await _deletePost();
+      case 'report':
+        if (await showReportQuestionSheet(context, ref, post.id) && mounted) {
+          context.pop();
+        }
+      case 'block':
+        if (await confirmAndBlock(
+              context,
+              ref,
+              post.author.id,
+              post.author.name,
+            ) &&
+            mounted) {
+          context.pop();
+        }
     }
   }
 
@@ -386,6 +402,21 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                             enabled: !_busy,
                             child: const Text(AppStrings.deleteQuestion),
                           ),
+                        if (post.author.id != userId) ...[
+                          const PopupMenuItem(
+                            key: ValueKey('report-question'),
+                            value: 'report',
+                            child: Text('Report question'),
+                          ),
+                          PopupMenuItem(
+                            key: const ValueKey('block-author'),
+                            value: 'block',
+                            child: Text(
+                              'Block ${post.author.name.split(' ').first}',
+                              style: TextStyle(color: Colors.red.shade800),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                 ],
@@ -504,83 +535,89 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Author Row
-                            Row(
-                              children: [
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: const BoxDecoration(
-                                    color: _kPrimary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    _initials(post.author.name),
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 15,
+                            // Author Row (opens their profile)
+                            InkWell(
+                              key: const ValueKey('post-author'),
+                              onTap: () =>
+                                  openPerson(context, ref, post.author.id),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: const BoxDecoration(
+                                      color: _kPrimary,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      _initials(post.author.name),
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 15,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Text(
-                                            post.author.name,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w700,
-                                              color: _kTextPrimary,
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              post.author.name,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w700,
+                                                color: _kTextPrimary,
+                                              ),
                                             ),
-                                          ),
-                                          SizedBox(width: 4),
-                                          Icon(
-                                            Icons.verified,
-                                            size: 15,
-                                            color: _kPrimary,
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(height: 1),
-                                      Text(
-                                        relativeTime(post.createdAt),
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: _kTextSecondary,
+                                            SizedBox(width: 4),
+                                            Icon(
+                                              Icons.verified,
+                                              size: 15,
+                                              color: _kPrimary,
+                                            ),
+                                          ],
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _kSurfaceMuted,
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    post.nsfwFlag
-                                        ? AppStrings.flagged.toUpperCase()
-                                        : 'PUBLIC',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.6,
-                                      color: _kTextSecondary,
+                                        SizedBox(height: 1),
+                                        Text(
+                                          relativeTime(post.createdAt),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: _kTextSecondary,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ),
-                              ],
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _kSurfaceMuted,
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      post.nsfwFlag
+                                          ? AppStrings.flagged.toUpperCase()
+                                          : 'PUBLIC',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.6,
+                                        color: _kTextSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                             const SizedBox(height: 14),
 
@@ -1012,6 +1049,8 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                           onReply: () => _reply(comment.author.name),
                           onReport: () => _report(comment),
                           onRemove: () => _removeComment(comment),
+                          onAuthor: () =>
+                              openPerson(context, ref, comment.author.id),
                         ),
                         const SizedBox(height: 8),
                       ],
@@ -1229,9 +1268,13 @@ class _DiscussionItem extends StatelessWidget {
     this.onReply,
     this.onReport,
     this.onRemove,
+    this.onAuthor,
   });
 
   final String commentId;
+
+  /// Opens the commenter's profile.
+  final VoidCallback? onAuthor;
 
   /// Only the question's author gets a count (null for everyone else).
   final int? reportCount;
@@ -1284,30 +1327,38 @@ class _DiscussionItem extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 26,
-                height: 26,
-                decoration: const BoxDecoration(
-                  color: _kPrimary,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  authorInitials ?? '?',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                authorName,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: _kTextPrimary,
+              GestureDetector(
+                onTap: onAuthor,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: const BoxDecoration(
+                        color: _kPrimary,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        authorInitials ?? '?',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      authorName,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: _kTextPrimary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               if (isAuthor) ...[

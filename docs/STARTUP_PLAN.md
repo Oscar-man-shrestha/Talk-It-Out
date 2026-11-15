@@ -42,12 +42,23 @@ Rule for all of it: **anonymous group messages are never used for ranking, profi
 | **Learning interests** | Like +0.5, answer +1, open +0.2, "Not interested" −1.5 on the post's topics. Old signals fade. The API also accepts saves (+0.75), but the app keeps bookmarks on the device as promised; sending saves would need opt-in. | Implicit feedback, as Pinterest and TikTok do. |
 | **Feed search** | BM25 ranking with stemming and typo tolerance (fuzzy term match). | Search that understands "promotion" ≈ "promoted" and survives typos. |
 
+### Also built (2026-11-15)
+
+| Feature | Technique |
+|---|---|
+| **Similar questions while asking** ("Already asked?") | The draft's 12 rarest words (by IDF) scored against each question with BM25, normalised against the best possible score, threshold 0.3. Embeddings will improve it later. |
+| **Tone hint while typing a group message** | On-device lexicon and patterns (insults, blame phrases, "always/never" about people, shouting). It never blocks sending and the draft is never sent anywhere for it. |
+| **Personalisation off switch** | For You falls back to popularity and freshness; activity is not recorded. |
+| **Your new question on top** | Your own question leads For You for its first hour ("Your new question"), then drops low. |
+| **Starter questions** | 31 questions across all 15 interests: `npm run seed:questions` adds them as "Talk It Out Community"; `-- --remove` deletes them. |
+
 ### Phase 2 (next 4–6 weeks)
 
 - **Sentence embeddings:** a small local model through the existing Ollama, e.g. `nomic-embed-text`, stored in PostgreSQL with `pgvector`. Uses:
   - semantic search ("my manager takes credit" finds "boss presents my work as his");
   - better For You similarity;
   - **similar questions before posting**, to cut duplicates.
+- (Similar questions are now done with BM25; embeddings would catch questions worded very differently.)
 - **Thread summaries for controllers:** "TL;DR of 40 messages" from the existing rewrite model.
 - **Smart replies:** three short reply suggestions in chat, generated locally.
 - **Toxicity pre-check while typing:** a gentle "This may read as an attack. Want the AI to soften it?" before submit.
@@ -71,8 +82,8 @@ What we never use for the feed, search or ads: anonymous messages, group message
 Promises to put in the privacy policy and show in the app:
 
 1. **Visible and editable.** You can see and change your interests at any time in Profile. Every For You post says why it is there.
-2. **Off switch** (Phase 2). Turning off personalisation gives a plain Latest feed.
-3. **Retention.** Feed events are deleted after 180 days, and at once when an account is deleted. This run already deletes them with the account.
+2. **Off switch.** Built: Profile → Feed interests → "Personalise For You". When off, For You ranks only by popularity and freshness, and activity is not recorded.
+3. **Retention.** Feed events are deleted after 180 days (a cleanup runs at start-up and every 6 hours), and at once when an account is deleted.
 4. **No selling of data. No ads based on group content.**
 5. **Law.** Follow India's DPDP Act 2023 (consent, purpose limitation, erasure) and GDPR if EU users join.
 
@@ -81,7 +92,7 @@ Promises to put in the privacy policy and show in the app:
 | Phase | When | Goal | Main work |
 |---|---|---|---|
 | 1 | Done (this run) | Discovery and personalisation that work | People search, Add Members sheet, @handles, interests, topic tagging, For You, feed search |
-| 2 | Weeks 1–6 | Beta-ready | Embeddings and similar questions, thread summaries, smart replies, personalisation off switch, analytics events, crash reporting, App Store and Play Store builds, cloud deploy (managed Postgres, one GPU-less worker with a 3B model or an API fallback) |
+| 2 | Weeks 1–6 | Beta-ready | Embeddings (semantic search), thread summaries, smart replies, analytics events, crash reporting, App Store and Play Store builds, cloud deploy (managed Postgres, one GPU-less worker with a 3B model or an API fallback) |
 | 3 | Months 2–3 | Teams pay | Company spaces with work-email verification, SSO (Google Workspace and Microsoft), admin console, controller rotation, exports, team health insights |
 | 4 | Months 3–6 | Grow | Learning-to-rank, multilingual, voice notes, public community spaces, referral loop ("invite your team") |
 

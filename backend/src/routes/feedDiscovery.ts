@@ -12,6 +12,7 @@ import { decodeCursor, encodeCursor } from '../pagination';
 import { EngagedPost, rankForYou, RankPost, searchPosts, similarPosts } from '../nlp/rank';
 import { classify, interestById } from '../nlp/topics';
 import { POST_SELECT, POST_TOPICS, postJson, PostRow } from './feed';
+import { visiblePostSql } from '../blocks';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -81,6 +82,7 @@ export function createFeedDiscoveryRouter(pool: Pool, requireAuth: RequireAuth):
                                            WHERE c.post_id = q.id AND c.author_id = $1)) AS engaged_by_me
          FROM (${POST_SELECT}
                WHERE p.created_at > now() - make_interval(days => $2)
+                 AND ${visiblePostSql('$1')}
                ORDER BY p.created_at DESC
                LIMIT $3) q`,
         [me, CANDIDATE_DAYS, CANDIDATE_LIMIT],
@@ -165,7 +167,7 @@ export function createFeedDiscoveryRouter(pool: Pool, requireAuth: RequireAuth):
   router.get('/search', async (req, res) => {
     const query = parseWith(searchQuery, req.query);
     const { rows } = await pool.query<PostRow>(
-      `${POST_SELECT} ORDER BY p.created_at DESC LIMIT $2`,
+      `${POST_SELECT} WHERE ${visiblePostSql('$1')} ORDER BY p.created_at DESC LIMIT $2`,
       [req.user!.id, SEARCH_LIMIT],
     );
     const result = searchPosts(rows, query.q);
@@ -194,7 +196,7 @@ export function createFeedDiscoveryRouter(pool: Pool, requireAuth: RequireAuth):
   router.post('/similar', async (req, res) => {
     const body = parseWith(classifyBody, req.body);
     const { rows } = await pool.query<PostRow>(
-      `${POST_SELECT} ORDER BY p.created_at DESC LIMIT $2`,
+      `${POST_SELECT} WHERE ${visiblePostSql('$1')} ORDER BY p.created_at DESC LIMIT $2`,
       [req.user!.id, SEARCH_LIMIT],
     );
     const byId = new Map(rows.map((r) => [r.id, r]));

@@ -13,7 +13,8 @@
     "mail:test": "tsx src/mail-test-cli.ts",
     "check:live": "node scripts/live-check.mjs",
     "test": "vitest run",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "seed:questions": "tsx src/seed-questions-cli.ts"
   },
   "engines": {
     "node": ">=20"

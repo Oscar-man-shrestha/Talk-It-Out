@@ -3,6 +3,7 @@ import 'package:talk_it_out/core/api/api_guard.dart';
 import 'package:talk_it_out/core/models/page_result.dart';
 import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
 import 'package:talk_it_out/features/discovery/data/discovery_repository.dart';
+import 'package:talk_it_out/features/feed/data/post.dart';
 
 class ApiDiscoveryRepository implements DiscoveryRepository {
   ApiDiscoveryRepository(this._dio);
@@ -144,6 +145,58 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
             if (x is Map)
               SimilarQuestion.fromJson(Map<String, dynamic>.from(x)),
       ];
+    });
+  }
+
+  @override
+  Future<PersonProfile> getPerson(String userId) {
+    return guardApi(() async {
+      final response = await _dio.get('/users/$userId/profile');
+      return PersonProfile.fromJson(asJsonMap(response.data));
+    });
+  }
+
+  @override
+  Future<List<Post>> personPosts(String userId) {
+    return guardApi(() async {
+      final response = await _dio.get('/users/$userId/posts');
+      return decodePage(response.data, Post.fromJson).items;
+    });
+  }
+
+  @override
+  Future<void> block(String userId) {
+    return guardApi(() async {
+      await _dio.post('/users/$userId/block');
+    });
+  }
+
+  @override
+  Future<void> unblock(String userId) {
+    return guardApi(() async {
+      await _dio.delete('/users/$userId/block');
+    });
+  }
+
+  @override
+  Future<List<PersonResult>> blockedPeople() {
+    return guardApi(() async {
+      final response = await _dio.get('/users/me/blocked');
+      return PeopleSearchResult.fromJson(asJsonMap(response.data)).items;
+    });
+  }
+
+  @override
+  Future<void> reportPost(String postId, ReportReason reason) {
+    return guardApi(() async {
+      await _dio.post('/posts/$postId/report', data: {'reason': reason.id});
+    });
+  }
+
+  @override
+  Future<void> withdrawReport(String postId) {
+    return guardApi(() async {
+      await _dio.delete('/posts/$postId/report');
     });
   }
 }

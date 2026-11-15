@@ -611,3 +611,18 @@ Plain text or several emoji in one reaction give `422`. One person can add at mo
 - **Method:** the draft's 12 rarest words are matched against each question with BM25 and stemming. Each score is divided by the best possible score, and only questions at 0.3 or above are returned.
 - A title longer than 120 characters is cut short; a question without a title shows its text instead.
 
+### 59. Blocking and profiles of other people
+- `POST /users/:id/block` returns `204`. It is idempotent; blocking yourself returns `422`. `DELETE /users/:id/block` returns `204`. `GET /users/me/blocked` returns `{items[{id,name,handle,avatar_url}]}`.
+- **What a block does:** both people are hidden from each other in `/users/search`, `/users/suggested`, `GET /posts` (all modes), `/posts/search`, `/posts/similar`, comments and `GET /posts/:id` (`404`). Commenting returns `404`. Adding the other person to a group returns `403 blocked` ("You cannot add this person."). Groups both people are already in are unchanged (decision D24).
+- **`GET /users/:id/profile`** for someone else now includes `shared_groups` and `blocked_by_me`.
+  - If they blocked you: `404`.
+  - If you blocked them: only `user {id, name, handle, avatar_url}` plus `blocked_by_me: true`.
+- `GET /users/:id/posts` returns `{items}`: up to 30 of their questions you may see. Blocked either way: `404`.
+
+### 60. Reporting a question
+- `POST /posts/:id/report {reason}` returns `204`.
+  - `reason` is one of `spam | harassment | hate | self_harm | misinformation | other`.
+  - Reporting your own question returns `422`. Reporting again replaces the reason.
+- `DELETE /posts/:id/report` returns `204`.
+- **Effect:** the reporter no longer sees the question in lists. At 5 distinct reports it is hidden from everyone except its author (decision D23). The author is never told who reported.
+

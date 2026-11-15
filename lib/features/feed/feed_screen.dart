@@ -18,6 +18,8 @@ import 'package:talk_it_out/features/feed/feed_providers.dart';
 import 'package:talk_it_out/features/feed/saved_posts.dart';
 import 'package:talk_it_out/features/profile/profile_state.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
+import 'package:talk_it_out/features/discovery/safety_actions.dart';
 
 const _border = Brand.border;
 const _ink = Brand.ink;
@@ -242,6 +244,19 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _notInterested(item);
+                },
+              ),
+              ListTile(
+                key: const ValueKey('why-report'),
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.flag_outlined, color: Colors.red.shade800),
+                title: Text(
+                  'Report question',
+                  style: TextStyle(color: Colors.red.shade800),
+                ),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  showReportQuestionSheet(context, ref, item.post.id);
                 },
               ),
               ListTile(
@@ -610,6 +625,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         ? () => _createGroup(post)
                         : null,
                     creatingGroup: _creatingId == post.id,
+                    onAuthor: () => openPerson(context, ref, post.author.id),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -640,6 +656,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         ? () => _createGroup(item.post)
                         : null,
                     creatingGroup: _creatingId == item.post.id,
+                    onAuthor: () =>
+                        openPerson(context, ref, item.post.author.id),
                   ),
                   const SizedBox(height: 14),
                 ],
@@ -717,6 +735,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                           ? () => _createGroup(post)
                           : null,
                       creatingGroup: _creatingId == post.id,
+                      onAuthor: () => openPerson(context, ref, post.author.id),
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -1277,8 +1296,12 @@ class PostCard extends StatelessWidget {
     this.onCreateGroup,
     this.creatingGroup = false,
     this.showAnswer = true,
+    this.onAuthor,
     super.key,
   });
+
+  /// Opens the author's profile.
+  final VoidCallback? onAuthor;
 
   final Post post;
   final VoidCallback onOpen;
@@ -1317,20 +1340,24 @@ class PostCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Brand.accent,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      letters,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
+                  GestureDetector(
+                    key: ValueKey('post-author-${post.id}'),
+                    onTap: onAuthor,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Brand.accent,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        letters,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
                       ),
                     ),
                   ),
@@ -1342,14 +1369,17 @@ class PostCard extends StatelessWidget {
                         Row(
                           children: [
                             Flexible(
-                              child: Text(
-                                post.author.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: _ink,
+                              child: GestureDetector(
+                                onTap: onAuthor,
+                                child: Text(
+                                  post.author.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: _ink,
+                                  ),
                                 ),
                               ),
                             ),
@@ -1821,6 +1851,7 @@ class _ReasonLine extends StatelessWidget {
     'network' => Icons.groups_2_outlined,
     'popular' => Icons.local_fire_department_outlined,
     'explore' => Icons.explore_outlined,
+    'yours' => Icons.check_circle_outline,
     _ => Icons.fiber_new_outlined,
   };
 

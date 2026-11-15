@@ -1,4 +1,5 @@
 import 'package:talk_it_out/features/feed/data/post.dart';
+import 'package:talk_it_out/features/profile/data/profile.dart';
 
 String _str(Object? v, [String fallback = '']) => v is String ? v : fallback;
 String? _strOrNull(Object? v) => v is String && v.isNotEmpty ? v : null;
@@ -294,4 +295,48 @@ class SimilarQuestion {
   /// The question's title, or the start of its text when it has none.
   final String title;
   final int commentCount;
+}
+
+/// Someone else's profile with what you share (`API.md` 59).
+class PersonProfile {
+  const PersonProfile({
+    required this.profile,
+    this.handle,
+    this.sharedGroups = 0,
+    this.blockedByMe = false,
+  });
+
+  factory PersonProfile.fromJson(Map<String, dynamic> json) {
+    final user = json['user'] is Map
+        ? Map<String, dynamic>.from(json['user'] as Map)
+        : const <String, dynamic>{};
+    return PersonProfile(
+      profile: Profile.fromJson(json),
+      handle: _strOrNull(user['handle']),
+      sharedGroups: _int(json['shared_groups']),
+      blockedByMe: json['blocked_by_me'] == true,
+    );
+  }
+
+  final Profile profile;
+  final String? handle;
+  final int sharedGroups;
+
+  /// You blocked them: only their name and an Unblock button are shown.
+  final bool blockedByMe;
+}
+
+/// Why a question is reported (`API.md` 60).
+enum ReportReason {
+  spam('spam', 'Spam or ads'),
+  harassment('harassment', 'Bullying or harassment'),
+  hate('hate', 'Hate or discrimination'),
+  selfHarm('self_harm', 'Self-harm or someone in danger'),
+  misinformation('misinformation', 'False or misleading'),
+  other('other', 'Something else');
+
+  const ReportReason(this.id, this.label);
+
+  final String id;
+  final String label;
 }

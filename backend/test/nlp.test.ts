@@ -134,7 +134,20 @@ describe('For You ranking', () => {
     expect(ranked[0].id).not.toBe('pay');
   });
 
-  it('cold start: engagement and freshness lead', () => {
+  it('shows your own new question first, then not', () => {
+    const fresh = rankForYou([
+      ...posts,
+      post('mine', 'my new question', { authorId: 'me', createdAt: hoursAgo(0.2) }),
+    ], viewer({ picked: ['compensation'] }));
+    expect(fresh[0]).toMatchObject({ id: 'mine', reason: { kind: 'yours', text: 'Your new question' } });
+    const old = rankForYou([
+      ...posts,
+      post('mine', 'my old question', { authorId: 'me', createdAt: hoursAgo(5) }),
+    ], viewer({ picked: ['compensation'] }));
+    expect(old[old.length - 1].id).toBe('mine');
+  });
+
+    it('cold start: engagement and freshness lead', () => {
     const ranked = rankForYou([
       post('old', 'something', { createdAt: hoursAgo(24 * 20) }),
       post('hot', 'something else', { likes: 9, comments: 4, createdAt: hoursAgo(5) }),

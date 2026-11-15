@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
-import { badRequest, conflict, forbidden, notFound, parseWith } from '../errors';
+import { ApiError, badRequest, conflict, forbidden, notFound, parseWith } from '../errors';
 import { buildPage, parseListQuery, PageCursor } from '../pagination';
 import { RequireAuth } from '../middleware/auth';
 import { uniqueConstraint, withTransaction } from '../db';
+import { blockedEitherWay, notBlockedSql, visiblePostSql } from '../blocks';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -39,6 +40,12 @@ const commentContentSchema = z.object({
     .trim()
     .min(1, 'Write a comment first.')
     .max(5000, 'Comment is too long.'),
+});
+
+const postReportSchema = z.object({
+  reason: z.enum(['spam', 'harassment', 'hate', 'self_harm', 'misinformation', 'other'], {
+    error: () => 'Choose a reason.',
+  }),
 });
 
 const reactionSchema = z.object({
@@ -202,8 +209,9 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
     const { limit, cursor } = parseListQuery(req);
     const { rows } = await pool.query(
       `${POST_SELECT}
-       WHERE $2::timestamptz IS NULL
-         OR (date_trunc('milliseconds', p.created_at), p.id) < ($2::timestamptz, $3::uuid)
+       WHERE ($2::timestamptz IS NULL
+         OR (date_trunc('milliseconds', p.created_at), p.id) < ($2::timestamptz, $3::uuid))
+         AND ${visiblePostSql('$1')}
        ORDER BY p.created_at DESC, p.id DESC
        LIMIT $4`,
       [req.user!.id, cursor?.t ?? null, cursor?.i ?? null, limit + 1],
@@ -225,6 +233,7 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
       postId,
     ]);
     if (!rows[0]) throw notFound();
+    if (await blockedEitherWay(pool, req.user!.id, rows[0].author_id)) throw notFound();
     res.json(postJson(rows[0]));
   });
 
@@ -274,11 +283,15 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
   router.get('/:postId/comments', async (req, res) => {
     const postId = req.params.postId;
     if (!UUID_RE.test(postId)) throw notFound();
-    if ((await postAuthor(pool, postId)) === null) throw notFound();
+    const listAuthor = await postAuthor(pool, postId);
+    if (listAuthor === null || (await blockedEitherWay(pool, req.user!.id, listAuthor))) {
+      throw notFound();
+    }
     const { limit, cursor } = parseListQuery(req);
     const { rows } = await pool.query(
       `${COMMENT_SELECT}
        WHERE c.post_id = $1
+         AND ${notBlockedSql('$5', 'c.author_id')}
          AND ($2::timestamptz IS NULL
               OR (date_trunc('milliseconds', c.created_at), c.id) > ($2::timestamptz, $3::uuid))
        ORDER BY c.created_at ASC, c.id ASC
@@ -297,7 +310,10 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
   router.post('/:postId/comments', async (req, res) => {
     const postId = req.params.postId;
     if (!UUID_RE.test(postId)) throw notFound();
-    if ((await postAuthor(pool, postId)) === null) throw notFound();
+    const commentAuthor = await postAuthor(pool, postId);
+    if (commentAuthor === null || (await blockedEitherWay(pool, req.user!.id, commentAuthor))) {
+      throw notFound();
+    }
     const body = parseWith(commentContentSchema, req.body);
     const rows = await withTransaction(pool, async (client) => {
       const inserted = await client.query(
@@ -354,6 +370,35 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
   }
 
   // Report a comment. Idempotent; nothing is hidden automatically.
+  // POST /posts/:postId/report {reason} (API.md 60): hides the question
+  // from the reporter; enough reports hide it from everyone but its author.
+  router.post('/:postId/report', async (req, res) => {
+    const postId = req.params.postId;
+    if (!UUID_RE.test(postId)) throw notFound();
+    const body = parseWith(postReportSchema, req.body);
+    const author = await postAuthor(pool, postId);
+    if (author === null) throw notFound();
+    if (author === req.user!.id) {
+      throw new ApiError(422, 'validation_error', 'You cannot report your own question.');
+    }
+    await pool.query(
+      `INSERT INTO post_reports (post_id, reporter_id, reason) VALUES ($1, $2, $3)
+       ON CONFLICT (post_id, reporter_id) DO UPDATE SET reason = EXCLUDED.reason`,
+      [postId, req.user!.id, body.reason],
+    );
+    res.status(204).end();
+  });
+
+  router.delete('/:postId/report', async (req, res) => {
+    const postId = req.params.postId;
+    if (!UUID_RE.test(postId)) throw notFound();
+    await pool.query('DELETE FROM post_reports WHERE post_id = $1 AND reporter_id = $2', [
+      postId,
+      req.user!.id,
+    ]);
+    res.status(204).end();
+  });
+
   router.post('/:postId/comments/:commentId/report', async (req, res) => {
     const owners = await commentOwners(req.params.postId, req.params.commentId);
     if (owners.comment_author === req.user!.id) {

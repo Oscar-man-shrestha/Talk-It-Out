@@ -35,8 +35,12 @@ class MockFeedRepository implements FeedRepository {
   @override
   Future<PageResult<Post>> listPosts({int? limit, String? cursor}) {
     return runMock(_controls, () {
-      final posts = List<Post>.of(_posts)
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final posts = [
+        for (final p in _posts)
+          if (!_board.blockedUserIds.contains(p.author.id) &&
+              !_board.reportedPostIds.contains(p.id))
+            p,
+      ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return slicePage(posts, limit: limit, cursor: cursor);
     });
   }
@@ -330,6 +334,110 @@ class MockFeedRepository implements FeedRepository {
         reactionCount: 0,
         commentCount: 0,
         createdAt: DateTime.utc(2026, 10, 12, 9),
+      ),
+      Post(
+        id: 'q1',
+        author: const Author(id: 'u4', name: 'Anita Gurung'),
+        title: 'How do you make the case for paying down tech debt?',
+        topic: 'engineering',
+        content: 'Our deploys break every other week because of an old billing module. Product keeps prioritising features. What data convinced your leadership to give time for refactoring?',
+        nsfwFlag: false,
+        reactionCount: 7,
+        commentCount: 3,
+        createdAt: DateTime.utc(2026, 10, 8, 9),
+      ),
+      Post(
+        id: 'q2',
+        author: const Author(id: 'u6', name: 'Katherine Rai'),
+        title: 'My manager presents my work as their own',
+        topic: 'leadership',
+        content: 'In the last two leadership updates, my manager showed the analysis I built without mentioning me. I want credit without starting a fight. How would you raise this?',
+        nsfwFlag: false,
+        reactionCount: 12,
+        commentCount: 5,
+        createdAt: DateTime.utc(2026, 10, 9, 10),
+      ),
+      Post(
+        id: 'q3',
+        author: const Author(id: 'u7', name: 'Sujan Karki'),
+        title: 'Is my salary fair for my level?',
+        topic: 'compensation',
+        content: 'I found out a new hire at the same level earns noticeably more than me. I have been here three years with good reviews. How should I bring this up with HR?',
+        nsfwFlag: false,
+        reactionCount: 4,
+        commentCount: 1,
+        createdAt: DateTime.utc(2026, 10, 10, 11),
+      ),
+      Post(
+        id: 'q4',
+        author: const Author(id: 'u5', name: 'Bikash Thapa'),
+        title: 'People stay quiet in retros. How do we fix it?',
+        topic: 'safety',
+        content: 'Our retrospectives are polite and useless. Everyone says things went fine, then complains in private. What helped your team speak honestly?',
+        nsfwFlag: false,
+        reactionCount: 9,
+        commentCount: 4,
+        createdAt: DateTime.utc(2026, 10, 11, 12),
+      ),
+      Post(
+        id: 'q5',
+        author: const Author(id: 'u8', name: 'Maya Tamang'),
+        title: 'How do I ask for a promotion to senior engineer?',
+        content: 'I have been doing senior-level work for a year: leading a project, mentoring two juniors. My manager has not mentioned promotion. How do I start this conversation?',
+        nsfwFlag: false,
+        reactionCount: 15,
+        commentCount: 6,
+        createdAt: DateTime.utc(2026, 10, 12, 13),
+      ),
+      Post(
+        id: 'q6',
+        author: const Author(id: 'u10', name: 'Alex Dev'),
+        title: 'Burned out but the project is not done',
+        content: 'I have worked most weekends for two months. I am exhausted and making mistakes. How do I say I need a break without letting the team down?',
+        nsfwFlag: false,
+        reactionCount: 6,
+        commentCount: 2,
+        createdAt: DateTime.utc(2026, 10, 13, 14),
+      ),
+      Post(
+        id: 'q7',
+        author: const Author(id: 'u11', name: 'Sophia Lee'),
+        title: 'Meetings across time zones are killing us',
+        content: 'Half the team is eight hours ahead. Someone always joins at night. How do you run a distributed team without making one side suffer?',
+        nsfwFlag: false,
+        reactionCount: 3,
+        commentCount: 0,
+        createdAt: DateTime.utc(2026, 10, 14, 15),
+      ),
+      Post(
+        id: 'q8',
+        author: const Author(id: 'u3', name: 'Rohan Basnet'),
+        title: 'How do I give hard feedback to a peer?',
+        content: 'A peer\'s work often arrives late and incomplete, which blocks me. We are on the same level. How do I raise it kindly but clearly?',
+        nsfwFlag: false,
+        reactionCount: 8,
+        commentCount: 3,
+        createdAt: DateTime.utc(2026, 10, 15, 16),
+      ),
+      Post(
+        id: 'q9',
+        author: const Author(id: 'u4', name: 'Anita Gurung'),
+        title: 'How do I explain a layoff in interviews?',
+        content: 'I was laid off with a third of the company. Interviewers keep asking why I left. What is a good honest answer?',
+        nsfwFlag: false,
+        reactionCount: 5,
+        commentCount: 2,
+        createdAt: DateTime.utc(2026, 10, 16, 9),
+      ),
+      Post(
+        id: 'q10',
+        author: const Author(id: 'u7', name: 'Sujan Karki'),
+        title: 'Leaving a big company for an early-stage startup',
+        content: 'I have an offer from a seed-stage startup: lower salary, some equity. How did you judge whether the startup was a good bet?',
+        nsfwFlag: false,
+        reactionCount: 11,
+        commentCount: 4,
+        createdAt: DateTime.utc(2026, 10, 17, 10),
       ),
     ];
   }

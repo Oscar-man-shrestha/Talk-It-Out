@@ -13,7 +13,7 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-14 (IST)
-**Current phase:** Complete and verified end to end (Run 095): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Current phase:** Complete and verified end to end (Run 097): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
 **Next step:** Review and merge `temp/project-completion-run070`. Optional: Gmail app password in `backend/.env` for real reset emails (user enters it); a larger model for higher rewrite fidelity.
@@ -62,6 +62,8 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 | 33 | Emoji keyboard, any-emoji reactions, chat polish, chat-list groups page | Done | 093 |
 | 34 | Discovery: fuzzy people search, @handles, interests, For You, NLP search, startup plan | Done | 094 |
 | 35 | Personalisation off switch, similar questions, live rebuild, push | Done | 095 |
+| 36 | Overnight polish: tone hint, recent people, retention, own-question-first, starter questions | Done | 096 |
+| 37 | Safety: block people, report questions, other people's profiles | Done | 097 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -98,6 +100,8 @@ Items the user should confirm. Agents add rows here when they make an assumption
 | D20 | Preset avatar/cover pictures (fixed web addresses) have no file to upload | Picked files upload to `/users/me/avatar` and `/users/me/cover`; a preset is shown on that device only and is not saved | Resolved | Preset pictures are downloaded (Unsplash asked for JPEG) and uploaded like picked files, so they are saved on the server. Run 073 |
 | D21 | Screen controls with no backend or v1 behind them were kept to preserve the design | Kept but inert: review queue relevance slider and priority order (relevance must never hide messages), Forgot password, Keep active session, profile Share, Approved/Rejected review tabs (the API lists pending only, shown with "–") | Resolved | Fix wording only (user, 2026-11-13). Profile Share now copies a profile summary; comment Copy really copies; the comment "Inspect Tone Stack" item was removed and Report says it is not available yet. Forgot password stays inert (needs an email service). Run 073 |
 | D22 | Descriptive copy that overstates the product ("end-to-end encrypted", "Zero-Knowledge", "cryptographic", "AI Rewrite: Active" on feed comments) | Left unchanged because the user asked for no frontend changes; only invented data was replaced | Resolved | Fix wording only (user, 2026-11-13). Encryption, zero-knowledge, cryptographic, telemetry and "AI pre-screening/eliminate toxicity" claims replaced in place with accurate text; the login screen's invented "live rooms" card now explains the three steps. Run 073 |
+| D23 | When reported questions are hidden from everyone (there is no admin or moderator role yet) | 5 different people reporting one question hide it from everyone except its author; the reporter stops seeing it at once; reports can be withdrawn | Open | |
+| D24 | Whether blocking affects groups both people are already in | It does not: groups are moderated by the controller, and hiding a person's named messages would make their anonymous ones easier to guess. Blocking covers search, suggestions, feed, comments, profiles and adding to groups | Open | |
 | D19 | Prompt-injection defense for the model layer | Delimiters + system-prompt data rule + deterministic validation; verified on Kaggle with Qwen2.5-3B-Instruct (0 hijacks across all 4 synthetic probes; manual review confirmed safe) | Resolved | Delimiters and data-only system prompt verified empirically against real model |
 
 ---
@@ -2998,4 +3002,51 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - Flutter 115 passed, analyze 0, format clean;
   - `npm run migrate` applied 019 and 020 to the dev database;
   - `live-check.mjs` 83/83 (before this run's additions).
+
+### Run 096: Overnight polish
+- **Date/time:** 2026-11-15 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 36
+- **Prompt / task:** "Keep checking and updating while I sleep; best result possible by morning."
+- **Result:** Completed
+- **Summary:**
+  - **Checked on the live site:**
+    - Fixed: the interest picker opened over the Ask screen when that page was opened directly by its link. It now opens only when the current path is `/feed`.
+    - Fixed: emoji on selected interest tiles were invisible when the web emoji font did not load. They now sit on a light circle with a dark fallback colour.
+    - "Already asked?" was checked with a draft that was never posted.
+  - **Code review fixes:**
+    - Feed signals older than 180 days are now really deleted (`src/retention.ts`, at start-up and every 6 hours), as the plan promises.
+    - People search orders its candidates (exact, then prefix, then most similar) before re-ranking, so exact matches are never cut off.
+  - **Tone hint** (`tone_hint.dart`): an on-device check for insults, blame, "always/never" about people, and shouting. It never blocks sending and nothing is sent. Friendly phrases ("you all", "thanks to you", "just a joke") are tested as clean.
+  - **Recent people** in Add Members: stored on this device only, with Clear.
+  - **Your new question first:** your own question leads For You for its first hour ("Your new question"), then drops low.
+  - **Starter questions:**
+    - `backend/scripts/seed-questions.json`: 31 questions covering all 15 interests. A test checks that the classifier tags every interest.
+    - `npm run seed:questions` adds them as "Talk It Out Community" (an account nobody can sign in to); `-- --remove` deletes them. **Not run on the dev database.**
+    - The demo build shows 10 of them.
+  - **Docs:** README feature table, `docs/STARTUP_PLAN.md` (what was built, retention, off switch).
+- **Commands run and results:** Flutter 117 passed, analyze 0; backend: the new tests passed. A full backend run collided with a second run on the shared test database (3 chat tests failed only at that moment); the clean rerun is recorded in Run 097.
+
+### Run 097: Block, report, profiles
+- **Date/time:** 2026-11-15 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 37 (Safety / Social)
+- **Prompt / task:** "Block, report, profiles."
+- **Result:** Completed
+- **Summary:**
+  - **Migration 021:** `user_blocks` and `post_reports` (both erased with an account or question).
+  - **Shared rules** (`src/blocks.ts`):
+    - a block hides both people from each other in people search and suggestions, Latest, For You, feed search, similar questions, comments and question pages, and stops either adding the other to a group (the `403` never says who blocked);
+    - a reported question disappears for the reporter at once, and for everyone except its author once 5 people report it (D23).
+  - **API 59 and 60:**
+    - block and unblock, and the blocked list;
+    - `GET /users/:id/posts`;
+    - other people's profiles return `shared_groups`. Blocked by them: `404`. Blocked by you: a minimal profile with `blocked_by_me`, so you can unblock.
+    - report a question with a reason, and withdraw the report.
+  - **App:**
+    - **Profile screen for other people** (`/people/:id`): name, @handle, headline, location, "In N of your groups", Add to group (picks a group you control), About, skills, experience, education and their questions. The ⋯ menu has Block / Unblock. If you blocked them, only their name and an Unblock button show; if they blocked you, "This profile isn't available".
+    - **Report question:** six reasons, with Undo; for self-harm the snackbar also points to emergency services. Available in the question page menu and For You's "Why you're seeing this". The question page menu also has "Block <name>".
+    - **Profile → Blocked people:** a list with Unblock.
+    - **Names open profiles:** feed cards, the question author, commenters, the members list and named chat senders. Anonymous senders have nothing to open.
+- **Commands run and results:** backend 272 passed, type-check and lint clean; Flutter 122 passed, analyze 0, format clean (both suites run one after the other on 2026-11-15). Migration 021 and the starter questions have not been applied to the dev database yet.
 

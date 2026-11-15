@@ -266,7 +266,46 @@ export function createProfilesRouter(pool: Pool, requireAuth: RequireAuth): Rout
   router.get('/:userId/profile', async (req, res) => {
     const raw = req.params.userId;
     const userId = raw === 'me' ? req.user!.id : requireEntryId(raw, 'profile');
-    res.json(await loadProfile(pool, req, userId, userId === req.user!.id));
+    const self = userId === req.user!.id;
+    if (self) {
+      res.json(await loadProfile(pool, req, userId, true));
+      return;
+    }
+    const blocks = await pool.query<{ blocker_id: string }>(
+      `SELECT blocker_id FROM user_blocks
+       WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)`,
+      [req.user!.id, userId],
+    );
+    // Blocked by them: the profile does not exist for you.
+    if (blocks.rows.some((b) => b.blocker_id === userId)) {
+      throw notFound('We could not find that profile.');
+    }
+    const blockedByMe = blocks.rows.length > 0;
+    const profile = await loadProfile(pool, req, userId, false);
+    if (blockedByMe) {
+      // Only what is needed to recognise and unblock them.
+      res.json({
+        user: {
+          id: profile.user.id,
+          name: profile.user.name,
+          handle: profile.user.handle,
+          avatar_url: profile.user.avatar_url,
+        },
+        experiences: [],
+        educations: [],
+        shared_groups: 0,
+        blocked_by_me: true,
+      });
+      return;
+    }
+    // Someone else's profile: shared groups, like Instagram's "Followed by".
+    const { rows } = await pool.query<{ shared: number }>(
+      `SELECT count(*)::int AS shared FROM group_members a
+       JOIN group_members b ON b.group_id = a.group_id
+       WHERE a.user_id = $1 AND b.user_id = $2`,
+      [req.user!.id, userId],
+    );
+    res.json({ ...profile, shared_groups: rows[0]?.shared ?? 0, blocked_by_me: false });
   });
 
   router.put('/me/profile', async (req, res) => {

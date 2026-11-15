@@ -12,6 +12,8 @@ import { matchPerson, NameMatchKind } from '../nlp/fuzzy';
 import { fold } from '../nlp/text';
 import { INTEREST_IDS, INTERESTS } from '../nlp/topics';
 import { mediaUrl } from './profiles';
+import { blockedEitherWay, notBlockedSql, visiblePostSql } from '../blocks';
+import { POST_SELECT, postJson } from './feed';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -152,7 +154,7 @@ export function createPeopleRouter(pool: Pool, requireAuth: RequireAuth): Router
         `SELECT ${PERSON_COLUMNS}
          FROM users u
          LEFT JOIN user_profiles p ON p.user_id = u.id
-         WHERE u.id <> $1 AND (
+         WHERE u.id <> $1 AND ${notBlockedSql('$1', 'u.id')} AND (
            lower(u.username) = $3
            OR lower(u.name) LIKE $4 ESCAPE '!'
            OR (u.username_chosen AND lower(u.username) LIKE $5 ESCAPE '!')
@@ -217,7 +219,7 @@ export function createPeopleRouter(pool: Pool, requireAuth: RequireAuth): Router
                 EXISTS (SELECT 1 FROM post_likes l JOIN posts pp ON pp.id = l.post_id
                          WHERE l.user_id = $1 AND pp.author_id = u.id) AS liked_their_post
          FROM candidates c
-         JOIN users u ON u.id = c.id
+         JOIN users u ON u.id = c.id AND ${notBlockedSql('$1', 'u.id')}
          LEFT JOIN user_profiles p ON p.user_id = u.id
        ) s
        WHERE NOT s.in_group
@@ -308,6 +310,70 @@ export function createPeopleRouter(pool: Pool, requireAuth: RequireAuth): Router
       throw err;
     }
     res.json({ handle });
+  });
+
+  // GET /users/me/blocked : people you blocked, newest first.
+  router.get('/me/blocked', async (req, res) => {
+    const { rows } = await pool.query(
+      `SELECT u.id, u.name, u.username, u.username_chosen, p.avatar_media_id
+       FROM user_blocks b
+       JOIN users u ON u.id = b.blocked_id
+       LEFT JOIN user_profiles p ON p.user_id = u.id
+       WHERE b.blocker_id = $1
+       ORDER BY b.created_at DESC`,
+      [req.user!.id],
+    );
+    res.json({
+      items: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        handle: r.username_chosen ? r.username : null,
+        avatar_url: mediaUrl(req, r.avatar_media_id),
+      })),
+    });
+  });
+
+  // POST/DELETE /users/:id/block (API.md 59)
+  router.post('/:userId/block', async (req, res) => {
+    const target = req.params.userId;
+    if (!UUID_RE.test(target)) throw notFound('We could not find that person.');
+    if (target === req.user!.id) throw new ApiError(422, 'validation_error', 'You cannot block yourself.');
+    const exists = await pool.query('SELECT 1 FROM users WHERE id = $1', [target]);
+    if (!exists.rows[0]) throw notFound('We could not find that person.');
+    await pool.query(
+      `INSERT INTO user_blocks (blocker_id, blocked_id) VALUES ($1, $2)
+       ON CONFLICT DO NOTHING`,
+      [req.user!.id, target],
+    );
+    res.status(204).end();
+  });
+
+  router.delete('/:userId/block', async (req, res) => {
+    const target = req.params.userId;
+    if (!UUID_RE.test(target)) throw notFound('We could not find that person.');
+    await pool.query('DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2', [
+      req.user!.id,
+      target,
+    ]);
+    res.status(204).end();
+  });
+
+  // GET /users/:id/posts : someone's public questions, newest first.
+  router.get('/:userId/posts', async (req, res) => {
+    const target = req.params.userId;
+    if (!UUID_RE.test(target)) throw notFound('We could not find that person.');
+    const me = req.user!.id;
+    if (target !== me && (await blockedEitherWay(pool, me, target))) {
+      throw notFound('We could not find that person.');
+    }
+    const { rows } = await pool.query(
+      `${POST_SELECT}
+       WHERE p.author_id = $2 AND ${visiblePostSql('$1')}
+       ORDER BY p.created_at DESC
+       LIMIT 30`,
+      [me, target],
+    );
+    res.json({ items: rows.map(postJson) });
   });
 
   // GET /users/me/interests

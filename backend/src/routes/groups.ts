@@ -5,6 +5,7 @@ import { ApiError, badRequest, conflict, forbidden, notFound, parseWith } from '
 import { buildPage, decodeCursor, encodeCursor, parseListQuery, PageCursor } from '../pagination';
 import { RequireAuth } from '../middleware/auth';
 import { uniqueConstraint, withTransaction } from '../db';
+import { blockedEitherWay } from '../blocks';
 
 const createGroupSchema = z.object({
   agenda: z
@@ -374,6 +375,10 @@ export function createGroupsRouter(
         ]);
     const user = userRows[0];
     if (!user) throw notFound(body.user_id ? 'We could not find that person.' : 'No user has that username.');
+    if (await blockedEitherWay(pool, req.user!.id, user.id)) {
+      // Never says who blocked whom.
+      throw new ApiError(403, 'blocked', 'You cannot add this person.');
+    }
 
     try {
       await pool.query(

@@ -1,5 +1,6 @@
 import 'package:talk_it_out/core/models/page_result.dart';
 import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
+import 'package:talk_it_out/features/feed/data/post.dart';
 
 /// People search, @handles, interests and the personalised feed
 /// (`API.md` 52 to 56).
@@ -38,4 +39,21 @@ abstract class DiscoveryRepository {
 
   /// open, save or not_interested. [on] false undoes it.
   Future<void> sendSignal(String postId, String kind, {bool on = true});
+
+  /// Someone's profile. Throws not_found when they blocked you.
+  Future<PersonProfile> getPerson(String userId);
+
+  /// Someone's public questions, newest first.
+  Future<List<Post>> personPosts(String userId);
+
+  Future<void> block(String userId);
+
+  Future<void> unblock(String userId);
+
+  Future<List<PersonResult>> blockedPeople();
+
+  /// Hides the question from you; enough reports hide it for everyone.
+  Future<void> reportPost(String postId, ReportReason reason);
+
+  Future<void> withdrawReport(String postId);
 }

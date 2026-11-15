@@ -12,6 +12,7 @@ import 'package:talk_it_out/features/discovery/data/interest_catalog.dart';
 import 'package:talk_it_out/features/discovery/data/name_match.dart';
 import 'package:talk_it_out/features/feed/data/feed_repository.dart';
 import 'package:talk_it_out/features/feed/data/post.dart';
+import 'package:talk_it_out/features/profile/data/profile.dart';
 
 class _MockPerson {
   const _MockPerson(this.id, this.name, {this.handle, this.headline = ''});
@@ -115,6 +116,7 @@ class MockDiscoveryRepository implements DiscoveryRepository {
     return runMock(_controls, () {
       final scored = <({PersonResult person, double score})>[];
       for (final p in _people) {
+        if (_board.blockedUserIds.contains(p.id)) continue;
         final m = matchName(query, p.name, handle: p.handle);
         if (m == null) continue;
         final r = _result(p, groupId, match: m.kind);
@@ -139,6 +141,7 @@ class MockDiscoveryRepository implements DiscoveryRepository {
     return runMock(_controls, () {
       final out = <PersonResult>[];
       for (final p in _people) {
+        if (_board.blockedUserIds.contains(p.id)) continue;
         final r = _result(p, groupId);
         if (r.inGroup) continue;
         final reason = r.sharedGroups > 1
@@ -263,13 +266,17 @@ class MockDiscoveryRepository implements DiscoveryRepository {
             (post.reactionCount + 2 * post.commentCount) / maxEngagement;
         final ageDays = now.difference(post.createdAt).inHours / 24;
         final fresh = math.exp(-math.max(0, ageDays) / 30);
-        final mineBonus = post.author.id == MockIds.priya ? -0.3 : 0.0;
+        final mine = post.author.id == MockIds.priya;
+        final mineFresh = mine && now.difference(post.createdAt).inMinutes < 60;
+        final mineBonus = mineFresh ? 1.0 : (mine ? -0.3 : 0.0);
         scores[post.id] =
             (match.isEmpty ? 0 : 0.5) +
             0.3 * engagement +
             0.2 * fresh +
             mineBonus;
-        final reason = match.isNotEmpty
+        final reason = mineFresh
+            ? const FeedReason(kind: 'yours', text: 'Your new question')
+            : match.isNotEmpty
             ? FeedReason(
                 kind: 'interest',
                 text:
@@ -403,4 +410,83 @@ class MockDiscoveryRepository implements DiscoveryRepository {
         ),
     ];
   }
+
+  _MockPerson? _person(String id) {
+    for (final p in _people) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
+  @override
+  Future<PersonProfile> getPerson(String userId) {
+    return runMock(_controls, () {
+      final p = _person(userId);
+      if (p == null) {
+        throw const RepositoryException(
+          code: 'not_found',
+          message: 'We could not find that profile.',
+        );
+      }
+      final shared = _groupsOf(userId)
+          .intersection(_groupsOf(MockIds.priya))
+          .length;
+      final blocked = _board.blockedUserIds.contains(userId);
+      return PersonProfile(
+        profile: Profile(
+          id: p.id,
+          name: p.name,
+          headline: blocked ? '' : p.headline,
+          bio: blocked
+              ? ''
+              : 'Here to learn and help. Ask me about ${p.headline.toLowerCase()}.',
+          location: blocked ? '' : 'Kathmandu',
+          skills: blocked ? const [] : [p.headline.split(' ').last],
+        ),
+        handle: p.handle,
+        sharedGroups: blocked ? 0 : shared,
+        blockedByMe: blocked,
+      );
+    });
+  }
+
+  @override
+  Future<List<Post>> personPosts(String userId) async {
+    final posts = (await _feed.listPosts()).items;
+    return runMock(
+      _controls,
+      () => [
+        for (final p in posts)
+          if (p.author.id == userId) p,
+      ],
+    );
+  }
+
+  @override
+  Future<void> block(String userId) =>
+      runMock(_controls, () => _board.blockedUserIds.add(userId));
+
+  @override
+  Future<void> unblock(String userId) =>
+      runMock(_controls, () => _board.blockedUserIds.remove(userId));
+
+  @override
+  Future<List<PersonResult>> blockedPeople() {
+    return runMock(
+      _controls,
+      () => [
+        for (final id in _board.blockedUserIds)
+          if (_person(id) case final p?)
+            PersonResult(id: p.id, name: p.name, handle: p.handle),
+      ],
+    );
+  }
+
+  @override
+  Future<void> reportPost(String postId, ReportReason reason) =>
+      runMock(_controls, () => _board.reportedPostIds.add(postId));
+
+  @override
+  Future<void> withdrawReport(String postId) =>
+      runMock(_controls, () => _board.reportedPostIds.remove(postId));
 }

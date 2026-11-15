@@ -10,6 +10,8 @@ import 'package:talk_it_out/features/auth/login_screen.dart';
 import 'package:talk_it_out/features/auth/register_screen.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
 import 'package:talk_it_out/features/discovery/interest_picker_screen.dart';
+import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
+import 'package:talk_it_out/features/discovery/safety_actions.dart';
 import 'package:talk_it_out/features/feed/feed_screen.dart';
 import 'package:talk_it_out/features/feed/new_post_screen.dart';
 import 'package:talk_it_out/features/feed/post_detail_screen.dart';
@@ -50,6 +52,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/people/:userId',
+        builder: (context, state) =>
+            PersonProfileScreen(userId: state.pathParameters['userId']!),
+      ),
+      GoRoute(
+        path: '/blocked',
+        builder: (context, state) => const BlockedPeopleScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

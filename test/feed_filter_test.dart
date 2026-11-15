@@ -36,8 +36,19 @@ void main() {
 
     expect(find.text('All questions'), findsWidgets);
     // A mock post with 2 comments was hidden by the old default filter.
+    final list = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(
+      find.textContaining('Notes from the sprint retro.'),
+      300,
+      scrollable: list,
+    );
     expect(find.textContaining('Notes from the sprint retro.'), findsWidgets);
     // A post without comments is shown too.
+    await tester.scrollUntilVisible(
+      find.textContaining('A note on how we talk about estimates.'),
+      300,
+      scrollable: list,
+    );
     expect(
       find.textContaining('A note on how we talk about estimates.'),
       findsWidgets,

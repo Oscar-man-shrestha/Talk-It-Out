@@ -16,6 +16,11 @@ class MockBoard {
   final List<Group> groups = [];
   final Map<String, List<GroupMember>> membersByGroup = {};
   final Set<String> spawnedPostIds = {};
+
+  /// People the demo user blocked, and questions they reported. The feed
+  /// mock hides both, like the server (`API.md` 59, 60).
+  final Set<String> blockedUserIds = {};
+  final Set<String> reportedPostIds = {};
   var nextGroupNumber = 3;
 
   static List<Group> _seedGroups() {

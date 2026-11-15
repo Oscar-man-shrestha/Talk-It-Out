@@ -25,6 +25,8 @@ import 'package:talk_it_out/features/groups/emoji_picker.dart';
 import 'package:talk_it_out/features/discovery/add_members_sheet.dart';
 import 'package:talk_it_out/features/groups/tone_hint.dart';
 import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
+import 'package:talk_it_out/features/invites/invite_sheet.dart';
+import 'package:talk_it_out/features/groups/catch_up.dart';
 
 class GroupChatScreen extends ConsumerStatefulWidget {
   const GroupChatScreen({required this.groupId, super.key});
@@ -209,6 +211,12 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                 context.push('/groups/${widget.groupId}/members');
               } else if (value == 'invite') {
                 showAddMembersSheet(context, widget.groupId);
+              } else if (value == 'invite_link') {
+                showInviteSheet(
+                  context,
+                  groupId: widget.groupId,
+                  agenda: group.value?.agenda ?? '',
+                );
               } else if (value == 'mine') {
                 context.push('/groups/${widget.groupId}/mine');
               } else if (value == 'leave') {
@@ -257,6 +265,18 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                     ],
                   ),
                 ),
+              if (isController)
+                const PopupMenuItem(
+                  key: ValueKey('menu-invite-link'),
+                  value: 'invite_link',
+                  child: Row(
+                    children: [
+                      Icon(Icons.link, size: 16),
+                      SizedBox(width: 8),
+                      Text('Invite with a link'),
+                    ],
+                  ),
+                ),
               PopupMenuItem(value: 'mine', child: Text(AppStrings.myMessages)),
               const PopupMenuItem(
                 value: 'shield',
@@ -283,6 +303,12 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                 ),
               ),
             ],
+          ),
+          IconButton(
+            key: const ValueKey('catch-up'),
+            tooltip: 'Catch up',
+            onPressed: () => showCatchUpSheet(context, widget.groupId),
+            icon: const Icon(Icons.auto_awesome_outlined),
           ),
           if (isController)
             IconButton(

@@ -20,6 +20,7 @@ import 'package:go_router/go_router.dart';
 import 'package:talk_it_out/features/discovery/discovery_providers.dart';
 import 'package:talk_it_out/features/discovery/handle_editor.dart';
 import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
+import 'package:talk_it_out/core/share/share_links.dart';
 
 // Stitch Monochrome Precision tokens
 const _kPrimary = Brand.accent;
@@ -1586,6 +1587,51 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => context.push('/blocked'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Material(
+                    color: _kPrimary,
+                    borderRadius: BorderRadius.circular(12),
+                    child: ListTile(
+                      key: const ValueKey('profile-invite-friends'),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      leading: const Icon(
+                        Icons.favorite_outline,
+                        color: Colors.white,
+                      ),
+                      title: const Text(
+                        'Invite friends to Talk It Out',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Safer conversations need more people in them.',
+                        style: TextStyle(fontSize: 11.5, color: Colors.white70),
+                      ),
+                      trailing: const Icon(
+                        Icons.ios_share,
+                        color: Colors.white,
+                      ),
+                      onTap: () async {
+                        final text = inviteFriendsText();
+                        final messenger = ScaffoldMessenger.of(context);
+                        if (!await shareText(text, subject: 'Talk It Out')) {
+                          await Clipboard.setData(ClipboardData(text: text));
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Invite copied. Paste it anywhere.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
                     ),
                   ),
                   const SizedBox(height: 8),

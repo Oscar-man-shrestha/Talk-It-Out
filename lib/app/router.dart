@@ -25,6 +25,7 @@ import 'package:talk_it_out/features/notifications/notifications_screen.dart';
 import 'package:talk_it_out/features/profile/profile_screen.dart';
 import 'package:talk_it_out/features/review/review_detail_screen.dart';
 import 'package:talk_it_out/features/review/review_queue_screen.dart';
+import 'package:talk_it_out/features/invites/join_group_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -66,6 +67,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/people/:userId',
         builder: (context, state) =>
             PersonProfileScreen(userId: state.pathParameters['userId']!),
+      ),
+      GoRoute(
+        path: '/join/:code',
+        builder: (context, state) => JoinGroupScreen(
+          key: ValueKey(state.pathParameters['code']),
+          code: state.pathParameters['code']!.toLowerCase(),
+        ),
       ),
       GoRoute(
         path: '/blocked',

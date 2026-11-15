@@ -626,3 +626,25 @@ Plain text or several emoji in one reaction give `422`. One person can add at mo
 - `DELETE /posts/:id/report` returns `204`.
 - **Effect:** the reporter no longer sees the question in lists. At 5 distinct reports it is hidden from everyone except its author (decision D23). The author is never told who reported.
 
+### 61. Group invite links
+- **Controller only** (members get `403`, non-members `404`):
+  - `POST /groups/:id/invites {expires_in_days?: 1|7|30|null, max_uses?: 1..1000|null}` returns `201 {code, url, app_url, created_at, expires_at, max_uses, uses}`. The default expiry is 7 days; `null` means the link never expires.
+    - `url` is `APP_WEB_URL/#/join/<code>`; `app_url` is `talkitout://app/join/<code>`.
+    - At most 20 links can be active per group (`409 too_many_invites`).
+  - `GET /groups/:id/invites` returns `{items}`: the links that still work.
+  - `DELETE /groups/:id/invites/:code` returns `204` and turns the link off.
+- **Any signed-in user:**
+  - `GET /invites/:code` returns `{code, group {id, agenda, member_count}, invited_by, already_member, expires_at}`.
+  - `POST /invites/:code/accept` joins as a contributor and returns `201 {group_id, joined: true}`. If you are already a member it returns `200 {joined: false}` and does not count a use.
+- **Invalid links:** an expired, used-up or turned-off link, or one created by someone who blocked you or whom you blocked, returns `404 invite_invalid`.
+- Codes are 10 characters from `a-z2-9`, without look-alike characters.
+
+### 62. Legal pages
+- `GET /legal/privacy`, `/legal/terms` and `/legal/delete-account` return public HTML pages, with no sign-in. They are the links for the Google Play listing and its Data safety form.
+- The source is `backend/legal/*.md`, identical to `assets/legal/*.md`, which the app shows. Tests on both sides check that the two copies match.
+
+### 63. Catch up (conversation summary)
+- `GET /groups/:id/summary?limit=` (members only; `limit` 5–200, default 60 latest published messages) returns `{message_count, highlights[], open_questions[], key_topics[], themes[{id,label,emoji}], from, to}`.
+- **Method:** extractive TextRank. Sentences are scored by PageRank over TF-IDF cosine similarity, and up to 3 non-question highlights are shown in the order they were said. Up to 2 open questions are listed. Key topics are the terms with the most weight, and themes come from the interest classifier.
+- **Privacy:** only published (approved) text is used. No names, sender ids or anonymity flags are returned.
+

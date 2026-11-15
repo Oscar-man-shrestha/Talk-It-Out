@@ -25,6 +25,8 @@ import 'package:talk_it_out/features/profile/data/profile_repository.dart';
 import 'package:talk_it_out/features/review/data/api_review_repository.dart';
 import 'package:talk_it_out/features/review/data/mock_review_repository.dart';
 import 'package:talk_it_out/features/review/data/review_repository.dart';
+import 'package:talk_it_out/core/mock/mock_ids.dart';
+import 'package:talk_it_out/features/invites/invite_repository.dart';
 
 final mockControlsProvider = Provider<MockControls>((ref) => MockControls());
 
@@ -70,6 +72,18 @@ final feedRepositoryProvider = Provider<FeedRepository>((ref) {
     );
   }
   return ApiFeedRepository(ref.watch(dioProvider));
+});
+
+/// Group invite links (`API.md` 61).
+final inviteRepositoryProvider = Provider<InviteRepository>((ref) {
+  if (_useMock(ref)) {
+    return MockInviteRepository(
+      ref.watch(mockControlsProvider),
+      ref.watch(mockBoardProvider),
+      MockIds.priya,
+    );
+  }
+  return ApiInviteRepository(ref.watch(dioProvider));
 });
 
 final discoveryRepositoryProvider = Provider<DiscoveryRepository>((ref) {

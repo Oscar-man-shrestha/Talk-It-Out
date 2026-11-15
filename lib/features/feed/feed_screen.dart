@@ -380,6 +380,24 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     );
   }
 
+  var _loadingMore = false;
+
+  Future<void> _loadMore() async {
+    final notifier = ref.read(feedProvider.notifier);
+    if (_loadingMore || !notifier.hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      await notifier.loadMore();
+    } on RepositoryException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final feed = ref.watch(feedProvider);
@@ -535,198 +553,100 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               if (_mode == 0) ref.read(forYouProvider.future),
             ]);
           },
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 96),
-            children: [
-              _FeedTabs(
-                mode: _mode,
-                onChanged: (mode) => setState(() => _mode = mode),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _search,
-                key: const ValueKey('feed-search'),
-                onChanged: (value) {
-                  setState(() {});
-                  _onSearchChanged(value);
-                },
-                style: const TextStyle(fontSize: 13, color: _ink),
-                decoration: InputDecoration(
-                  hintText: 'Search questions (typos are fine)',
-                  hintStyle: const TextStyle(fontSize: 12, color: _faint),
-                  filled: true,
-                  fillColor: Colors.white,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                  prefixIcon: const Icon(Icons.search, size: 19, color: _faint),
-                  suffixIcon: searchingText
-                      ? IconButton(
-                          tooltip: 'Clear search',
-                          icon: const Icon(
-                            Icons.close,
-                            size: 18,
-                            color: _muted,
-                          ),
-                          onPressed: () {
-                            _search.clear();
-                            _onSearchChanged('');
-                          },
-                        )
-                      : null,
-                  border: _fieldBorder(_border),
-                  enabledBorder: _fieldBorder(_border),
-                  focusedBorder: _fieldBorder(Brand.accent),
+          child: NotificationListener<ScrollNotification>(
+            // Endless scrolling on Latest: fetch older questions before
+            // the reader reaches the end.
+            onNotification: (n) {
+              if (_mode == 1 && n.metrics.extentAfter < 800) _loadMore();
+              return false;
+            },
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 96),
+              children: [
+                _FeedTabs(
+                  mode: _mode,
+                  onChanged: (mode) => setState(() => _mode = mode),
                 ),
-              ),
-              if (searchingText) ...[
                 const SizedBox(height: 10),
-                if (_searching && _searchResult == null)
-                  const LinearProgressIndicator(minHeight: 2, color: _ink),
-                if (_searchResult?.didYouMean case final suggestion?)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text.rich(
-                      TextSpan(
-                        style: const TextStyle(fontSize: 13, color: _muted),
-                        children: [
-                          const TextSpan(text: 'Showing results for '),
-                          WidgetSpan(
-                            alignment: PlaceholderAlignment.baseline,
-                            baseline: TextBaseline.alphabetic,
-                            child: GestureDetector(
-                              onTap: () => _useCorrection(suggestion),
-                              child: Text(
-                                suggestion,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  fontStyle: FontStyle.italic,
-                                  color: _ink,
+                TextField(
+                  controller: _search,
+                  key: const ValueKey('feed-search'),
+                  onChanged: (value) {
+                    setState(() {});
+                    _onSearchChanged(value);
+                  },
+                  style: const TextStyle(fontSize: 13, color: _ink),
+                  decoration: InputDecoration(
+                    hintText: 'Search questions (typos are fine)',
+                    hintStyle: const TextStyle(fontSize: 12, color: _faint),
+                    filled: true,
+                    fillColor: Colors.white,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      size: 19,
+                      color: _faint,
+                    ),
+                    suffixIcon: searchingText
+                        ? IconButton(
+                            tooltip: 'Clear search',
+                            icon: const Icon(
+                              Icons.close,
+                              size: 18,
+                              color: _muted,
+                            ),
+                            onPressed: () {
+                              _search.clear();
+                              _onSearchChanged('');
+                            },
+                          )
+                        : null,
+                    border: _fieldBorder(_border),
+                    enabledBorder: _fieldBorder(_border),
+                    focusedBorder: _fieldBorder(Brand.accent),
+                  ),
+                ),
+                if (searchingText) ...[
+                  const SizedBox(height: 10),
+                  if (_searching && _searchResult == null)
+                    const LinearProgressIndicator(minHeight: 2, color: _ink),
+                  if (_searchResult?.didYouMean case final suggestion?)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text.rich(
+                        TextSpan(
+                          style: const TextStyle(fontSize: 13, color: _muted),
+                          children: [
+                            const TextSpan(text: 'Showing results for '),
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.baseline,
+                              baseline: TextBaseline.alphabetic,
+                              child: GestureDetector(
+                                onTap: () => _useCorrection(suggestion),
+                                child: Text(
+                                  suggestion,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    fontStyle: FontStyle.italic,
+                                    color: _ink,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                if (_searchResult != null && _searchResult!.items.isEmpty)
-                  _CaughtUp(
-                    title: 'No questions match "${_search.text.trim()}"',
-                    body: 'Try other words, or ask it yourself.',
-                  ),
-                for (final post in _searchResult?.items ?? const <Post>[]) ...[
-                  PostCard(
-                    post: post,
-                    onOpen: () => _openPost(post),
-                    onToggleLike: () => _toggleLike(post),
-                    onCreateGroup: post.author.id == userId
-                        ? () => _createGroup(post)
-                        : null,
-                    creatingGroup: _creatingId == post.id,
-                    onAuthor: () => openPerson(context, ref, post.author.id),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ] else if (_mode == 0) ...[
-                const SizedBox(height: 10),
-                _InterestBar(
-                  interests: interests,
-                  onEdit: () => interests?.personalized == false
-                      ? context.go('/profile')
-                      : context.push('/feed/interests'),
-                ),
-                const SizedBox(height: 12),
-                if ((forYou?.value ?? const <RankedPost>[]).isEmpty)
-                  const _CaughtUp(
-                    title: 'Nothing here yet',
-                    body: 'Be the first to ask a question, or check Latest.',
-                  ),
-                for (final item in forYou?.value ?? const <RankedPost>[]) ...[
-                  _ReasonLine(
-                    item: item,
-                    onMore: () => _whyThisPost(item, interests),
-                  ),
-                  PostCard(
-                    post: item.post,
-                    onOpen: () => _openPost(item.post),
-                    onToggleLike: () => _toggleLike(item.post),
-                    onCreateGroup: item.post.author.id == userId
-                        ? () => _createGroup(item.post)
-                        : null,
-                    creatingGroup: _creatingId == item.post.id,
-                    onAuthor: () =>
-                        openPerson(context, ref, item.post.author.id),
-                  ),
-                  const SizedBox(height: 14),
-                ],
-                if ((forYou?.value ?? const <RankedPost>[]).isNotEmpty)
-                  const _CaughtUp(
-                    title: "You're all caught up",
-                    body: 'Like or answer questions and For You gets better.',
-                  ),
-              ] else ...[
-                const SizedBox(height: 12),
-                _Hero(
-                  openCount: openCount,
-                  onAsk: () => context.push('/feed/new'),
-                  onRankings: _scrollToBoard,
-                ),
-                const SizedBox(height: 12),
-                const SizedBox(height: 10),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (var i = 0; i < _topics.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 6),
-                        _TopicChip(
-                          icon: _topics[i].$1,
-                          label: _topics[i].$2,
-                          active: _topic == i,
-                          onTap: () => setState(() => _topic = i),
+                          ],
                         ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Flexible(
-                      child: _MenuPill(
-                        value: _sort,
-                        options: _sorts,
-                        onChanged: (value) => setState(() => _sort = value),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: _MenuPill(
-                        value: _status,
-                        options: _statuses,
-                        onChanged: (value) => setState(() => _status = value),
-                      ),
+                  if (_searchResult != null && _searchResult!.items.isEmpty)
+                    _CaughtUp(
+                      title: 'No questions match "${_search.text.trim()}"',
+                      body: 'Try other words, or ask it yourself.',
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _Leaderboard(
-                  key: _boardKey,
-                  voices: _leaders(items),
-                  weekly: _weekly,
-                  onWeekly: () => setState(() => _weekly = true),
-                  onDaily: () => setState(() => _weekly = false),
-                ),
-                const SizedBox(height: 12),
-                if (visible.isEmpty)
-                  const _CaughtUp(
-                    title: 'No questions match',
-                    body: 'Try another topic, or clear the search to see the full feed.',
-                  )
-                else
-                  for (final post in visible) ...[
+                  for (final post
+                      in _searchResult?.items ?? const <Post>[]) ...[
                     PostCard(
                       post: post,
                       onOpen: () => _openPost(post),
@@ -739,15 +659,146 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     ),
                     const SizedBox(height: 12),
                   ],
-                if (visible.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  const _CaughtUp(
-                    title: "You're caught up with community consensus!",
-                    body: 'Questions on this feed stay attributed to the person who wrote them.',
+                ] else if (_mode == 0) ...[
+                  const SizedBox(height: 10),
+                  _InterestBar(
+                    interests: interests,
+                    onEdit: () => interests?.personalized == false
+                        ? context.go('/profile')
+                        : context.push('/feed/interests'),
                   ),
+                  const SizedBox(height: 12),
+                  if ((forYou?.value ?? const <RankedPost>[]).isEmpty)
+                    const _CaughtUp(
+                      title: 'Nothing here yet',
+                      body: 'Be the first to ask a question, or check Latest.',
+                    ),
+                  for (final item in forYou?.value ?? const <RankedPost>[]) ...[
+                    _ReasonLine(
+                      item: item,
+                      onMore: () => _whyThisPost(item, interests),
+                    ),
+                    PostCard(
+                      post: item.post,
+                      onOpen: () => _openPost(item.post),
+                      onToggleLike: () => _toggleLike(item.post),
+                      onCreateGroup: item.post.author.id == userId
+                          ? () => _createGroup(item.post)
+                          : null,
+                      creatingGroup: _creatingId == item.post.id,
+                      onAuthor: () =>
+                          openPerson(context, ref, item.post.author.id),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  if ((forYou?.value ?? const <RankedPost>[]).isNotEmpty)
+                    const _CaughtUp(
+                      title: "You're all caught up",
+                      body: 'Like or answer questions and For You gets better.',
+                    ),
+                ] else ...[
+                  const SizedBox(height: 12),
+                  _Hero(
+                    openCount: openCount,
+                    onAsk: () => context.push('/feed/new'),
+                    onRankings: _scrollToBoard,
+                  ),
+                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (var i = 0; i < _topics.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 6),
+                          _TopicChip(
+                            icon: _topics[i].$1,
+                            label: _topics[i].$2,
+                            active: _topic == i,
+                            onTap: () => setState(() => _topic = i),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: _MenuPill(
+                          value: _sort,
+                          options: _sorts,
+                          onChanged: (value) => setState(() => _sort = value),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: _MenuPill(
+                          value: _status,
+                          options: _statuses,
+                          onChanged: (value) => setState(() => _status = value),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _Leaderboard(
+                    key: _boardKey,
+                    voices: _leaders(items),
+                    weekly: _weekly,
+                    onWeekly: () => setState(() => _weekly = true),
+                    onDaily: () => setState(() => _weekly = false),
+                  ),
+                  const SizedBox(height: 12),
+                  if (visible.isEmpty)
+                    const _CaughtUp(
+                      title: 'No questions match',
+                      body: 'Try another topic, or clear the search to see the full feed.',
+                    )
+                  else
+                    for (final post in visible) ...[
+                      PostCard(
+                        post: post,
+                        onOpen: () => _openPost(post),
+                        onToggleLike: () => _toggleLike(post),
+                        onCreateGroup: post.author.id == userId
+                            ? () => _createGroup(post)
+                            : null,
+                        creatingGroup: _creatingId == post.id,
+                        onAuthor: () =>
+                            openPerson(context, ref, post.author.id),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  if (ref.read(feedProvider.notifier).hasMore)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Center(
+                        child: _loadingMore
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : OutlinedButton(
+                                key: const ValueKey('feed-load-more'),
+                                onPressed: _loadMore,
+                                child: const Text('Load more questions'),
+                              ),
+                      ),
+                    )
+                  else if (visible.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    const _CaughtUp(
+                      title: "You're caught up with community consensus!",
+                      body: 'Questions on this feed stay attributed to the person who wrote them.',
+                    ),
+                  ],
                 ],
               ],
-            ],
+            ),
           ),
         ),
       ),

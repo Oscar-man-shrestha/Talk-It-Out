@@ -13,7 +13,7 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-14 (IST)
-**Current phase:** Complete and verified end to end (Run 097): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Current phase:** Complete and verified end to end (Run 098): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
 **Next step:** Review and merge `temp/project-completion-run070`. Optional: Gmail app password in `backend/.env` for real reset emails (user enters it); a larger model for higher rewrite fidelity.
@@ -64,6 +64,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 | 35 | Personalisation off switch, similar questions, live rebuild, push | Done | 095 |
 | 36 | Overnight polish: tone hint, recent people, retention, own-question-first, starter questions | Done | 096 |
 | 37 | Safety: block people, report questions, other people's profiles | Done | 097 |
+| 38 | Play Store readiness, invite links, sharing, Catch up summaries, endless feed | Done | 098 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -102,6 +103,8 @@ Items the user should confirm. Agents add rows here when they make an assumption
 | D22 | Descriptive copy that overstates the product ("end-to-end encrypted", "Zero-Knowledge", "cryptographic", "AI Rewrite: Active" on feed comments) | Left unchanged because the user asked for no frontend changes; only invented data was replaced | Resolved | Fix wording only (user, 2026-11-13). Encryption, zero-knowledge, cryptographic, telemetry and "AI pre-screening/eliminate toxicity" claims replaced in place with accurate text; the login screen's invented "live rooms" card now explains the three steps. Run 073 |
 | D23 | When reported questions are hidden from everyone (there is no admin or moderator role yet) | 5 different people reporting one question hide it from everyone except its author; the reporter stops seeing it at once; reports can be withdrawn | Open | |
 | D24 | Whether blocking affects groups both people are already in | It does not: groups are moderated by the controller, and hiding a person's named messages would make their anonymous ones easier to guess. Blocking covers search, suggestions, feed, comments, profiles and adding to groups | Open | |
+| D25 | Minimum age | 18+ in the terms, privacy policy and on Register (workplace app; avoids India's DPDP parental-consent rules for under-18s) | Open | |
+| D26 | Who can create invite links | Controllers only; links default to 7 days; anyone with a link joins as a contributor | Open | |
 | D19 | Prompt-injection defense for the model layer | Delimiters + system-prompt data rule + deterministic validation; verified on Kaggle with Qwen2.5-3B-Instruct (0 hijacks across all 4 synthetic probes; manual review confirmed safe) | Resolved | Delimiters and data-only system prompt verified empirically against real model |
 
 ---
@@ -3050,3 +3053,36 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
     - **Names open profiles:** feed cards, the question author, commenters, the members list and named chat senders. Anonymous senders have nothing to open.
 - **Commands run and results:** backend 272 passed, type-check and lint clean; Flutter 122 passed, analyze 0, format clean (both suites run one after the other on 2026-11-15). Migration 021 and the starter questions have not been applied to the dev database yet.
 
+### Run 098: Play Store readiness and growth features
+- **Date/time:** 2026-11-15 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 38 (Release / Growth / NLP)
+- **Prompt / task:** "This is the real product I want for earning; make everything top notch, keep existing features, add new ones, fix conflicts, use NLP wherever possible, make it the best and viral for the Play Store."
+- **Result:** Completed (with the items under "Not done")
+- **Summary:**
+  - **Play Store blockers fixed:**
+    - Release builds had no `INTERNET` permission, so an installed app could not reach the server.
+    - The app was labelled "talk_it_out"; it is now "Talk It Out".
+    - Release builds were signed with the debug key; they now use `android/key.properties`, which is never committed.
+    - The Flutter default icon is replaced with an adaptive, themed (monochrome) icon, a 512px store icon and web icons, drawn by `tool/make_icons.py`.
+    - Added a `talkitout://` link scheme.
+  - **Legal pages:** a privacy policy, terms and an account-deletion page, written from what the code actually does. They are in the app (Register links, Profile, readable signed out) and served at `/legal/*` (API 62).
+  - **Register fixes:**
+    - removed two false badges, "Domain check ready" and "FIDO2 ready";
+    - fixed three overflowing rows;
+    - the checkbox now says "18+".
+  - **`docs/PLAY_STORE.md`:** signing, build command, listing text, Data safety answers, the user-generated content checklist, release path, and what needs the user's accounts.
+  - **Invite links (API 61):** migration 022 and `src/routes/invites.ts`. In the app: Members → "Invite with a link or QR code", and the chat menu → "Invite with a link". The sheet offers expiry and use-limit choices, Share (system share sheet), Copy, a QR code, and an active-links list where links can be turned off. A Join screen at `/join/:code` explains anonymity before joining. Signed-out visitors sign in and come back to the Join screen.
+  - **Sharing:** "Share question" (system share sheet with a link, or the Play Store page off the web) and Profile → "Invite friends to Talk It Out".
+  - **Catch up (API 63):** a TextRank summary of the last 60 published messages, with highlights, open questions, key topics and themes, and no names. It opens from a ✨ button in every group chat.
+  - **Endless scrolling:** Latest loads older questions as you scroll, with a "Load more questions" fallback button. A test checks that two calls at once load one page and that no question appears twice.
+  - **New dependencies:** `share_plus` (system share sheet for invites and questions) and `qr_flutter` (QR codes for joining in person).
+  - **`AGENTS.md` is still outdated:** it says agents must not touch the backend and should wait on D1–D13. Updating it was blocked by the auto-mode safety check (editing agent rules), so it is unchanged; the user can update it.
+- **Bugs found by tests and fixed:**
+  - legal pages restarted their load on every rebuild;
+  - switching from one legal page to another showed the old text;
+  - Catch up highlights shared one widget key, which crashed the sheet when there were several.
+- **Not done:**
+  - No Android build was made: the Android command-line tools are missing and the disk has under 1 GB free.
+  - Push notifications, crash reporting, cloud hosting and verified https app links need the user's accounts (`docs/PLAY_STORE.md` section 8).
+- **Commands run and results:** backend 285 passed, type-check and lint clean; Flutter 135 passed, analyze 0, format clean.

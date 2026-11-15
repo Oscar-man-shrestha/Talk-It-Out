@@ -19,6 +19,7 @@ import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/discovery/discovery_providers.dart';
 import 'package:talk_it_out/features/discovery/safety_actions.dart';
 import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
+import 'package:talk_it_out/core/share/share_links.dart';
 
 // Stitch Monochrome Precision tokens
 const _kPrimary = Brand.accent;
@@ -134,6 +135,11 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
 
   Future<void> _onMenu(String action, Post post) async {
     switch (action) {
+      case 'share':
+        final text = questionShareText(post);
+        if (!await shareText(text, subject: post.title)) {
+          await _copy(text, AppStrings.questionCopied);
+        }
       case 'link':
         await _copy(
           _shareText(post),
@@ -369,6 +375,11 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                       ),
                       onSelected: (action) => _onMenu(action, post),
                       itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          key: ValueKey('share-question'),
+                          value: 'share',
+                          child: Text('Share question'),
+                        ),
                         PopupMenuItem(
                           value: 'link',
                           child: Text(

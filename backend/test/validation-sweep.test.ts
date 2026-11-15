@@ -177,6 +177,7 @@ describe('migrations', () => {
       '019_discovery.sql',
       '020_personalization_switch.sql',
       '021_blocks_and_post_reports.sql',
+      '022_group_invites.sql',
     ]);
   });
 });

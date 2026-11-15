@@ -13,6 +13,8 @@ export interface Config {
   jwtExpiresIn: string;
   port: number;
   corsOrigins: string[] | '*';
+  /** Where the web app lives; invite links point here (API.md 61). */
+  appWebUrl: string;
   runStubWorker: boolean;
   feedProvider: string;
   runFeedWorker: boolean;
@@ -142,6 +144,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     jwtExpiresIn: env.JWT_EXPIRES_IN ?? '7d',
     port: Number.parseInt(env.PORT ?? '3000', 10) || 3000,
     corsOrigins: parseCorsOrigins(env.CORS_ORIGINS),
+    appWebUrl: env.APP_WEB_URL ?? 'http://localhost:52001',
     runStubWorker: (env.RUN_STUB_WORKER ?? 'false').toLowerCase() === 'true',
     feedProvider: env.FEED_PROVIDER ?? 'fake',
     runFeedWorker: (env.RUN_FEED_WORKER ?? 'false').toLowerCase() === 'true',

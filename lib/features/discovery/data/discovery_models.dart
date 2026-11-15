@@ -94,20 +94,22 @@ class InterestOption {
   const InterestOption({
     required this.id,
     required this.label,
-    required this.emoji,
+    required this.icon,
     this.blurb = '',
   });
 
   factory InterestOption.fromJson(Map<String, dynamic> json) => InterestOption(
     id: _str(json['id']),
     label: _str(json['label']),
-    emoji: _str(json['emoji'], '•'),
+    icon: _str(json['icon']),
     blurb: _str(json['blurb']),
   );
 
   final String id;
   final String label;
-  final String emoji;
+
+  /// Icon name, drawn with `interestIcon` (never an emoji).
+  final String icon;
   final String blurb;
 }
 
@@ -244,13 +246,13 @@ class TopicIdea {
   const TopicIdea({
     required this.id,
     required this.label,
-    required this.emoji,
+    required this.icon,
     required this.score,
   });
 
   final String id;
   final String label;
-  final String emoji;
+  final String icon;
   final double score;
 }
 
@@ -264,7 +266,7 @@ class TopicIdeas {
         TopicIdea(
           id: _str(m['id']),
           label: _str(m['label']),
-          emoji: _str(m['emoji']),
+          icon: _str(m['icon']),
           score: m['score'] is num ? (m['score'] as num).toDouble() : 0,
         ),
     ],

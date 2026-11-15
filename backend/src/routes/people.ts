@@ -390,7 +390,7 @@ export function createPeopleRouter(pool: Pool, requireAuth: RequireAuth): Router
       interests: picked.rows.map((r) => r.interest).filter((id) => INTEREST_IDS.includes(id)),
       chosen: user.rows[0]?.interests_set_at != null,
       personalized: user.rows[0]?.personalized !== false,
-      available: INTERESTS.map(({ id, label, emoji, blurb }) => ({ id, label, emoji, blurb })),
+      available: INTERESTS.map(({ id, label, icon, blurb }) => ({ id, label, icon, blurb })),
     });
   });
 

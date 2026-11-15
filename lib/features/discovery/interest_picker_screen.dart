@@ -5,6 +5,7 @@ import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
 import 'package:talk_it_out/features/discovery/discovery_providers.dart';
+import 'package:talk_it_out/features/discovery/interest_icons.dart';
 
 /// Pinterest-style "What are you into?" picker. [firstRun] shows the
 /// welcome wording and a Skip button.
@@ -206,20 +207,20 @@ class _InterestTile extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // A light circle keeps the emoji visible on the dark
-                    // selected tile, and the dark colour keeps a
-                    // single-colour fallback font readable.
+                    // A vector icon in a circle: crisp on every device,
+                    // light on the dark selected tile.
                     Container(
-                      width: 46,
-                      height: 46,
+                      width: 44,
+                      height: 44,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: selected ? Colors.white : Brand.accentSoft,
                         shape: BoxShape.circle,
                       ),
-                      child: Text(
-                        option.emoji,
-                        style: const TextStyle(fontSize: 24, color: Brand.ink),
+                      child: Icon(
+                        interestIcon(option.icon),
+                        size: 22,
+                        color: Brand.ink,
                       ),
                     ),
                     const Spacer(),

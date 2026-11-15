@@ -8,7 +8,8 @@ import { stem, terms, tokenize } from './text';
 export interface Interest {
   id: string;
   label: string;
-  emoji: string;
+  /** Icon name; the app draws it as a vector icon (never an emoji). */
+  icon: string;
   /** One line for the interest picker. */
   blurb: string;
   /** Words and short phrases that signal the interest. */
@@ -21,7 +22,7 @@ export const INTERESTS: Interest[] = [
   {
     id: 'workplace_policy',
     label: 'Workplace policy',
-    emoji: '📋',
+    icon: 'policy',
     blurb: 'Rules, leave, HR and how things are done',
     phrases: ['policy', 'hr', 'human resources', 'leave', 'sick leave', 'parental leave', 'vacation',
       'holiday', 'handbook', 'rule', 'compliance', 'attendance', 'dress code', 'probation',
@@ -30,7 +31,7 @@ export const INTERESTS: Interest[] = [
   {
     id: 'engineering',
     label: 'Engineering & tech',
-    emoji: '💻',
+    icon: 'code',
     blurb: 'Code, systems, on-call and tech debt',
     phrases: ['engineer', 'engineering', 'code', 'coding', 'deploy', 'bug', 'tech debt', 'technical debt',
       'architecture', 'api', 'backend', 'frontend', 'database', 'on call', 'incident', 'sprint',
@@ -40,7 +41,7 @@ export const INTERESTS: Interest[] = [
   {
     id: 'leadership',
     label: 'Leadership',
-    emoji: '🧭',
+    icon: 'explore',
     blurb: 'Managers, execs and decisions',
     phrases: ['leader', 'leadership', 'manager', 'management', 'exec', 'executive', 'ceo', 'cto', 'director',
       'boss', 'decision', 'strategy', 'vision', 'roadmap', 'delegate', 'one on one', '1:1', 'skip level',
@@ -49,7 +50,7 @@ export const INTERESTS: Interest[] = [
   {
     id: 'compensation',
     label: 'Pay & equity',
-    emoji: '💰',
+    icon: 'payments',
     blurb: 'Salary, raises, bonuses and equity',
     phrases: ['salary', 'pay', 'paid', 'raise', 'bonus', 'equity', 'stock', 'esop', 'compensation', 'wage',
       'increment', 'appraisal', 'pay gap', 'benefit', 'negotiate', 'negotiation', 'offer', 'ctc', 'payroll'],
@@ -57,7 +58,7 @@ export const INTERESTS: Interest[] = [
   {
     id: 'safety',
     label: 'Psychological safety',
-    emoji: '🛡️',
+    icon: 'shield',
     blurb: 'Speaking up without fear',
     phrases: ['psychological safety', 'safe', 'safety', 'speak up', 'fear', 'retaliation', 'retro',
       'retrospective', 'blame', 'trust', 'honest', 'candid', 'anonymous', 'voice', 'silenced',
@@ -66,7 +67,7 @@ export const INTERESTS: Interest[] = [
   {
     id: 'culture',
     label: 'Ethics & culture',
-    emoji: '🤝',
+    icon: 'handshake',
     blurb: 'Values, ethics and team culture',
     phrases: ['culture', 'ethic', 'ethics', 'values', 'integrity', 'toxic', 'politics', 'gossip', 'offsite',
       'team building', 'morale', 'favoritism', 'nepotism', 'transparency', 'respect', 'harassment'],
@@ -74,7 +75,7 @@ export const INTERESTS: Interest[] = [
   {
     id: 'career_growth',
     label: 'Career growth',
-    emoji: '📈',
+    icon: 'trending_up',
     blurb: 'Promotions, mentors and next steps',
     phrases: ['career', 'promotion', 'promote', 'growth', 'mentor', 'mentorship', 'senior', 'junior',
       'level', 'title', 'ladder', 'performance review', 'goal', 'okr', 'stretch', 'visibility', 'sponsor',
@@ -83,7 +84,7 @@ export const INTERESTS: Interest[] = [
   {
     id: 'wellbeing',
     label: 'Wellbeing & burnout',
-    emoji: '🌿',
+    icon: 'spa',
     blurb: 'Stress, burnout and work-life balance',
     phrases: ['burnout', 'burned out', 'stress', 'anxiety', 'mental health', 'tired', 'exhausted',
       'overwork', 'work life balance', 'balance', 'wellbeing', 'well being', 'sleep', 'therapy',
@@ -92,7 +93,7 @@ export const INTERESTS: Interest[] = [
   {
     id: 'remote_work',
     label: 'Remote & hybrid',
-    emoji: '🏠',
+    icon: 'home_work',
     blurb: 'Working from home and across time zones',
     phrases: ['remote', 'hybrid', 'work from home', 'wfh', 'return to office', 'rto', 'time zone',
       'async', 'asynchronous', 'zoom', 'video call', 'meeting', 'commute', 'distributed', 'slack'],
@@ -100,7 +101,7 @@ export const INTERESTS: Interest[] = [
   {
     id: 'conflict',
     label: 'Conflict & feedback',
-    emoji: '🕊️',
+    icon: 'balance',
     blurb: 'Hard conversations and giving feedback',
     phrases: ['conflict', 'disagree', 'disagreement', 'argument', 'feedback', 'criticism', 'difficult conversation',
       'hard conversation', 'confront', 'tension', 'resolve', 'mediation', 'apology', 'apologize', 'complaint',
@@ -109,7 +110,7 @@ export const INTERESTS: Interest[] = [
   {
     id: 'product_design',
     label: 'Product & design',
-    emoji: '🎨',
+    icon: 'design',
     blurb: 'Users, UX and what to build',
     phrases: ['product', 'design', 'designer', 'ux', 'ui', 'user research', 'prototype', 'feature',
       'customer', 'user', 'figma', 'launch', 'roadmap', 'requirement', 'spec', 'usability', 'label'],
@@ -117,7 +118,7 @@ export const INTERESTS: Interest[] = [
   {
     id: 'job_search',
     label: 'Jobs & interviews',
-    emoji: '🔎',
+    icon: 'work_search',
     blurb: 'Hiring, interviews and switching jobs',
     phrases: ['job', 'interview', 'hiring', 'hire', 'recruiter', 'resume', 'cv', 'cover letter', 'applying',
       'application', 'quit', 'resign', 'resignation', 'layoff', 'laid off', 'fired', 'job offer', 'internship',
@@ -126,7 +127,7 @@ export const INTERESTS: Interest[] = [
   {
     id: 'learning',
     label: 'Learning & skills',
-    emoji: '📚',
+    icon: 'school',
     blurb: 'Courses, skills and getting better',
     phrases: ['learn', 'learning', 'skill', 'course', 'certification', 'training', 'study', 'book',
       'practice', 'upskill', 'workshop', 'tutorial', 'glossary', 'notes', 'documentation', 'knowledge'],
@@ -134,7 +135,7 @@ export const INTERESTS: Interest[] = [
   {
     id: 'startups',
     label: 'Startups',
-    emoji: '🚀',
+    icon: 'rocket',
     blurb: 'Founders, funding and early teams',
     phrases: ['startup', 'founder', 'cofounder', 'co founder', 'funding', 'investor', 'vc', 'seed', 'pitch',
       'runway', 'mvp', 'early stage', 'bootstrap', 'scale', 'side project', 'entrepreneur'],
@@ -142,11 +143,131 @@ export const INTERESTS: Interest[] = [
   {
     id: 'inclusion',
     label: 'Diversity & inclusion',
-    emoji: '🌍',
+    icon: 'diversity',
     blurb: 'Fairness and belonging for everyone',
     phrases: ['diversity', 'inclusion', 'inclusive', 'dei', 'bias', 'discrimination', 'gender', 'women',
       'minority', 'belonging', 'accessibility', 'disability', 'equal', 'fair', 'fairness', 'caste', 'religion',
       'neurodivergent'],
+  },
+  {
+    id: 'data_ai',
+    label: 'Data & AI',
+    icon: 'insights',
+    blurb: 'Analytics, machine learning and AI at work',
+    phrases: ['data science', 'data scientist', 'analytics', 'analyst', 'machine learning', 'model', 'ai',
+      'artificial intelligence', 'llm', 'chatgpt', 'prompt', 'dataset', 'sql', 'dashboard', 'metric', 'automation'],
+  },
+  {
+    id: 'sales_marketing',
+    label: 'Sales & marketing',
+    icon: 'campaign',
+    blurb: 'Targets, customers, campaigns and growth',
+    phrases: ['sales', 'quota', 'target', 'pipeline', 'deal', 'client', 'marketing', 'campaign', 'brand',
+      'lead', 'commission', 'pitch', 'social media', 'seo', 'growth'],
+  },
+  {
+    id: 'people_management',
+    label: 'Managing people',
+    icon: 'groups',
+    blurb: 'First-time managers, 1:1s and feedback',
+    phrases: ['first time manager', 'new manager', 'my team', 'direct report', 'reports', 'one on one', '1 1',
+      'delegate', 'delegation', 'performance review', 'underperform', 'managing', 'team lead', 'giving feedback'],
+  },
+  {
+    id: 'communication',
+    label: 'Communication',
+    icon: 'record_voice_over',
+    blurb: 'Speaking up, writing and presenting',
+    phrases: ['communication', 'communicate', 'speak up', 'presentation', 'present', 'public speaking', 'email',
+      'slack', 'message', 'meeting', 'say no', 'push back', 'assertive', 'difficult conversation', 'writing'],
+  },
+  {
+    id: 'productivity',
+    label: 'Productivity & focus',
+    icon: 'timer',
+    blurb: 'Time, priorities, meetings and deep work',
+    phrases: ['productivity', 'productive', 'focus', 'deep work', 'distraction', 'priorit', 'deadline',
+      'time management', 'to do', 'procrastinat', 'too many meetings', 'calendar', 'multitask', 'notification'],
+  },
+  {
+    id: 'hiring',
+    label: 'Hiring & interviewing',
+    icon: 'person_search',
+    blurb: 'Running interviews and building teams',
+    phrases: ['hiring', 'hire', 'recruit', 'recruiter', 'candidate', 'interviewer', 'interview panel',
+      'job description', 'take home', 'onboarding', 'headcount', 'referral', 'offer letter'],
+  },
+  {
+    id: 'benefits',
+    label: 'Benefits & perks',
+    icon: 'redeem',
+    blurb: 'Insurance, leave, pensions and perks',
+    phrases: ['benefit', 'perk', 'insurance', 'health insurance', 'pension', 'provident fund', 'pf', 'gratuity',
+      'esop', 'stock option', 'wellness allowance', 'gym', 'meal', 'learning budget', 'allowance'],
+  },
+  {
+    id: 'rights_at_work',
+    label: 'Rights at work',
+    icon: 'gavel',
+    blurb: 'Contracts, notice periods, layoffs and law',
+    phrases: ['contract', 'notice period', 'non compete', 'layoff', 'laid off', 'termination', 'fired',
+      'severance', 'labour law', 'labor law', 'legal', 'lawyer', 'rights', 'resign', 'resignation', 'bond'],
+  },
+  {
+    id: 'freelancing',
+    label: 'Freelance & side projects',
+    icon: 'work_outline',
+    blurb: 'Freelancing, consulting and side income',
+    phrases: ['freelance', 'freelancer', 'freelancing', 'consulting', 'consultant', 'side project', 'side hustle',
+      'contractor', 'gig', 'invoice', 'client work', 'upwork', 'fiverr', 'moonlighting'],
+  },
+  {
+    id: 'students',
+    label: 'Students & first jobs',
+    icon: 'backpack',
+    blurb: 'Internships, graduates and getting started',
+    phrases: ['student', 'intern', 'internship', 'graduate', 'fresher', 'campus', 'placement', 'first job',
+      'entry level', 'college', 'university', 'degree', 'trainee'],
+  },
+  {
+    id: 'caregivers',
+    label: 'Parents & caregivers',
+    icon: 'family_restroom',
+    blurb: 'Parental leave, childcare and caring at home',
+    phrases: ['parent', 'parental leave', 'maternity', 'paternity', 'childcare', 'daycare', 'kid', 'children',
+      'baby', 'pregnant', 'caregiver', 'elderly', 'family', 'school run'],
+  },
+  {
+    id: 'relocation',
+    label: 'Relocation & visas',
+    icon: 'flight_takeoff',
+    blurb: 'Moving cities or countries for work',
+    phrases: ['relocate', 'relocation', 'visa', 'work permit', 'immigration', 'move abroad', 'moving abroad',
+      'h1b', 'green card', 'expat', 'new city', 'transfer', 'overseas'],
+  },
+  {
+    id: 'mental_health',
+    label: 'Mental health',
+    icon: 'psychology',
+    blurb: 'Anxiety, stress and getting support',
+    phrases: ['mental health', 'anxiety', 'anxious', 'depression', 'panic', 'therapy', 'therapist', 'counsel',
+      'imposter syndrome', 'self doubt', 'lonely', 'overwhelmed', 'support', 'eap'],
+  },
+  {
+    id: 'customer_support',
+    label: 'Customer support',
+    icon: 'support_agent',
+    blurb: 'Tickets, difficult customers and service teams',
+    phrases: ['customer support', 'customer service', 'support team', 'ticket', 'angry customer',
+      'difficult customer', 'call centre', 'call center', 'escalation', 'sla', 'complaint', 'helpdesk'],
+  },
+  {
+    id: 'money',
+    label: 'Money & taxes',
+    icon: 'savings',
+    blurb: 'Savings, taxes and planning your finances',
+    phrases: ['tax', 'taxes', 'income tax', 'savings', 'save money', 'invest', 'investing', 'budget',
+      'loan', 'debt', 'emi', 'retirement', 'financial', 'finance', 'mutual fund'],
   },
 ];
 

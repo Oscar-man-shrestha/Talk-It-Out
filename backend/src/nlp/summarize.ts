@@ -21,7 +21,7 @@ export interface ConversationSummary {
   highlights: string[];
   open_questions: string[];
   key_topics: string[];
-  themes: { id: string; label: string; emoji: string }[];
+  themes: { id: string; label: string; icon: string }[];
 }
 
 interface Sentence {
@@ -130,7 +130,7 @@ export function summarize(messages: SummaryMessage[], opts: { highlights?: numbe
     .slice(0, 2)
     .map((t) => INTERESTS.find((i) => i.id === t.id)!)
     .filter(Boolean)
-    .map(({ id, label, emoji }) => ({ id, label, emoji }));
+    .map(({ id, label, icon }) => ({ id, label, icon }));
 
   return {
     message_count: messages.length,

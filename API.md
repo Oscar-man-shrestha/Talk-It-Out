@@ -581,7 +581,7 @@ Plain text or several emoji in one reaction give `422`. One person can add at mo
 - Profiles now return `handle`. On someone else's profile, `username` is `null` until that person has chosen a handle.
 
 ### 54. Interests
-- `GET /users/me/interests` returns `{interests[], chosen, available[{id,label,emoji,blurb}]}` (15 interests).
+- `GET /users/me/interests` returns `{interests[], chosen, available[{id,label,icon,blurb}]}` (30 interests). `icon` is an icon name (for example `code`, `payments`) that the app draws as a vector icon; interests carry no emoji (changed 2026-11-16).
 - `PUT /users/me/interests {interests[]}` replaces the list. An empty list is allowed: it records that the picker was skipped.
 
 ### 55. For You feed
@@ -595,7 +595,7 @@ Plain text or several emoji in one reaction give `422`. One person can add at mo
 
 ### 56. Feed search and topic ideas
 - `GET /posts/search?q=` returns `{items, did_you_mean|null}`. Ranking is BM25 over titles (counted twice) and bodies, with stemming, typo tolerance and prefix matching on the last word.
-- `POST /posts/classify {title?, content}` returns `{topic|null, interests[{id,label,emoji,score}]}`. `topic` is one of the six question topics.
+- `POST /posts/classify {title?, content}` returns `{topic|null, interests[{id,label,icon,score}]}`. `topic` is one of the six question topics.
 
 ### 57. Personalisation switch
 - `GET /users/me/feed-settings` returns `{personalized}`. `PUT /users/me/feed-settings {personalized: bool}` returns the same shape.
@@ -644,7 +644,13 @@ Plain text or several emoji in one reaction give `422`. One person can add at mo
 - The source is `backend/legal/*.md`, identical to `assets/legal/*.md`, which the app shows. Tests on both sides check that the two copies match.
 
 ### 63. Catch up (conversation summary)
-- `GET /groups/:id/summary?limit=` (members only; `limit` 5–200, default 60 latest published messages) returns `{message_count, highlights[], open_questions[], key_topics[], themes[{id,label,emoji}], from, to}`.
+- `GET /groups/:id/summary?limit=` (members only; `limit` 5–200, default 60 latest published messages) returns `{message_count, highlights[], open_questions[], key_topics[], themes[{id,label,icon}], from, to}`.
 - **Method:** extractive TextRank. Sentences are scored by PageRank over TF-IDF cosine similarity, and up to 3 non-question highlights are shown in the order they were said. Up to 2 open questions are listed. Key topics are the terms with the most weight, and themes come from the interest classifier.
 - **Privacy:** only published (approved) text is used. No names, sender ids or anonymity flags are returned.
+
+### 64. Liked by
+- `GET /posts/:id/likes?limit=` (1–100, default 50) returns `{items[{id, name, handle|null, avatar_url, is_me}], total}`.
+- **Order:** you first, then the newest likes. People who blocked you, or whom you blocked, are left out of `items` but still counted in `total`.
+- **Errors:** an unknown question, or one whose author you blocked or who blocked you, returns `404`.
+- **Why it is allowed:** the public feed is never anonymous. Reactions in group chats stay counts only, so they cannot reveal an anonymous member.
 

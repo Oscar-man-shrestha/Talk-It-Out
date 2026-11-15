@@ -20,6 +20,7 @@ import 'package:talk_it_out/features/profile/profile_state.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
 import 'package:talk_it_out/features/discovery/safety_actions.dart';
+import 'package:talk_it_out/features/discovery/interest_icons.dart';
 
 const _border = Brand.border;
 const _ink = Brand.ink;
@@ -1780,13 +1781,20 @@ class _InterestChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: _border),
       ),
-      child: Text(
-        '${option.emoji} ${option.label}',
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: _ink,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(interestIcon(option.icon), size: 14, color: _ink),
+          const SizedBox(width: 5),
+          Text(
+            option.label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: _ink,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -34,7 +34,7 @@ class CatchUp {
       themes: [
         if (json['themes'] case final List list)
           for (final t in list)
-            if (t is Map) '${t['emoji'] ?? ''} ${t['label'] ?? ''}'.trim(),
+            if (t is Map) '${t['label'] ?? ''}'.trim(),
       ],
     );
   }
@@ -44,7 +44,7 @@ class CatchUp {
   final List<String> openQuestions;
   final List<String> keyTopics;
 
-  /// Interest labels with their emoji, e.g. "💻 Engineering & tech".
+  /// Interest labels, e.g. "Engineering & tech".
   final List<String> themes;
 
   bool get isEmpty => highlights.isEmpty;

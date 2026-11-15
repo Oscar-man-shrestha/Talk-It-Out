@@ -21,6 +21,7 @@ import 'package:talk_it_out/features/discovery/discovery_providers.dart';
 import 'package:talk_it_out/features/discovery/handle_editor.dart';
 import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
 import 'package:talk_it_out/core/share/share_links.dart';
+import 'package:talk_it_out/features/discovery/interest_icons.dart';
 
 // Stitch Monochrome Precision tokens
 const _kPrimary = Brand.accent;
@@ -3234,13 +3235,24 @@ class _FeedInterestsCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(color: _kBorderSubtle),
                     ),
-                    child: Text(
-                      '${option.emoji} ${option.label}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _kTextPrimary,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          interestIcon(option.icon),
+                          size: 14,
+                          color: _kTextPrimary,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          option.label,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _kTextPrimary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
               ],

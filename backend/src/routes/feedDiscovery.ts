@@ -187,7 +187,7 @@ export function createFeedDiscoveryRouter(pool: Pool, requireAuth: RequireAuth):
       topic,
       interests: scores.slice(0, 3).map((s) => {
         const interest = interestById(s.id)!;
-        return { id: s.id, label: interest.label, emoji: interest.emoji, score: s.score };
+        return { id: s.id, label: interest.label, icon: interest.icon, score: s.score };
       }),
     });
   });

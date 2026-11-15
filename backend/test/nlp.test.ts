@@ -59,9 +59,9 @@ describe('fuzzy matching', () => {
 });
 
 describe('topics', () => {
-  it('has 15 interests with unique ids', () => {
-    expect(INTERESTS).toHaveLength(15);
-    expect(new Set(INTERESTS.map((i) => i.id)).size).toBe(15);
+  it('has 30 interests with unique ids', () => {
+    expect(INTERESTS).toHaveLength(30);
+    expect(new Set(INTERESTS.map((i) => i.id)).size).toBe(30);
   });
 
   it('tags posts with ranked topics', () => {

@@ -16,12 +16,12 @@ void main() {
       'open_questions': ['Who owns on-call?'],
       'key_topics': ['review'],
       'themes': [
-        {'id': 'engineering', 'label': 'Engineering & tech', 'emoji': '💻'},
+        {'id': 'engineering', 'label': 'Engineering & tech', 'icon': 'code'},
       ],
     });
     expect(s.messageCount, 12);
     expect(s.highlights, ['Reviews take three days.']);
-    expect(s.themes, ['💻 Engineering & tech']);
+    expect(s.themes, ['Engineering & tech']);
     expect(CatchUp.fromJson(const {}).isEmpty, isTrue);
   });
 

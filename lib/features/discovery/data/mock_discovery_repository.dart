@@ -369,7 +369,7 @@ class MockDiscoveryRepository implements DiscoveryRepository {
             TopicIdea(
               id: id,
               label: interestOption(id)?.label ?? id,
-              emoji: interestOption(id)?.emoji ?? '•',
+              icon: interestOption(id)?.icon ?? '',
               score: 1 - i * 0.3,
             ),
         ],

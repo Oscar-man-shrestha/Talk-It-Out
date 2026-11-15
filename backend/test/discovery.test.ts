@@ -144,8 +144,8 @@ describe('interests and For You (API 54, 55)', () => {
     const me = await registerUser(app, 'Oscar', 'o@example.com');
     const before = await api.get(app, '/users/me/interests', me.token);
     expect(before.body).toMatchObject({ interests: [], chosen: false });
-    expect(before.body.available).toHaveLength(15);
-    expect(before.body.available[0]).toHaveProperty('emoji');
+    expect(before.body.available).toHaveLength(30);
+    expect(before.body.available[0]).toHaveProperty('icon');
 
     const bad = await api.put(app, '/users/me/interests', me.token, { interests: ['astrology'] });
     expect(bad.status).toBe(422);
@@ -243,7 +243,7 @@ describe('feed search and topic ideas (API 56)', () => {
       title: 'Is my pay fair?', content: 'My salary is lower than peers and there is no bonus.',
     });
     expect(res.body.topic).toBe('compensation');
-    expect(res.body.interests[0]).toMatchObject({ id: 'compensation', label: 'Pay & equity', emoji: '💰' });
+    expect(res.body.interests[0]).toMatchObject({ id: 'compensation', label: 'Pay & equity', icon: 'payments' });
     const nothing = await api.post(app, '/posts/classify', me.token, { content: 'hmm' });
     expect(nothing.body).toEqual({ topic: null, interests: [] });
   });

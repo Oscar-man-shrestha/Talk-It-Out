@@ -13,7 +13,7 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-14 (IST)
-**Current phase:** Complete and verified end to end (Run 099): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Current phase:** Complete and verified end to end (Run 100): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
 **Next step:** Review and merge `temp/project-completion-run070`. Optional: Gmail app password in `backend/.env` for real reset emails (user enters it); a larger model for higher rewrite fidelity.
@@ -66,6 +66,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 | 37 | Safety: block people, report questions, other people's profiles | Done | 097 |
 | 38 | Play Store readiness, invite links, sharing, Catch up summaries, endless feed | Done | 098 |
 | 39 | Welcome tour for new accounts, helpful empty screens, join with a pasted link | Done | 099 |
+| 40 | Sign-up button, Continue as, Liked by, real demo answers, 30 interests with vector icons, guide PDF | Done | 100 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -3112,3 +3113,30 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
 - **Not done:** Google sign-ins that create a new account do not show the tour yet; the API does not say whether a Google sign-in was new.
 - **Commands run and results:** Flutter all passed (`flutter test --timeout 120s`), analyze 0, format clean. The backend was unchanged in this run (285 passed in Run 098).
 
+### Run 100: User feedback fixes, interests and the guide
+- **Date/time:** 2026-11-16 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 40 (Product polish / Docs)
+- **Prompt / task:** A product and technical guide as a PDF; then, from the user's testing:
+  - sign-up is missing;
+  - the demo shows 5 comments with none behind them;
+  - show who liked, like Facebook;
+  - no emoji for interests (use icons), and more interests;
+  - email and password stay filled in after logout: let people choose an account instead.
+- **Result:** Completed
+- **Summary:**
+  - **Sign-up:** the only link on the login screen read "Don't have an invitation code? Request access". There is now a "New to Talk It Out? Create an account" button under the sign-in options, and the footer reads "Don't have an account? Sign up".
+  - **Demo comments:** 30 written answers were added for the 10 demo questions. Comment counts are now computed from the comments, and a test checks they match.
+  - **Liked by (API 64):** a "Liked by" link on the question page opens the list (you first; names open profiles). Blocked people are left out. Group chat reactions stay counts only. The privacy policy (both copies) explains this.
+  - **Login:**
+    - never pre-filled: the demo account's email and password used to fill the form;
+    - "Continue as" lists up to 3 accounts used on this device (name and a masked email, never a password or token); choosing one fills the email and focuses the password field;
+    - accounts can be removed from the device, and deleting an account forgets it;
+    - demo builds have an explicit "Use the demo account (Priya)" button.
+  - **Interests:**
+    - 15 new interests, 30 in total: Data & AI, Sales & marketing, Managing people, Communication, Productivity & focus, Hiring & interviewing, Benefits & perks, Rights at work, Freelance & side projects, Students & first jobs, Parents & caregivers, Relocation & visas, Mental health, Customer support, Money & taxes. Each has its own word list in the classifier.
+    - The API returns an `icon` name instead of `emoji`, and the app draws Material vector icons in the picker, feed chips and Profile.
+    - The app catalog is generated from `backend/src/nlp/topics.ts`, and a test checks the two match.
+    - 30 more starter questions, 61 in total; a test checks the classifier recognizes all 30 interests from them.
+  - **Guide PDF:** `docs/Talk-It-Out-Guide.pdf`, made by `tool/make_guide.py` (reportlab). It covers what the product is, the first ten minutes, roles, every feature, the language features, the privacy model, architecture with two diagrams, the stack, the code map, running and testing, the API map, status, roadmap and a glossary. Each page was checked as an image and the layout fixed.
+- **Commands run and results:** backend 286 passed, type-check and lint clean; Flutter 149 passed, analyze 0, format clean.

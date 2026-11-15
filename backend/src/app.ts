@@ -9,6 +9,7 @@ import { ApiError } from './errors';
 import { createApiRouter } from './routes';
 import { RealtimeHub } from './realtime';
 import { createInternalPipelineRouter } from './internal/pipeline';
+import { createLegalRouter } from './legal';
 
 /**
  * Every error leaves the API as {"error":{"code","message"}} — including
@@ -122,6 +123,8 @@ export function buildApp(pool: Pool, appConfig: Config): Express {
     globalLimiter(req, res, next);
   };
   app.use(publicOnly);
+  // Public, no sign-in: Google Play links here.
+  app.use('/legal', createLegalRouter());
   app.use('/', api);
   app.use('/api/v1', api);
 

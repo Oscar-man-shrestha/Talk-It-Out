@@ -6,6 +6,7 @@ import 'package:talk_it_out/app/shell.dart';
 import 'package:talk_it_out/core/models/enums.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/features/auth/forgot_password_screen.dart';
+import 'package:talk_it_out/features/legal/legal_screen.dart';
 import 'package:talk_it_out/features/auth/login_screen.dart';
 import 'package:talk_it_out/features/auth/register_screen.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
@@ -45,6 +46,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/legal/:page',
+        builder: (context, state) => LegalScreen(
+          // A new page when the address changes, not the old text.
+          key: ValueKey(state.pathParameters['page']),
+          page: state.pathParameters['page']!,
+        ),
+      ),
       GoRoute(
         path: '/forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
@@ -211,9 +220,11 @@ Future<String?> _redirect(Ref ref, Uri uri) async {
   String via(String target) => pending == null || pending == '/groups'
       ? target
       : Uri(path: target, queryParameters: {'from': pending}).toString();
-  if (session.isLoading) {
+  if (session.isLoading && !location.startsWith('/legal/')) {
     return location == '/loading' ? null : via('/loading');
   }
+  // Legal pages are readable by everyone, signed in or not.
+  if (location.startsWith('/legal/')) return null;
   final signedIn = session.asData?.value != null;
   if (!signedIn) {
     if (signingIn) return null;

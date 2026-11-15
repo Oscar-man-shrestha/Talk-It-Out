@@ -1,5 +1,5 @@
 name: talk_it_out
-description: "Flutter frontend for Talk It Out."
+description: "Talk It Out: say what matters at work, safely. Anonymous-when-needed group feedback, AI tone rewrite and a Q&A community."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -68,6 +68,10 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # Privacy policy, terms and account deletion (also served by the backend).
+  assets:
+    - assets/legal/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

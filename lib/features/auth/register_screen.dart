@@ -237,32 +237,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             const SizedBox(height: 14),
 
             // 2. Work or Personal Email
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Work / Personal Email',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: _kTextPrimary,
-                  ),
-                ),
-                Row(
-                  children: [
-                    Icon(Icons.verified, size: 12, color: _kPrimary),
-                    SizedBox(width: 3),
-                    Text(
-                      'Domain check ready',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontFamily: 'monospace',
-                        color: _kTextSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+            const Text(
+              'Work / Personal Email',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _kTextPrimary,
+              ),
             ),
             const SizedBox(height: 6),
             Container(
@@ -439,13 +420,52 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'I agree to the Terms of Service & Privacy Policy',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: _kTextPrimary,
-                          ),
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            const Text(
+                              'I am 18+ and agree to the ',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: _kTextPrimary,
+                              ),
+                            ),
+                            GestureDetector(
+                              key: const ValueKey('register-terms'),
+                              onTap: () => context.push('/legal/terms'),
+                              child: const Text(
+                                'Terms',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: _kTextPrimary,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                            const Text(
+                              ' and ',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: _kTextPrimary,
+                              ),
+                            ),
+                            GestureDetector(
+                              key: const ValueKey('register-privacy'),
+                              onTap: () => context.push('/legal/privacy'),
+                              child: const Text(
+                                'Privacy Policy',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: _kTextPrimary,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 3),
                         Row(
@@ -461,11 +481,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               ),
                             ),
                             const SizedBox(width: 4),
-                            const Text(
-                              'Anonymous to the group, visible to the controller',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: _kTextSecondary,
+                            const Expanded(
+                              child: Text(
+                                'Anonymous to the group, visible to the controller',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: _kTextSecondary,
+                                ),
                               ),
                             ),
                           ],
@@ -548,31 +570,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Footer Micro-badges
+            // Footer note (true statements only).
             const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.lock_reset, size: 14, color: _kTextTertiary),
                 SizedBox(width: 4),
-                Text(
-                  'Message text is never logged',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                    color: _kTextTertiary,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Text('•', style: TextStyle(color: _kTextTertiary)),
-                SizedBox(width: 8),
-                Icon(Icons.fingerprint, size: 14, color: _kTextTertiary),
-                SizedBox(width: 4),
-                Text(
-                  'FIDO2 ready',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                    color: _kTextTertiary,
+                Flexible(
+                  child: Text(
+                    'Message text is never logged',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                      color: _kTextTertiary,
+                    ),
                   ),
                 ),
               ],

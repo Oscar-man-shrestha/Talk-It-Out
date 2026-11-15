@@ -1588,6 +1588,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       onTap: () => context.push('/blocked'),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 4,
+                    children: [
+                      for (final (path, label) in const [
+                        ('privacy', 'Privacy policy'),
+                        ('terms', 'Terms of use'),
+                        ('delete-account', 'How deletion works'),
+                      ])
+                        TextButton(
+                          key: ValueKey('profile-legal-$path'),
+                          onPressed: () => context.push('/legal/$path'),
+                          child: Text(
+                            label,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: _kTextSecondary,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
 
                   // 2. LinkedIn-Style "About" Section with Dynamic Skills

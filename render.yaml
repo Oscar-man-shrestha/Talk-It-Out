@@ -1,0 +1,44 @@
+# Render Blueprint for the Talk It Out API on Render's free plan.
+# Render -> New -> Blueprint -> pick this repository. Values marked
+# "sync: false" are asked for once in the Render dashboard.
+# Step-by-step guide: docs/DEPLOY.md
+services:
+  - type: web
+    name: talkitout-api
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Free Postgres from Neon, ending in ?sslmode=require.
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      # The rewrite worker on your own computer uses the same key.
+      - key: PIPELINE_API_KEY
+        generateValue: true
+      - key: PIPELINE_MODE
+        value: external
+      - key: RUN_STUB_WORKER
+        value: "false"
+      - key: RUN_FEED_WORKER
+        value: "true"
+      - key: FEED_PROVIDER
+        value: fake
+      # The web app's address, for example https://<you>.github.io
+      - key: CORS_ORIGINS
+        sync: false
+      # Where invite links point, for example https://<you>.github.io/Talk-It-Out
+      - key: APP_WEB_URL
+        sync: false
+      - key: TRUST_PROXY
+        value: "1"
+      - key: MAIL_TRANSPORT
+        value: disabled
+      - key: GOOGLE_CLIENT_ID
+        sync: false

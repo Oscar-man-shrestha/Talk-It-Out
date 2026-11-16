@@ -3228,3 +3228,20 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
     - free disk went back to about 2.5 GB.
 - **Commands run and results:** backend 300 passed, type-check and lint clean; Flutter all passed (`--timeout 120s`), analyze 0, format clean.
 
+### Run 104: Rewrite speed and quality
+- **Date/time:** 2026-11-16 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 42
+- **Prompt / task:** "The rephrasing part: improve it, it is taking time and not that good."
+- **Result:** Partly completed
+- **Summary:**
+  - **Measured on the real model (Qwen2.5-3B, warm), old against new instructions:**
+    - Speed: 17.2 s against 15.6 s for five messages, about the same.
+    - The new instructions (guidance plus four before-and-after examples) dropped a fact ("the build broke") in one message and invented a clause in another.
+    - Both versions reworded an already-polite message.
+    - Conclusion: at 3B parameters the model is the limit, not the instructions. The examples were not shipped.
+  - **Shipped:** a reply token budget scaled to the message (`reply_token_budget`), so a short message cannot produce a long reply.
+  - **Not done:** letting polite messages skip the model. It would be instant and keep the wording, but `pipeline/AGENTS.md` forbids returning the original unless the model decided it was fine. Left for the user to decide.
+  - **Real quality gain:** a larger model (for example `qwen2.5:7b`) on a server with more memory. This 8 GB Mac cannot hold one.
+  - **Demo (public link):** the "rewrite" used to be a copy of the original text after a 2 to 4 s wait. There is now a rule-based on-device rewriter (`demo_rewriter.dart`): it removes insults, swearing and shouting, turns blame into neutral wording and demands into requests, and keeps facts and questions. Demo waits are now 1 to 2 s.
+- **Commands run and results:** pipeline 158 passed; Flutter 166 passed (`--concurrency=2`, to spare the 8 GB Mac), format clean.

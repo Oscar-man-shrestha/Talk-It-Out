@@ -110,6 +110,13 @@ class RewriteOutcome:
     unchanged: bool = False
 
 
+def reply_token_budget(text: str, ceiling: int) -> int:
+    """Room for a rewrite of about the same length, plus slack (a token is
+    roughly 3 to 4 characters). A short message can never trigger a long,
+    rambling reply, which also keeps rewrites fast."""
+    return max(64, min(ceiling, utf16_length(text) // 2 + 96))
+
+
 class RewriteService:
     def __init__(self, adapter: ModelAdapter, config: Config) -> None:
         self._adapter = adapter
@@ -154,7 +161,7 @@ class RewriteService:
         output = self._adapter.complete(
             messages,
             temperature=self._config.model_temperature,
-            max_tokens=self._config.model_max_tokens,
+            max_tokens=reply_token_budget(text, self._config.model_max_tokens),
         )
         validated = _validate_output(text, output, self._config.max_output_chars)
 

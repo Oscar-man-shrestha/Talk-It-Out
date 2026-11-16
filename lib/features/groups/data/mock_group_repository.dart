@@ -19,6 +19,7 @@ import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/data/published_message.dart';
 import 'package:talk_it_out/features/groups/data/sent_message.dart';
 import 'package:talk_it_out/features/groups/data/group_invitation.dart';
+import 'package:talk_it_out/features/groups/demo_rewriter.dart';
 
 class MockGroupRepository implements GroupRepository {
   /// Invitations you sent as a controller, per group.
@@ -350,7 +351,7 @@ class MockGroupRepository implements GroupRepository {
           message: AppStrings.previewExpired,
         );
       }
-      return (ready: true, failed: false, rewrittenText: p.text);
+      return (ready: true, failed: false, rewrittenText: demoRewrite(p.text));
     });
   }
 

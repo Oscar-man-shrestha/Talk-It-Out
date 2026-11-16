@@ -12,6 +12,7 @@ import 'package:talk_it_out/features/review/data/raw_message.dart';
 import 'package:talk_it_out/features/review/data/review_repository.dart';
 import 'package:talk_it_out/features/review/data/review_result.dart';
 import 'package:talk_it_out/core/mock/mock_board.dart';
+import 'package:talk_it_out/features/groups/demo_rewriter.dart';
 
 class MockReviewRepository implements ReviewRepository {
   MockReviewRepository(
@@ -56,7 +57,7 @@ class MockReviewRepository implements ReviewRepository {
           m.pipelineStatus == PipelineStatus.processing;
       if (!waiting) continue;
       final seen = _firstSeen.putIfAbsent(m.id, () => now);
-      final needed = m.pipelineStatus == PipelineStatus.processing ? 2 : 4;
+      final needed = m.pipelineStatus == PipelineStatus.processing ? 1 : 2;
       if (now.difference(seen).inSeconds >= needed) {
         _messages[i] = _rewritten(m);
       }
@@ -77,7 +78,7 @@ class MockReviewRepository implements ReviewRepository {
 
   RawMessage _rewritten(RawMessage m) => m.copyWith(
     pipelineStatus: PipelineStatus.done,
-    rewrittenText: _demoRewrites[m.id] ?? m.originalText.trim(),
+    rewrittenText: _demoRewrites[m.id] ?? demoRewrite(m.originalText),
     intentPreservationScore: 0.92,
     relevanceScore: 0.82,
     relevanceLabel: RelevanceLabel.relevant,
@@ -228,7 +229,7 @@ class MockReviewRepository implements ReviewRepository {
       senderId: item.senderId,
       senderName: item.senderName,
       originalText: item.text,
-      rewrittenText: item.text,
+      rewrittenText: demoRewrite(item.text),
       isAnonymous: item.isAnonymous,
       intentPreservationScore: 1,
       relevanceScore: 0.8,

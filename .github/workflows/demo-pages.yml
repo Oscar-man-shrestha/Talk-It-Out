@@ -1,0 +1,55 @@
+# Publishes the demo build (sample data, no server needed) to GitHub Pages
+# so anyone can try Talk It Out on any device:
+#   https://<owner>.github.io/<repository>/
+# It runs on pushes to the working branch, builds on GitHub's servers and
+# pushes the result to the gh-pages branch, which Pages serves. main is
+# never touched. Each device gets its own in-memory copy of the demo data.
+name: demo-pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [temp/project-completion-run070]
+    paths:
+      - 'lib/**'
+      - 'web/**'
+      - 'assets/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/demo-pages.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: demo-pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.4
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build the demo
+        run: |
+          flutter build web --release \
+            --base-href "/${{ github.event.repository.name }}/" \
+            --dart-define=USE_MOCK=true
+          # Serve files as they are (no Jekyll processing).
+          touch build/web/.nojekyll
+      - name: Publish to the gh-pages branch
+        working-directory: build/web
+        run: |
+          git init -q
+          git checkout -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Demo build of ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages

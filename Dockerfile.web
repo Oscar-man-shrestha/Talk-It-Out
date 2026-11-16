@@ -15,6 +15,8 @@ COPY pubspec.yaml pubspec.lock analysis_options.yaml build.yaml ./
 RUN flutter pub get
 COPY lib ./lib
 COPY web ./web
+# Privacy policy, terms and account deletion shown in the app.
+COPY assets ./assets
 # Where the browser reaches the API, and the optional Google client id.
 ARG API_BASE_URL=http://localhost:3000
 ARG GOOGLE_CLIENT_ID=

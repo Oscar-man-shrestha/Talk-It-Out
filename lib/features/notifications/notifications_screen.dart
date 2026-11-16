@@ -30,7 +30,7 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
-  String _filter = 'all'; // 'all', 'submissions', 'moderation'
+  String _filter = 'all'; // 'all', 'submissions', 'moderation', 'community'
 
   /// Submissions are outcomes of your own messages; moderation is review work
   /// waiting for you as a controller.
@@ -40,6 +40,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         return item.type == NotificationType.messageRejected;
       case 'moderation':
         return item.type == NotificationType.messagePendingReview;
+      case 'community':
+        return item.type == NotificationType.questionAnswered ||
+            item.type == NotificationType.answerBest ||
+            item.type == NotificationType.mentioned;
       default:
         return true;
     }
@@ -61,9 +65,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     switch (item.type) {
       case NotificationType.messagePendingReview:
         // The router sends anyone who is not this group's controller back.
-        context.go('/groups/${item.group.id}/review');
+        if (item.group case final g?) context.go('/groups/${g.id}/review');
       case NotificationType.messageRejected:
-        context.go('/groups/${item.group.id}/mine');
+        if (item.group case final g?) context.go('/groups/${g.id}/mine');
+      case NotificationType.mentioned:
+        if (item.group case final g?) context.go('/groups/${g.id}');
+      case NotificationType.questionAnswered:
+      case NotificationType.answerBest:
+        if (item.post case final p?) context.push('/feed/${p.id}');
       case NotificationType.unknown:
         break;
     }
@@ -279,6 +288,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     active: _filter == 'moderation',
                     onTap: () => setState(() => _filter = 'moderation'),
                   ),
+                  const SizedBox(width: 8),
+                  _AlertChip(
+                    label: 'Community (${count('community')})',
+                    active: _filter == 'community',
+                    onTap: () => setState(() => _filter = 'community'),
+                  ),
                 ],
               ),
             ),
@@ -424,6 +439,21 @@ class _NotificationCard extends StatelessWidget {
         Icons.cancel_outlined,
         'SUBMISSION REJECTED',
         AppStrings.openMyMessages,
+      ),
+      NotificationType.mentioned => (
+        Icons.alternate_email,
+        'MENTIONED',
+        'Open the chat',
+      ),
+      NotificationType.questionAnswered => (
+        Icons.forum_outlined,
+        'NEW ANSWER',
+        'Read the answer',
+      ),
+      NotificationType.answerBest => (
+        Icons.workspace_premium_outlined,
+        'BEST ANSWER',
+        'See your answer',
       ),
       NotificationType.unknown => (
         Icons.notifications_none,

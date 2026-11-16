@@ -15,6 +15,18 @@ abstract class NotificationGroup with _$NotificationGroup {
       _$NotificationGroupFromJson(json);
 }
 
+/// The question a feed notification is about (`API.md` 66).
+@freezed
+abstract class NotificationPost with _$NotificationPost {
+  const factory NotificationPost({
+    required String id,
+    @Default('') String title,
+  }) = _NotificationPost;
+
+  factory NotificationPost.fromJson(Map<String, dynamic> json) =>
+      _$NotificationPostFromJson(json);
+}
+
 @freezed
 abstract class AppNotification with _$AppNotification {
   const AppNotification._();
@@ -24,7 +36,12 @@ abstract class AppNotification with _$AppNotification {
     @JsonKey(unknownEnumValue: NotificationType.unknown)
     required NotificationType type,
     required String refId,
-    required NotificationGroup group,
+
+    /// Set for group notifications; null for feed ones.
+    NotificationGroup? group,
+
+    /// Set for feed notifications (answers, best answer).
+    NotificationPost? post,
     required DateTime createdAt,
     DateTime? readAt,
   }) = _AppNotification;

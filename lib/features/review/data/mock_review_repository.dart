@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/mock/mock_controls.dart';
 import 'package:talk_it_out/core/mock/mock_ids.dart';
@@ -21,6 +22,57 @@ class MockReviewRepository implements ReviewRepository {
   final MockMessageBridge _bridge;
   final List<RawMessage> _messages = [];
 
+  /// When each waiting message was first looked at. The demo "pipeline"
+  /// finishes a rewrite a few seconds later, like the real worker.
+  final _firstSeen = <String, DateTime>{};
+
+  static const _demoRewrites = {
+    'm204': 'Could we add an option to export the data to CSV?',
+    'm205': 'The filter row is easy to miss. Could we make it more visible?',
+    'm206':
+        'The loading indicator on the home chart keeps spinning and never '
+        'finishes. Could someone take a look?',
+  };
+
+  /// Completes queued and in-progress rewrites that have waited long
+  /// enough (2 s for in progress, 4 s for queued). Failed ones stay failed
+  /// until someone asks for a new rewrite.
+  void _advancePipeline() {
+    final now = DateTime.now();
+    for (var i = 0; i < _messages.length; i++) {
+      final m = _messages[i];
+      final waiting =
+          m.pipelineStatus == PipelineStatus.queued ||
+          m.pipelineStatus == PipelineStatus.processing;
+      if (!waiting) continue;
+      final seen = _firstSeen.putIfAbsent(m.id, () => now);
+      final needed = m.pipelineStatus == PipelineStatus.processing ? 2 : 4;
+      if (now.difference(seen).inSeconds >= needed) {
+        _messages[i] = _rewritten(m);
+      }
+    }
+  }
+
+  /// Finishes every waiting rewrite now (tests).
+  @visibleForTesting
+  void finishPendingRewrites() {
+    for (var i = 0; i < _messages.length; i++) {
+      final m = _messages[i];
+      if (m.pipelineStatus == PipelineStatus.queued ||
+          m.pipelineStatus == PipelineStatus.processing) {
+        _messages[i] = _rewritten(m);
+      }
+    }
+  }
+
+  RawMessage _rewritten(RawMessage m) => m.copyWith(
+    pipelineStatus: PipelineStatus.done,
+    rewrittenText: _demoRewrites[m.id] ?? m.originalText.trim(),
+    intentPreservationScore: 0.92,
+    relevanceScore: 0.82,
+    relevanceLabel: RelevanceLabel.relevant,
+  );
+
   @override
   Future<PageResult<RawMessage>> listQueue(
     String groupId, {
@@ -30,6 +82,7 @@ class MockReviewRepository implements ReviewRepository {
   }) {
     return runMock(_controls, () {
       _requireControllerGroup(groupId);
+      _advancePipeline();
       if (status != MessageStatus.pending) {
         final decided =
             _messages
@@ -93,6 +146,7 @@ class MockReviewRepository implements ReviewRepository {
   Future<RawMessage> getMessage(String groupId, String messageId) {
     return runMock(_controls, () {
       _requireControllerGroup(groupId);
+      _advancePipeline();
       return _find(groupId, messageId);
     });
   }
@@ -143,10 +197,11 @@ class MockReviewRepository implements ReviewRepository {
       _requirePending(message);
       final index = _messages.indexWhere((item) => item.id == message.id);
       if (index >= 0) {
-        // The mock "pipeline" answers at once with a tidied rewrite.
+        // The demo "pipeline" queues it again and finishes shortly after.
+        _firstSeen.remove(message.id);
         _messages[index] = message.copyWith(
-          pipelineStatus: PipelineStatus.done,
-          rewrittenText: (message.rewrittenText ?? message.originalText).trim(),
+          pipelineStatus: PipelineStatus.processing,
+          rewrittenText: null,
         );
       }
     });

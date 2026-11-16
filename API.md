@@ -654,3 +654,36 @@ Plain text or several emoji in one reaction give `422`. One person can add at mo
 - **Errors:** an unknown question, or one whose author you blocked or who blocked you, returns `404`.
 - **Why it is allowed:** the public feed is never anonymous. Reactions in group chats stay counts only, so they cannot reveal an anonymous member.
 
+### 65. Answers: votes, best answer, edits
+- `POST /posts/:id/comments/:cid/vote` and `DELETE …/vote` return `{vote_count, voted_by_me}`.
+  - Voting is idempotent.
+  - Voting on your own answer returns `422`.
+  - Blocked either way returns `404`.
+- `PUT /posts/:id/best {comment_id|null}` (the question's author only, else `403`) returns `{best_comment_id}`.
+  - The comment must belong to the question (`404`).
+  - The answer's author gets an `answer_best` notification.
+- `PATCH /posts/:id {title?, topic?, content?}` (author only; an empty body is `422`) returns the updated post. `PATCH /posts/:id/comments/:cid {content}` (the comment's author only) returns the updated comment.
+  - Both set `edited_at` and send the text for analysis again.
+- **New fields:**
+  - posts gain `best_comment_id`, `edited_at` and `following`;
+  - comments gain `vote_count`, `voted_by_me`, `is_best` and `edited_at`.
+
+### 66. Following questions and feed notifications
+- `POST /posts/:id/follow` returns `{following: true}`; `DELETE /posts/:id/follow` returns `{following: false}`.
+- **Who follows:** authors follow their own questions automatically (existing questions too, migration 023), and answering a question follows it.
+- **New answers:** a new answer notifies every follower (`question_answered`). The person answering, and anyone in a block with them, is left out.
+- **Notification shape:** `GET /notifications` items have `group` (null for feed notifications) and `post {id, title}` (null for group ones).
+  - Types: `message_pending_review`, `message_rejected`, `mentioned`, `question_answered`, `answer_best`.
+
+### 67. Group info, mute and pin
+- `PATCH /groups/:id {description?, rules?}` (controller only; 500 and 1000 characters at most).
+- `PUT /groups/:id/settings {muted?, pinned?}` returns `{muted, pinned}`. These are per member: they change only your view.
+- Group objects gain `description`, `rules`, `member_count`, `muted` and `pinned`.
+- **In the app:**
+  - pinned groups sort first;
+  - muted groups stay out of the Groups badge.
+
+### 68. @mentions in groups
+- When a message is published (an accepted rewrite or a controller announcement), its **published text** is searched for `@Full Name`, `@handle`, or `@FirstName` when only one member has that first name.
+- Each mentioned member (except the author) gets a `mentioned` notification for that group. It never names the sender, so an anonymous message stays anonymous.
+

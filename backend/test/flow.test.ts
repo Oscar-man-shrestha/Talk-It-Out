@@ -217,9 +217,14 @@ describe('full moderation flow', () => {
         'agenda',
         'controller_id',
         'created_at',
+        'description',
         'id',
+        'member_count',
+        'muted',
         'my_role',
         'pending_count',
+        'pinned',
+        'rules',
         'source_post_id',
       ]);
       // group list/detail is group-facing too

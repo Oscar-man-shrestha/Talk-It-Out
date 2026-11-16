@@ -13,7 +13,7 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-14 (IST)
-**Current phase:** Complete and verified end to end (Run 100): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Current phase:** Complete and verified end to end (Run 101): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
 **Next step:** Review and merge `temp/project-completion-run070`. Optional: Gmail app password in `backend/.env` for real reset emails (user enters it); a larger model for higher rewrite fidelity.
@@ -67,6 +67,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 | 38 | Play Store readiness, invite links, sharing, Catch up summaries, endless feed | Done | 098 |
 | 39 | Welcome tour for new accounts, helpful empty screens, join with a pasted link | Done | 099 |
 | 40 | Sign-up button, Continue as, Liked by, real demo answers, 30 interests with vector icons, guide PDF | Done | 100 |
+| 41 | Answers (votes, best, follow, edit), group info/mute/pin, @mentions, chat polish, review screen, faster rewrites | Done | 101 |
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
@@ -3140,3 +3141,44 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
     - 30 more starter questions, 61 in total; a test checks the classifier recognizes all 30 interests from them.
   - **Guide PDF:** `docs/Talk-It-Out-Guide.pdf`, made by `tool/make_guide.py` (reportlab). It covers what the product is, the first ten minutes, roles, every feature, the language features, the privacy model, architecture with two diagrams, the stack, the code map, running and testing, the API map, status, roadmap and a glossary. Each page was checked as an image and the layout fixed.
 - **Commands run and results:** backend 286 passed, type-check and lint clean; Flutter 149 passed, analyze 0, format clean.
+
+### Run 101: Batch 1 (feed, groups, chat) and faster rewrites
+- **Date/time:** 2026-11-16 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 41
+- **Prompt / task:** "Yes, start batch 1" (ideas from well-known apps), then: "rewriting taking a lot of time, make sure everything is top class", with screenshots of the review screen.
+- **Result:** Completed
+- **Summary:**
+  - **Migration 023:** `comment_votes`, `post_follows` (existing authors backfilled), `posts.best_comment_id/edited_at`, `comments.edited_at`, `groups.description/rules`, `group_members.muted/pinned_at`. Notifications can now point at a question (`post_id`; `group_id` nullable) and have 5 types, with a check constraint for each kind's target.
+  - **Feed (API 65, 66):**
+    - Upvotes on answers, not on your own. "Top answers" sorting puts the best answer first, then votes.
+    - The asker marks a best answer, and its author is notified.
+    - Follow and unfollow a question; new answers notify followers.
+    - Edit a question or answer, shown as "edited".
+    - The answer sort menu was mislabelled ("TOP FIRST" read "Oldest first"); it is now Top answers / Newest / Oldest.
+  - **Fix:** notifications only ever covered group review, although the guide said answers were notified. They now cover answers, best answers and mentions. The app has a "Community" filter and opens the question or chat.
+  - **Groups (API 67):**
+    - a group info page (from the chat menu) with About and rules (the controller edits them), Mute and Pin to top, and shortcuts to members, invite link, Catch up and My messages;
+    - pinned groups sort first, with icons for pinned and muted; muted groups are left out of the Groups badge;
+    - the demo groups have a description and rules.
+  - **Chat:**
+    - @mention suggestions while typing "@"; mentions notify people when published (API 68), without naming the sender;
+    - a "New messages" divider where you left off;
+    - unsent drafts kept per chat, in memory only (never stored, as drafts can be sensitive);
+    - swipe a message right to reply.
+  - **Review screen (from the user's screenshots):**
+    - the rewrite card shows real states: rewriting (spinner, "updates by itself", and "taking longer than usual" with "Try a new rewrite" after 2 minutes), ready, or not available (with "Try a new rewrite");
+    - Publish is disabled until a rewrite exists;
+    - removed "Peer Node #…", "DISCUSSION READY" on failed rewrites, "words changed" counted against placeholder text, and the tick next to "Not scored yet";
+    - renamed jargon ("AI Structured Proposal", "Synthesis rationale", "Reject Raw", "Neutral synthesis", "Raw input", "Intent clarity");
+    - the demo pipeline now finishes waiting rewrites after 2 to 4 seconds instead of never.
+  - **Faster rewrites:**
+    - Measured on this Mac: a cold model takes 14.8 s, a warm one 1.9 s. Ollama unloaded the model after 5 idle minutes.
+    - The worker now warms the model at start (`warm_up_model`, never logs content), the local `.env` keeps it loaded for 2 hours (`MODEL_EXTRA_BODY={"keep_alive":"2h"}`; `-1` is documented for servers), and polling went from 2 s to 1 s.
+    - The review screen checks pending rewrites every 2 s instead of 4.
+- **Commands run and results:**
+  - backend 293 passed, type-check and lint clean;
+  - pipeline 158 passed;
+  - Flutter 159 passed, analyze 0, format clean;
+  - `live-check.mjs` 83/83 in 23 s against the running stack (backend, worker and local Qwen2.5-3B).
+

@@ -21,6 +21,7 @@ import 'package:talk_it_out/features/discovery/safety_actions.dart';
 import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
 import 'package:talk_it_out/core/share/share_links.dart';
 import 'package:talk_it_out/features/discovery/likers_sheet.dart';
+import 'package:talk_it_out/features/feed/edit_sheets.dart';
 
 // Stitch Monochrome Precision tokens
 const _kPrimary = Brand.accent;
@@ -76,8 +77,96 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   }
 
   /// Comments come oldest-first from the API.
+  /// Top answers: the asker's best answer first, then the most upvoted,
+  /// then the oldest (like Stack Overflow). Newest and oldest are by time.
   List<Comment> _sorted(List<Comment> items) {
-    return _sortMode == 'NEWEST' ? items.reversed.toList() : items;
+    final list = [...items];
+    switch (_sortMode) {
+      case 'NEWEST':
+        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      case 'OLDEST':
+        list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      default:
+        list.sort((a, b) {
+          if (a.isBest != b.isBest) return a.isBest ? -1 : 1;
+          final votes = b.voteCount.compareTo(a.voteCount);
+          return votes != 0 ? votes : a.createdAt.compareTo(b.createdAt);
+        });
+    }
+    return list;
+  }
+
+  Future<void> _act(Future<void> Function() action) async {
+    try {
+      await action();
+    } on RepositoryException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
+  Future<void> _vote(Comment comment) => _act(() async {
+    await ref
+        .read(feedRepositoryProvider)
+        .voteComment(widget.postId, comment.id, up: !comment.votedByMe);
+    ref.invalidate(commentsProvider(widget.postId));
+  });
+
+  Future<void> _markBest(Post post, Comment comment) => _act(() async {
+    await ref
+        .read(feedRepositoryProvider)
+        .setBestAnswer(widget.postId, comment.isBest ? null : comment.id);
+    ref.invalidate(commentsProvider(widget.postId));
+    ref.invalidate(postDetailProvider(widget.postId));
+  });
+
+  Future<void> _toggleFollow(Post post) => _act(() async {
+    final following = await ref
+        .read(feedRepositoryProvider)
+        .setFollowing(widget.postId, following: !post.following);
+    ref.invalidate(postDetailProvider(widget.postId));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: _kPrimary,
+          content: Text(
+            following
+                ? "Following. You'll be notified about new answers."
+                : 'Unfollowed. No more notifications for this question.',
+          ),
+        ),
+      );
+    }
+  });
+
+  Future<void> _editComment(Comment comment) async {
+    final text = await showEditTextSheet(
+      context,
+      title: 'Edit your answer',
+      initial: comment.content,
+      maxLength: 2000,
+    );
+    if (text == null || text == comment.content) return;
+    await _act(() async {
+      await ref
+          .read(feedRepositoryProvider)
+          .editComment(widget.postId, comment.id, content: text);
+      ref.invalidate(commentsProvider(widget.postId));
+    });
+  }
+
+  Future<void> _editPost(Post post) async {
+    final edit = await showEditQuestionSheet(context, post);
+    if (edit == null) return;
+    await _act(() async {
+      await ref
+          .read(feedRepositoryProvider)
+          .editPost(widget.postId, title: edit.title, content: edit.content);
+      ref.invalidate(postDetailProvider(widget.postId));
+      ref.invalidate(feedProvider);
+    });
   }
 
   static String _initials(String name) {
@@ -136,6 +225,10 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
 
   Future<void> _onMenu(String action, Post post) async {
     switch (action) {
+      case 'follow':
+        await _toggleFollow(post);
+      case 'edit':
+        await _editPost(post);
       case 'share':
         final text = questionShareText(post);
         if (!await shareText(text, subject: post.title)) {
@@ -376,6 +469,21 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                       ),
                       onSelected: (action) => _onMenu(action, post),
                       itemBuilder: (_) => [
+                        PopupMenuItem(
+                          key: const ValueKey('follow-question'),
+                          value: 'follow',
+                          child: Text(
+                            post.following
+                                ? 'Unfollow question'
+                                : 'Follow question',
+                          ),
+                        ),
+                        if (post.author.id == userId)
+                          const PopupMenuItem(
+                            key: ValueKey('edit-question'),
+                            value: 'edit',
+                            child: Text('Edit question'),
+                          ),
                         const PopupMenuItem(
                           key: ValueKey('share-question'),
                           value: 'share',
@@ -598,7 +706,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                         ),
                                         SizedBox(height: 1),
                                         Text(
-                                          relativeTime(post.createdAt),
+                                          post.editedAt == null
+                                              ? relativeTime(post.createdAt)
+                                              : '${relativeTime(post.createdAt)} · edited',
                                           style: TextStyle(
                                             fontSize: 11,
                                             color: _kTextSecondary,
@@ -988,12 +1098,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                               setState(() => _sortMode = val);
                             },
                             itemBuilder: (ctx) => [
-                              _buildSortMenuItem('TOP FIRST', 'Oldest First'),
-                              _buildSortMenuItem('NEWEST', 'Newest First'),
-                              _buildSortMenuItem(
-                                'MOST DISCUSSED',
-                                'Most Discussed',
-                              ),
+                              _buildSortMenuItem('TOP FIRST', 'Top answers'),
+                              _buildSortMenuItem('NEWEST', 'Newest first'),
+                              _buildSortMenuItem('OLDEST', 'Oldest first'),
                             ],
                             child: Container(
                               padding: const EdgeInsets.symmetric(
@@ -1067,10 +1174,24 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                           authorInitials: _initials(comment.author.name),
                           authorName: comment.author.name,
                           isAuthor: comment.author.id == post.author.id,
-                          timeAgo: relativeTime(comment.createdAt),
+                          timeAgo: comment.editedAt == null
+                              ? relativeTime(comment.createdAt)
+                              : '${relativeTime(comment.createdAt)} · edited',
                           content: comment.content,
                           likesCount: '',
                           commentId: comment.id,
+                          voteCount: comment.voteCount,
+                          votedByMe: comment.votedByMe,
+                          isBest: comment.isBest,
+                          canVote:
+                              userId != null && comment.author.id != userId,
+                          canMarkBest:
+                              userId != null && post.author.id == userId,
+                          canEdit:
+                              userId != null && comment.author.id == userId,
+                          onVote: () => _vote(comment),
+                          onMarkBest: () => _markBest(post, comment),
+                          onEdit: () => _editComment(comment),
                           reportCount: comment.reportCount,
                           reportedByMe: comment.reportedByMe,
                           canReport:
@@ -1302,9 +1423,31 @@ class _DiscussionItem extends StatelessWidget {
     this.onReport,
     this.onRemove,
     this.onAuthor,
+    this.voteCount = 0,
+    this.votedByMe = false,
+    this.isBest = false,
+    this.canVote = false,
+    this.canMarkBest = false,
+    this.canEdit = false,
+    this.onVote,
+    this.onMarkBest,
+    this.onEdit,
   });
 
   final String commentId;
+
+  /// Upvotes (`API.md` 65); you cannot vote on your own answer.
+  final int voteCount;
+  final bool votedByMe;
+  final bool canVote;
+  final VoidCallback? onVote;
+
+  /// The asker's chosen answer, shown first with a badge.
+  final bool isBest;
+  final bool canMarkBest;
+  final VoidCallback? onMarkBest;
+  final bool canEdit;
+  final VoidCallback? onEdit;
 
   /// Opens the commenter's profile.
   final VoidCallback? onAuthor;
@@ -1353,11 +1496,45 @@ class _DiscussionItem extends StatelessWidget {
       decoration: BoxDecoration(
         color: _kSurface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _kBorderSubtle),
+        border: Border.all(
+          color: isBest ? _kPrimary : _kBorderSubtle,
+          width: isBest ? 1.4 : 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (isBest)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                key: ValueKey('best-$commentId'),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _kPrimary,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.workspace_premium,
+                      size: 13,
+                      color: Colors.white,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Best answer',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           Row(
             children: [
               GestureDetector(
@@ -1439,23 +1616,46 @@ class _DiscussionItem extends StatelessWidget {
             padding: const EdgeInsets.only(left: 34),
             child: Row(
               children: [
-                if (likesCount.isNotEmpty) ...[
-                  const Icon(
-                    Icons.favorite_border,
-                    size: 14,
-                    color: _kTextSecondary,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    likesCount,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontFamily: 'monospace',
-                      color: _kTextSecondary,
+                // Upvote, like Stack Overflow and Reddit. Your own answer
+                // shows its count but cannot be voted on.
+                InkWell(
+                  key: ValueKey('vote-$commentId'),
+                  onTap: canVote ? onVote : null,
+                  borderRadius: BorderRadius.circular(999),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: votedByMe ? _kPrimary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: votedByMe ? _kPrimary : _kBorderSubtle,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          votedByMe ? Icons.thumb_up : Icons.thumb_up_outlined,
+                          size: 13,
+                          color: votedByMe ? Colors.white : _kTextSecondary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          voteCount == 0 ? 'Helpful' : '$voteCount',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: votedByMe ? Colors.white : _kTextSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 14),
-                ],
+                ),
+                const SizedBox(width: 14),
                 GestureDetector(
                   key: ValueKey('reply-$commentId'),
                   onTap: onReply,
@@ -1519,9 +1719,20 @@ class _DiscussionItem extends StatelessWidget {
                         onReport?.call();
                       case 'remove':
                         onRemove?.call();
+                      case 'best':
+                        onMarkBest?.call();
+                      case 'edit':
+                        onEdit?.call();
                     }
                   },
                   itemBuilder: (ctx) => [
+                    if (canMarkBest)
+                      _menuItem(
+                        'best',
+                        Icons.workspace_premium_outlined,
+                        isBest ? 'Unmark best answer' : 'Mark as best answer',
+                      ),
+                    if (canEdit) _menuItem('edit', Icons.edit_outlined, 'Edit'),
                     _menuItem('copy', Icons.copy, 'Copy Text'),
                     if (canReport)
                       _menuItem(

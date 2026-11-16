@@ -27,6 +27,7 @@ import 'package:talk_it_out/features/groups/tone_hint.dart';
 import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
 import 'package:talk_it_out/features/invites/invite_sheet.dart';
 import 'package:talk_it_out/features/groups/catch_up.dart';
+import 'package:talk_it_out/features/groups/composer_helpers.dart';
 
 class GroupChatScreen extends ConsumerStatefulWidget {
   const GroupChatScreen({required this.groupId, super.key});
@@ -42,6 +43,12 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
   final _keys = <String, GlobalKey>{};
   final _scroll = ScrollController();
   var _awayFromLatest = false;
+
+  /// When you last had this chat open, read once on arrival, so the "New
+  /// messages" divider stays put while you read (WhatsApp, Slack).
+  late final DateTime? _lastReadAtOpen = ref.read(
+    groupReadProvider,
+  )[widget.groupId];
 
   @override
   void initState() {
@@ -165,6 +172,16 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
     final isController = group.value?.myRole == GroupRole.controller;
     final currentUserId = ref.watch(sessionProvider).value?.id;
     final controllerId = group.value?.controllerId;
+    // The first message that arrived since you last read this chat (not
+    // your own); -1 when there is none or this is your first visit.
+    final lastRead = _lastReadAtOpen;
+    final firstUnread = lastRead == null
+        ? -1
+        : items.indexWhere(
+            (m) =>
+                m.publishedAt.isAfter(lastRead) &&
+                m.displaySender?.id != currentUserId,
+          );
 
     final members = ref.watch(membersProvider(widget.groupId)).value?.length;
     final mine = ref.watch(myMessagesProvider(widget.groupId)).value;
@@ -207,7 +224,9 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
             tooltip: 'Session options',
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
-              if (value == 'members') {
+              if (value == 'info') {
+                context.push('/groups/${widget.groupId}/info');
+              } else if (value == 'members') {
                 context.push('/groups/${widget.groupId}/members');
               } else if (value == 'invite') {
                 showAddMembersSheet(context, widget.groupId);
@@ -250,6 +269,17 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                key: ValueKey('menu-group-info'),
+                value: 'info',
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16),
+                    SizedBox(width: 8),
+                    Text('Group info'),
+                  ],
+                ),
+              ),
               PopupMenuItem(
                 value: 'members',
                 child: Text(AppStrings.membersTitle),
@@ -453,16 +483,21 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                                   items[i].publishedAt,
                                 ))
                               DateDivider(date: items[i].publishedAt),
+                            if (i == firstUnread) const _NewMessagesDivider(),
                             KeyedSubtree(
                               key: _keyFor(items[i].id),
-                              child: PublishedMessageTile(
-                                message: items[i],
-                                groupId: widget.groupId,
-                                isController: isController,
-                                currentUserId: currentUserId,
-                                controllerId: controllerId,
+                              child: SwipeToReply(
+                                key: ValueKey('swipe-${items[i].id}'),
                                 onReply: () => _setReplyingTo(items[i]),
-                                onQuoteTap: _scrollTo,
+                                child: PublishedMessageTile(
+                                  message: items[i],
+                                  groupId: widget.groupId,
+                                  isController: isController,
+                                  currentUserId: currentUserId,
+                                  controllerId: controllerId,
+                                  onReply: () => _setReplyingTo(items[i]),
+                                  onQuoteTap: _scrollTo,
+                                ),
                               ),
                             ),
                           ],
@@ -1320,6 +1355,12 @@ class _ControllerMessageComposerState
   var _busy = false;
   PickedImage? _image;
 
+  @override
+  void initState() {
+    super.initState();
+    bindDraft(ref, 'ctrl:${widget.groupId}', _text);
+  }
+
   Future<void> _pickImage() async {
     try {
       final picked = await pickChatImage();
@@ -1447,6 +1488,7 @@ class _ControllerMessageComposerState
                 ),
                 const SizedBox(height: 8),
               ],
+              MentionSuggestions(groupId: widget.groupId, controller: _text),
               // Chat Input Row (Message Pill + Black Send Button) - Identical to Contributor
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -1680,6 +1722,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   void initState() {
     super.initState();
     // On-device only: the draft is checked as it is typed, never sent.
+    bindDraft(ref, 'msg:${widget.groupId}', _text);
     _text.addListener(() {
       final hint = checkTone(_text.text);
       if (hint?.kind != _tone?.kind) setState(() => _tone = hint);
@@ -1990,6 +2033,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                   ),
                 ),
               ),
+              MentionSuggestions(groupId: widget.groupId, controller: _text),
               // Chat Input Row (Message Pill + Black Send Button)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -2817,6 +2861,98 @@ class DateDivider extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// "New messages": where you left off.
+class _NewMessagesDivider extends StatelessWidget {
+  const _NewMessagesDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      key: ValueKey('new-messages-divider'),
+      padding: EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: Brand.ink, thickness: 0.8)),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 10),
+            child: Text(
+              'New messages',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: Brand.ink,
+              ),
+            ),
+          ),
+          Expanded(child: Divider(color: Brand.ink, thickness: 0.8)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Swipe a message to the right to reply, like WhatsApp and Telegram. The
+/// bubble follows the finger a little, and a reply icon appears.
+class SwipeToReply extends StatefulWidget {
+  const SwipeToReply({required this.child, required this.onReply, super.key});
+
+  final Widget child;
+  final VoidCallback onReply;
+
+  @override
+  State<SwipeToReply> createState() => _SwipeToReplyState();
+}
+
+class _SwipeToReplyState extends State<SwipeToReply> {
+  static const _trigger = 56.0;
+  static const _max = 80.0;
+  double _dx = 0;
+  var _fired = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragUpdate: (d) {
+        setState(() => _dx = (_dx + d.delta.dx).clamp(0, _max));
+        if (!_fired && _dx >= _trigger) {
+          _fired = true;
+          HapticFeedback.lightImpact();
+        }
+      },
+      onHorizontalDragEnd: (_) {
+        if (_fired) widget.onReply();
+        setState(() {
+          _dx = 0;
+          _fired = false;
+        });
+      },
+      onHorizontalDragCancel: () => setState(() {
+        _dx = 0;
+        _fired = false;
+      }),
+      child: Stack(
+        alignment: Alignment.centerLeft,
+        children: [
+          if (_dx > 8)
+            Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: Opacity(
+                opacity: (_dx / _trigger).clamp(0, 1).toDouble(),
+                child: const Icon(Icons.reply, size: 20, color: Brand.inkSoft),
+              ),
+            ),
+          AnimatedContainer(
+            duration: Duration(milliseconds: _dx == 0 ? 180 : 0),
+            transform: Matrix4.translationValues(_dx, 0, 0),
+            child: widget.child,
+          ),
+        ],
       ),
     );
   }

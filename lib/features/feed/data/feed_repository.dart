@@ -4,6 +4,14 @@ import 'package:talk_it_out/features/feed/data/comment.dart';
 import 'package:talk_it_out/features/feed/data/post.dart';
 import 'package:talk_it_out/features/feed/data/reaction_result.dart';
 
+/// An answer's vote count after voting.
+class CommentVote {
+  const CommentVote({required this.count, required this.votedByMe});
+
+  final int count;
+  final bool votedByMe;
+}
+
 abstract class FeedRepository {
   Future<PageResult<Post>> listPosts({int? limit, String? cursor});
 
@@ -41,5 +49,33 @@ abstract class FeedRepository {
     String postId,
     String commentId, {
     bool report = true,
+  });
+
+  /// Follow a question to hear about new answers (`API.md` 66).
+  Future<bool> setFollowing(String postId, {required bool following});
+
+  /// Upvote an answer, or take the vote back (`API.md` 65).
+  Future<CommentVote> voteComment(
+    String postId,
+    String commentId, {
+    required bool up,
+  });
+
+  /// The asker marks the best answer; null clears it.
+  Future<void> setBestAnswer(String postId, String? commentId);
+
+  /// The author edits their question. Only the fields given change.
+  Future<Post> editPost(
+    String postId, {
+    String? title,
+    String? topic,
+    String? content,
+  });
+
+  /// The author edits their answer.
+  Future<Comment> editComment(
+    String postId,
+    String commentId, {
+    required String content,
   });
 }

@@ -18,6 +18,12 @@ _Comment _$CommentFromJson(Map<String, dynamic> json) => _Comment(
   createdAt: DateTime.parse(json['created_at'] as String),
   reportCount: (json['report_count'] as num?)?.toInt(),
   reportedByMe: json['reported_by_me'] as bool? ?? false,
+  voteCount: (json['vote_count'] as num?)?.toInt() ?? 0,
+  votedByMe: json['voted_by_me'] as bool? ?? false,
+  isBest: json['is_best'] as bool? ?? false,
+  editedAt: json['edited_at'] == null
+      ? null
+      : DateTime.parse(json['edited_at'] as String),
 );
 
 Map<String, dynamic> _$CommentToJson(_Comment instance) => <String, dynamic>{
@@ -30,4 +36,8 @@ Map<String, dynamic> _$CommentToJson(_Comment instance) => <String, dynamic>{
   'created_at': instance.createdAt.toIso8601String(),
   'report_count': instance.reportCount,
   'reported_by_me': instance.reportedByMe,
+  'vote_count': instance.voteCount,
+  'voted_by_me': instance.votedByMe,
+  'is_best': instance.isBest,
+  'edited_at': instance.editedAt?.toIso8601String(),
 };

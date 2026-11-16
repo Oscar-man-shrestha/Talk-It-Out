@@ -15,9 +15,12 @@ afterAll(closePool);
 
 const POST_KEYS = [
   'author',
+  'best_comment_id',
   'comment_count',
   'content',
   'created_at',
+  'edited_at',
+  'following',
   'id',
   'my_reaction',
   'nsfw_flag',
@@ -163,12 +166,16 @@ describe('comments', () => {
       'author',
       'content',
       'created_at',
+      'edited_at',
       'id',
+      'is_best',
       'nsfw_flag',
       'other_flags',
       'post_id',
       'report_count',
       'reported_by_me',
+      'vote_count',
+      'voted_by_me',
     ]);
     expect(created.body.post_id).toBe(postId);
     expect(created.body.author).toEqual({ id: commenter.id, name: 'Commenter' });
@@ -229,9 +236,14 @@ describe('post to group conversion', () => {
       'agenda',
       'controller_id',
       'created_at',
+      'description',
       'id',
+      'member_count',
+      'muted',
       'my_role',
       'pending_count',
+      'pinned',
+      'rules',
       'source_post_id',
     ]);
     expect(res.body.agenda).toBe('Should we split preprocessing notes?');

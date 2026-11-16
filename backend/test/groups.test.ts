@@ -27,9 +27,14 @@ describe('groups', () => {
       'agenda',
       'controller_id',
       'created_at',
+      'description',
       'id',
+      'member_count',
+      'muted',
       'my_role',
       'pending_count',
+      'pinned',
+      'rules',
       'source_post_id',
     ]);
     expect(res.body.agenda).toBe('Making NLP notes');

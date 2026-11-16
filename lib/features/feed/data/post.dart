@@ -25,6 +25,15 @@ abstract class Post with _$Post {
     String? myReaction,
     required int commentCount,
     required DateTime createdAt,
+
+    /// The answer the asker marked as best (`API.md` 65).
+    String? bestCommentId,
+
+    /// Set when the author edited the question.
+    DateTime? editedAt,
+
+    /// Whether you get notified of new answers (`API.md` 66).
+    @Default(false) bool following,
   }) = _Post;
 
   factory Post.fromJson(Map<String, dynamic> json) => _$PostFromJson(json);

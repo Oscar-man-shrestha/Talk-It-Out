@@ -719,6 +719,51 @@ class MockGroupRepository implements GroupRepository {
       ),
     ];
   }
+
+  void _replaceGroup(Group next) {
+    final i = _board.groups.indexWhere((g) => g.id == next.id);
+    if (i >= 0) _board.groups[i] = next;
+  }
+
+  @override
+  Future<void> updateGroupInfo(
+    String groupId, {
+    String? description,
+    String? rules,
+  }) {
+    return runMock(_controls, () {
+      final group = _requireGroup(groupId);
+      if (group.myRole != GroupRole.controller) {
+        throw const RepositoryException(
+          code: 'forbidden',
+          message: 'Only the controller can change the group info.',
+        );
+      }
+      _replaceGroup(
+        group.copyWith(
+          description: description?.trim() ?? group.description,
+          rules: rules?.trim() ?? group.rules,
+        ),
+      );
+    });
+  }
+
+  @override
+  Future<void> updateGroupSettings(
+    String groupId, {
+    bool? muted,
+    bool? pinned,
+  }) {
+    return runMock(_controls, () {
+      final group = _requireGroup(groupId);
+      _replaceGroup(
+        group.copyWith(
+          muted: muted ?? group.muted,
+          pinned: pinned ?? group.pinned,
+        ),
+      );
+    });
+  }
 }
 
 /// Names of the demo people search can add (see MockDiscoveryRepository).

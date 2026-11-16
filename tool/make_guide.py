@@ -381,6 +381,7 @@ def story():
         "<b>Add members, like Instagram</b>: search as you type. Search forgives typos and sound-alike spellings (<i>rhoan</i> finds Rohan), puts people from your groups first, suggests people and remembers recent picks. Pick several and add them at once.",
         "<b>Invite links and QR codes</b>: a controller creates a link that lasts 1, 7 or 30 days or never expires, optionally for a set number of people, then shares it through WhatsApp or any app, copies it, or shows a QR code. Links can be turned off.",
         "<b>Join screen</b>: anyone opening a link sees the group, the inviter and how anonymity works before joining. A link can also be pasted on the empty Groups screen.",
+        "<b>Group info</b>: a description and rules set by the controller, plus your own <b>Mute</b> (out of the badge) and <b>Pin to top</b>.",
         "<b>Leave a group</b>: a departing controller hands control to the earliest-joined member.",
     ])
 
@@ -395,7 +396,7 @@ def story():
         ["Photos", "Attach a photo; the server strips location and camera details. The controller sees it in review; the group sees it only after approval."],
         ["Reactions", "Six quick reactions plus any emoji. Only counts are shown, never who reacted."],
         ["Pins and polls", "Controllers pin important messages and post polls. Votes are counted, never shown by person."],
-        ["Chat polish", "Bubbles, date dividers, big emoji-only messages, a full emoji keyboard, jump-to-latest."],
+        ["Chat polish", "Bubbles, date dividers, a <i>New messages</i> divider, swipe to reply, @mention suggestions, drafts kept per chat, big emoji-only messages, a full emoji keyboard, jump-to-latest."],
         ["My messages", "Each of your messages with its status: waiting, published or not published. Only you see this list; it never shows a rejection reason."],
     ], [38 * mm, 136 * mm])]
 
@@ -415,6 +416,7 @@ def story():
         ["For You", "Ranked for you from interests you picked and ones learned from what you like, answer and open. Every question says why it is shown. <b>Not interested</b> hides it, with Undo."],
         ["Latest", "Newest first with topic and status filters, sort by newest, likes or discussion, and endless scrolling."],
         ["Search", "Understands word families and typos and offers <i>Showing results for</i> corrections."],
+        ["Best answers", "Upvote helpful answers; the asker marks a <b>best answer</b>, shown first. Follow a question to hear about new answers. Questions and answers can be edited and show <i>edited</i>."],
         ["Answers and likes", "Comments with mentions and reports; a question's author sees report counts and can remove comments. <b>Liked by</b> shows who liked a question, like Facebook (group chat reactions stay counts only)."],
         ["Interests", "30 interests, from Engineering and Pay to Mental health, Rights at work and Students, each with its own icon. Pick them on first visit and change them in Profile."],
         ["Share and save", "Share a question through any app; save questions on your device."],
@@ -431,7 +433,7 @@ def story():
     ])
 
     s += [KeepTogether([H2("4.7 Notifications and live updates")] + bullets([
-        "Alerts for review outcomes, answers to your questions and being added to groups, with an unread badge, All/Unread filters and mark-all-read.",
+        "Alerts when a message waits for your review or was not published, when someone answers a question you follow, when your answer is marked best, and when you are @mentioned in a group (never naming the sender). Filters for submissions, moderation and community, and mark-all-read.",
         "Live updates: new messages, reviews, members, reactions and alerts appear instantly, like a messaging app, and the app re-syncs after a connection gap.",
     ]))]
     s += [KeepTogether([H2("4.8 Onboarding, sharing and help")] + bullets([
@@ -449,7 +451,7 @@ def story():
             "own server or on the phone.", "lead")]
     s += [table([
         ["Feature", "Technique", "Runs on"],
-        ["Message rewrite", "Qwen2.5-3B-Instruct (self-hosted with Ollama). Prompt-injection defence, deterministic output checks, intent-preservation and relevance scores.", "Python worker + model server"],
+        ["Message rewrite", "Qwen2.5-3B-Instruct (self-hosted with Ollama), kept loaded so a rewrite takes about 2 s. Prompt-injection defence, deterministic output checks, meaning-kept and relevance scores.", "Python worker + model server"],
         ["People search", "Accent folding, Damerau-Levenshtein distance (swapped letters), Jaro-Winkler, phonetic keys for English and South Asian names, trigram indexes.", "Server + Postgres"],
         ["Topic suggestions and interests", "Lexicon classifier over 30 interests with stemming; every interest is checked against real questions in tests.", "Server"],
         ["For You ranking", "Interest match, TF-IDF similarity to what you engaged with, engagement with time decay, network bonus, freshness; then topic and author diversity and an exploration slot. Every result carries a reason.", "Server"],
@@ -504,7 +506,7 @@ def story():
         ["Component", "Responsibility"],
         ["Flutter app", "One codebase for Android and the web. Feature folders (auth, groups, review, feed, discovery, invites, profile, notifications). Riverpod state, go_router navigation with sign-in and controller guards. Every data source has a Mock and an API implementation, switched by <font face='Courier'>USE_MOCK</font>, so the whole app runs offline as a demo."],
         ["Express API", "TypeScript, Express 5, Zod validation on every input, JWT access tokens with rotating refresh tokens, rate limits, Helmet headers. Mounted at <font face='Courier'>/</font> and <font face='Courier'>/api/v1</font>. Contains the NLP module and the public legal pages."],
-        ["PostgreSQL 16", "22 migrations. Triggers call <font face='Courier'>NOTIFY</font> on every change the app cares about; a jobs table works as an outbox with leases, retries and back-off."],
+        ["PostgreSQL 16", "23 migrations. Triggers call <font face='Courier'>NOTIFY</font> on every change the app cares about; a jobs table works as an outbox with leases, retries and back-off."],
         ["Live updates", "Each API instance <font face='Courier'>LISTEN</font>s to Postgres and pushes Server-Sent Events to signed-in clients, which refetch only what changed. Works across many API instances with no Redis."],
         ["Rewrite worker", "Python. Claims one job at a time over the internal HTTP contract (<font face='Courier'>/internal/pipeline</font>, key-protected), never touches the database and never receives sender identity. Fails honestly when the model is unavailable."],
         ["Feed analysis worker", "Runs inside the API process on its own queue, so feed problems never block group messages."],
@@ -551,11 +553,11 @@ def story():
         ["lib/core", "Shared models, API client, live updates, UI building blocks, strings, share links"],
         ["backend/src/routes", "One file per area: auth, groups, feed, people, profiles, invites, summaries and more"],
         ["backend/src/nlp", "Text normalisation, fuzzy matching, topics, ranking, search, summaries"],
-        ["backend/migrations", "Numbered SQL migrations (001 to 022)"],
+        ["backend/migrations", "Numbered SQL migrations (001 to 023)"],
         ["pipeline/", "Python rewrite worker and its contract tests"],
         ["assets/legal, backend/legal", "Privacy Policy, Terms, account deletion (kept identical by tests)"],
         ["docs/", "STARTUP_PLAN.md, PLAY_STORE.md, setup guides, this guide"],
-        ["API.md, LOGS.md", "The HTTP contract (sections 1 to 64) and the project log with open decisions"],
+        ["API.md, LOGS.md", "The HTTP contract (sections 1 to 68) and the project log with open decisions"],
     ], [42 * mm, 132 * mm])]
 
     # 9 ------------------------------------------------------------------
@@ -585,14 +587,14 @@ def story():
 
     # 10 ------------------------------------------------------------------
     s += [PageBreak(), H1("10. API overview")]
-    s += [P("The full contract is in API.md (sections 1 to 64). All routes need a signed-in user unless marked public.", "lead")]
+    s += [P("The full contract is in API.md (sections 1 to 68). All routes need a signed-in user unless marked public.", "lead")]
     s += [table([
         ["Area", "Main routes", "API.md"],
         ["Auth and account", "/auth/register, /auth/login, /auth/google, refresh tokens, password reset, change password, sign out everywhere, DELETE /users/me", "1-4, 35, 37-40, 48"],
-        ["Groups", "/groups, /groups/:id, members, leave, invites, /invites/:code", "5-8, 36, 61"],
+        ["Groups", "/groups, /groups/:id (info, settings), members, leave, invites, /invites/:code, mentions", "5-8, 36, 61, 67-68"],
         ["Messages", "list, send, mine, preview, withdraw, replies, search, pins, polls, photos, reactions, summary", "9-11, 33, 49-51, 63"],
         ["Review", "/groups/:id/review-queue, accept, reject, new rewrite, counts and history", "12-15, 43, 45"],
-        ["Feed", "/posts (Latest and For You), search, classify, similar, comments, likes and Liked by, reports, signals, question to group", "16-23, 42, 46-47, 55-58, 60, 64"],
+        ["Feed", "/posts (Latest and For You), search, classify, similar, comments, votes, best answer, follow, edits, likes and Liked by, reports, signals, question to group", "16-23, 42, 46-47, 55-58, 60, 64-66"],
         ["People", "search, suggestions, handles, interests, feed settings, profiles, blocks, their questions", "27-32, 44, 52-54, 57, 59"],
         ["Notifications and live", "/notifications, read, read-all, unread count, /events (SSE)", "24-26, 34, 41"],
         ["Public", "/legal/privacy, /legal/terms, /legal/delete-account, /ready", "62"],

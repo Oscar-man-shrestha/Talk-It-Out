@@ -142,7 +142,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
 
                   // Anonymity Type Filter
                   const Text(
-                    'Identity Shielding Filter',
+                    'Sender',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -202,7 +202,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
 
                   // Priority Sorting
                   const Text(
-                    'Queue Priority Ordering',
+                    'Order',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -233,7 +233,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                         items: const [
                           DropdownMenuItem(
                             value: 'Normal FIFO',
-                            child: Text('Oldest first (chronological)'),
+                            child: Text('Oldest first'),
                           ),
                           DropdownMenuItem(
                             value: 'Newest first',
@@ -1090,7 +1090,7 @@ class _QueueCard extends StatelessWidget {
                     Icon(Icons.format_quote, size: 13, color: _kTextTertiary),
                     SizedBox(width: 3),
                     Text(
-                      'RAW INPUT',
+                      'ORIGINAL',
                       style: TextStyle(
                         fontSize: 9,
                         fontFamily: 'monospace',
@@ -1139,7 +1139,7 @@ class _QueueCard extends StatelessWidget {
                           ),
                           SizedBox(width: 4),
                           Text(
-                            'NEUTRAL SYNTHESIS',
+                            'AI REWRITE',
                             style: TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.w700,
@@ -1152,7 +1152,7 @@ class _QueueCard extends StatelessWidget {
                       Text(
                         intent == null
                             ? ''
-                            : 'Intent ${(intent * 100).round()}%',
+                            : 'Meaning kept ${(intent * 100).round()}%',
                         style: const TextStyle(
                           fontSize: 9,
                           fontFamily: 'monospace',

@@ -18,7 +18,10 @@ mixin _$Comment {
 
  String get id; String get postId; Author get author; String get content; bool get nsfwFlag;@JsonKey(fromJson: flagsFromJson) Map<String, dynamic> get otherFlags; DateTime get createdAt;/// How many people reported this comment. Only the question's author
 /// gets a number; everyone else gets null.
- int? get reportCount; bool get reportedByMe;
+ int? get reportCount; bool get reportedByMe;/// Upvotes on this answer, and whether you gave one (`API.md` 65).
+ int get voteCount; bool get votedByMe;/// The asker marked this as the best answer.
+ bool get isBest;/// Set when the author edited the answer.
+ DateTime? get editedAt;
 /// Create a copy of Comment
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -32,20 +35,20 @@ $CommentCopyWith<Comment> get copyWith => _$CommentCopyWithImpl<Comment>(this as
 @override
 bool operator ==(Object other) {
   final _this = this as Comment;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Comment&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.postId, _this.postId) || other.postId == _this.postId)&&(identical(other.author, _this.author) || other.author == _this.author)&&(identical(other.content, _this.content) || other.content == _this.content)&&(identical(other.nsfwFlag, _this.nsfwFlag) || other.nsfwFlag == _this.nsfwFlag)&&const DeepCollectionEquality().equals(other.otherFlags, _this.otherFlags)&&(identical(other.createdAt, _this.createdAt) || other.createdAt == _this.createdAt)&&(identical(other.reportCount, _this.reportCount) || other.reportCount == _this.reportCount)&&(identical(other.reportedByMe, _this.reportedByMe) || other.reportedByMe == _this.reportedByMe));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Comment&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.postId, _this.postId) || other.postId == _this.postId)&&(identical(other.author, _this.author) || other.author == _this.author)&&(identical(other.content, _this.content) || other.content == _this.content)&&(identical(other.nsfwFlag, _this.nsfwFlag) || other.nsfwFlag == _this.nsfwFlag)&&const DeepCollectionEquality().equals(other.otherFlags, _this.otherFlags)&&(identical(other.createdAt, _this.createdAt) || other.createdAt == _this.createdAt)&&(identical(other.reportCount, _this.reportCount) || other.reportCount == _this.reportCount)&&(identical(other.reportedByMe, _this.reportedByMe) || other.reportedByMe == _this.reportedByMe)&&(identical(other.voteCount, _this.voteCount) || other.voteCount == _this.voteCount)&&(identical(other.votedByMe, _this.votedByMe) || other.votedByMe == _this.votedByMe)&&(identical(other.isBest, _this.isBest) || other.isBest == _this.isBest)&&(identical(other.editedAt, _this.editedAt) || other.editedAt == _this.editedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as Comment;
-  return Object.hash(runtimeType,_this.id,_this.postId,_this.author,_this.content,_this.nsfwFlag,const DeepCollectionEquality().hash(_this.otherFlags),_this.createdAt,_this.reportCount,_this.reportedByMe);
+  return Object.hash(runtimeType,_this.id,_this.postId,_this.author,_this.content,_this.nsfwFlag,const DeepCollectionEquality().hash(_this.otherFlags),_this.createdAt,_this.reportCount,_this.reportedByMe,_this.voteCount,_this.votedByMe,_this.isBest,_this.editedAt);
 }
 
 @override
 String toString() {
   final _this = this as Comment;
-  return 'Comment(id: ${_this.id}, postId: ${_this.postId}, author: ${_this.author}, content: ${_this.content}, nsfwFlag: ${_this.nsfwFlag}, otherFlags: ${_this.otherFlags}, createdAt: ${_this.createdAt}, reportCount: ${_this.reportCount}, reportedByMe: ${_this.reportedByMe})';
+  return 'Comment(id: ${_this.id}, postId: ${_this.postId}, author: ${_this.author}, content: ${_this.content}, nsfwFlag: ${_this.nsfwFlag}, otherFlags: ${_this.otherFlags}, createdAt: ${_this.createdAt}, reportCount: ${_this.reportCount}, reportedByMe: ${_this.reportedByMe}, voteCount: ${_this.voteCount}, votedByMe: ${_this.votedByMe}, isBest: ${_this.isBest}, editedAt: ${_this.editedAt})';
 }
 
 
@@ -56,7 +59,7 @@ abstract mixin class $CommentCopyWith<$Res>  {
   factory $CommentCopyWith(Comment value, $Res Function(Comment) _then) = _$CommentCopyWithImpl;
 @useResult
 $Res call({
- String id, String postId, Author author, String content, bool nsfwFlag,@JsonKey(fromJson: flagsFromJson) Map<String, dynamic> otherFlags, DateTime createdAt, int? reportCount, bool reportedByMe
+ String id, String postId, Author author, String content, bool nsfwFlag,@JsonKey(fromJson: flagsFromJson) Map<String, dynamic> otherFlags, DateTime createdAt, int? reportCount, bool reportedByMe, int voteCount, bool votedByMe, bool isBest, DateTime? editedAt
 });
 
 
@@ -73,7 +76,7 @@ class _$CommentCopyWithImpl<$Res>
 
 /// Create a copy of Comment
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? postId = null,Object? author = null,Object? content = null,Object? nsfwFlag = null,Object? otherFlags = null,Object? createdAt = null,Object? reportCount = freezed,Object? reportedByMe = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? postId = null,Object? author = null,Object? content = null,Object? nsfwFlag = null,Object? otherFlags = null,Object? createdAt = null,Object? reportCount = freezed,Object? reportedByMe = null,Object? voteCount = null,Object? votedByMe = null,Object? isBest = null,Object? editedAt = freezed,}) {
   return _then(Comment(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,postId: null == postId ? _self.postId : postId // ignore: cast_nullable_to_non_nullable
@@ -84,7 +87,11 @@ as bool,otherFlags: null == otherFlags ? _self.otherFlags : otherFlags // ignore
 as Map<String, dynamic>,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,reportCount: freezed == reportCount ? _self.reportCount : reportCount // ignore: cast_nullable_to_non_nullable
 as int?,reportedByMe: null == reportedByMe ? _self.reportedByMe : reportedByMe // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,voteCount: null == voteCount ? _self.voteCount : voteCount // ignore: cast_nullable_to_non_nullable
+as int,votedByMe: null == votedByMe ? _self.votedByMe : votedByMe // ignore: cast_nullable_to_non_nullable
+as bool,isBest: null == isBest ? _self.isBest : isBest // ignore: cast_nullable_to_non_nullable
+as bool,editedAt: freezed == editedAt ? _self.editedAt : editedAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,
   ));
 }
 /// Create a copy of Comment
@@ -178,10 +185,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String postId,  Author author,  String content,  bool nsfwFlag, @JsonKey(fromJson: flagsFromJson)  Map<String, dynamic> otherFlags,  DateTime createdAt,  int? reportCount,  bool reportedByMe)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String postId,  Author author,  String content,  bool nsfwFlag, @JsonKey(fromJson: flagsFromJson)  Map<String, dynamic> otherFlags,  DateTime createdAt,  int? reportCount,  bool reportedByMe,  int voteCount,  bool votedByMe,  bool isBest,  DateTime? editedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Comment() when $default != null:
-return $default(_that.id,_that.postId,_that.author,_that.content,_that.nsfwFlag,_that.otherFlags,_that.createdAt,_that.reportCount,_that.reportedByMe);case _:
+return $default(_that.id,_that.postId,_that.author,_that.content,_that.nsfwFlag,_that.otherFlags,_that.createdAt,_that.reportCount,_that.reportedByMe,_that.voteCount,_that.votedByMe,_that.isBest,_that.editedAt);case _:
   return orElse();
 
 }
@@ -199,10 +206,10 @@ return $default(_that.id,_that.postId,_that.author,_that.content,_that.nsfwFlag,
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String postId,  Author author,  String content,  bool nsfwFlag, @JsonKey(fromJson: flagsFromJson)  Map<String, dynamic> otherFlags,  DateTime createdAt,  int? reportCount,  bool reportedByMe)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String postId,  Author author,  String content,  bool nsfwFlag, @JsonKey(fromJson: flagsFromJson)  Map<String, dynamic> otherFlags,  DateTime createdAt,  int? reportCount,  bool reportedByMe,  int voteCount,  bool votedByMe,  bool isBest,  DateTime? editedAt)  $default,) {final _that = this;
 switch (_that) {
 case _Comment():
-return $default(_that.id,_that.postId,_that.author,_that.content,_that.nsfwFlag,_that.otherFlags,_that.createdAt,_that.reportCount,_that.reportedByMe);case _:
+return $default(_that.id,_that.postId,_that.author,_that.content,_that.nsfwFlag,_that.otherFlags,_that.createdAt,_that.reportCount,_that.reportedByMe,_that.voteCount,_that.votedByMe,_that.isBest,_that.editedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -219,10 +226,10 @@ return $default(_that.id,_that.postId,_that.author,_that.content,_that.nsfwFlag,
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String postId,  Author author,  String content,  bool nsfwFlag, @JsonKey(fromJson: flagsFromJson)  Map<String, dynamic> otherFlags,  DateTime createdAt,  int? reportCount,  bool reportedByMe)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String postId,  Author author,  String content,  bool nsfwFlag, @JsonKey(fromJson: flagsFromJson)  Map<String, dynamic> otherFlags,  DateTime createdAt,  int? reportCount,  bool reportedByMe,  int voteCount,  bool votedByMe,  bool isBest,  DateTime? editedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _Comment() when $default != null:
-return $default(_that.id,_that.postId,_that.author,_that.content,_that.nsfwFlag,_that.otherFlags,_that.createdAt,_that.reportCount,_that.reportedByMe);case _:
+return $default(_that.id,_that.postId,_that.author,_that.content,_that.nsfwFlag,_that.otherFlags,_that.createdAt,_that.reportCount,_that.reportedByMe,_that.voteCount,_that.votedByMe,_that.isBest,_that.editedAt);case _:
   return null;
 
 }
@@ -234,7 +241,7 @@ return $default(_that.id,_that.postId,_that.author,_that.content,_that.nsfwFlag,
 @JsonSerializable()
 
 class _Comment implements Comment {
-  const _Comment({required this.id, required this.postId, required this.author, required this.content, required this.nsfwFlag, @JsonKey(fromJson: flagsFromJson)  Map<String, dynamic> otherFlags = const <String, dynamic>{}, required this.createdAt, this.reportCount, this.reportedByMe = false}): _otherFlags = otherFlags;
+  const _Comment({required this.id, required this.postId, required this.author, required this.content, required this.nsfwFlag, @JsonKey(fromJson: flagsFromJson)  Map<String, dynamic> otherFlags = const <String, dynamic>{}, required this.createdAt, this.reportCount, this.reportedByMe = false, this.voteCount = 0, this.votedByMe = false, this.isBest = false, this.editedAt}): _otherFlags = otherFlags;
   factory _Comment.fromJson(Map<String, dynamic> json) => _$CommentFromJson(json);
 
 @override final  String id;
@@ -254,6 +261,13 @@ class _Comment implements Comment {
 /// gets a number; everyone else gets null.
 @override final  int? reportCount;
 @override@JsonKey() final  bool reportedByMe;
+/// Upvotes on this answer, and whether you gave one (`API.md` 65).
+@override@JsonKey() final  int voteCount;
+@override@JsonKey() final  bool votedByMe;
+/// The asker marked this as the best answer.
+@override@JsonKey() final  bool isBest;
+/// Set when the author edited the answer.
+@override final  DateTime? editedAt;
 
 /// Create a copy of Comment
 /// with the given fields replaced by the non-null parameter values.
@@ -268,18 +282,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Comment&&(identical(other.id, id) || other.id == id)&&(identical(other.postId, postId) || other.postId == postId)&&(identical(other.author, author) || other.author == author)&&(identical(other.content, content) || other.content == content)&&(identical(other.nsfwFlag, nsfwFlag) || other.nsfwFlag == nsfwFlag)&&const DeepCollectionEquality().equals(other.otherFlags, _otherFlags)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.reportCount, reportCount) || other.reportCount == reportCount)&&(identical(other.reportedByMe, reportedByMe) || other.reportedByMe == reportedByMe));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Comment&&(identical(other.id, id) || other.id == id)&&(identical(other.postId, postId) || other.postId == postId)&&(identical(other.author, author) || other.author == author)&&(identical(other.content, content) || other.content == content)&&(identical(other.nsfwFlag, nsfwFlag) || other.nsfwFlag == nsfwFlag)&&const DeepCollectionEquality().equals(other.otherFlags, _otherFlags)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.reportCount, reportCount) || other.reportCount == reportCount)&&(identical(other.reportedByMe, reportedByMe) || other.reportedByMe == reportedByMe)&&(identical(other.voteCount, voteCount) || other.voteCount == voteCount)&&(identical(other.votedByMe, votedByMe) || other.votedByMe == votedByMe)&&(identical(other.isBest, isBest) || other.isBest == isBest)&&(identical(other.editedAt, editedAt) || other.editedAt == editedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,postId,author,content,nsfwFlag,const DeepCollectionEquality().hash(_otherFlags),createdAt,reportCount,reportedByMe);
+    return Object.hash(runtimeType,id,postId,author,content,nsfwFlag,const DeepCollectionEquality().hash(_otherFlags),createdAt,reportCount,reportedByMe,voteCount,votedByMe,isBest,editedAt);
 }
 
 @override
 String toString() {
-    return 'Comment(id: $id, postId: $postId, author: $author, content: $content, nsfwFlag: $nsfwFlag, otherFlags: $otherFlags, createdAt: $createdAt, reportCount: $reportCount, reportedByMe: $reportedByMe)';
+    return 'Comment(id: $id, postId: $postId, author: $author, content: $content, nsfwFlag: $nsfwFlag, otherFlags: $otherFlags, createdAt: $createdAt, reportCount: $reportCount, reportedByMe: $reportedByMe, voteCount: $voteCount, votedByMe: $votedByMe, isBest: $isBest, editedAt: $editedAt)';
 }
 
 
@@ -290,7 +304,7 @@ abstract mixin class _$CommentCopyWith<$Res> implements $CommentCopyWith<$Res> {
   factory _$CommentCopyWith(_Comment value, $Res Function(_Comment) _then) = __$CommentCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String postId, Author author, String content, bool nsfwFlag,@JsonKey(fromJson: flagsFromJson) Map<String, dynamic> otherFlags, DateTime createdAt, int? reportCount, bool reportedByMe
+ String id, String postId, Author author, String content, bool nsfwFlag,@JsonKey(fromJson: flagsFromJson) Map<String, dynamic> otherFlags, DateTime createdAt, int? reportCount, bool reportedByMe, int voteCount, bool votedByMe, bool isBest, DateTime? editedAt
 });
 
 
@@ -307,7 +321,7 @@ class __$CommentCopyWithImpl<$Res>
 
 /// Create a copy of Comment
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? postId = null,Object? author = null,Object? content = null,Object? nsfwFlag = null,Object? otherFlags = null,Object? createdAt = null,Object? reportCount = freezed,Object? reportedByMe = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? postId = null,Object? author = null,Object? content = null,Object? nsfwFlag = null,Object? otherFlags = null,Object? createdAt = null,Object? reportCount = freezed,Object? reportedByMe = null,Object? voteCount = null,Object? votedByMe = null,Object? isBest = null,Object? editedAt = freezed,}) {
   return _then(_Comment(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,postId: null == postId ? _self.postId : postId // ignore: cast_nullable_to_non_nullable
@@ -318,7 +332,11 @@ as bool,otherFlags: null == otherFlags ? _self._otherFlags : otherFlags // ignor
 as Map<String, dynamic>,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,reportCount: freezed == reportCount ? _self.reportCount : reportCount // ignore: cast_nullable_to_non_nullable
 as int?,reportedByMe: null == reportedByMe ? _self.reportedByMe : reportedByMe // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,voteCount: null == voteCount ? _self.voteCount : voteCount // ignore: cast_nullable_to_non_nullable
+as int,votedByMe: null == votedByMe ? _self.votedByMe : votedByMe // ignore: cast_nullable_to_non_nullable
+as bool,isBest: null == isBest ? _self.isBest : isBest // ignore: cast_nullable_to_non_nullable
+as bool,editedAt: freezed == editedAt ? _self.editedAt : editedAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,
   ));
 }
 

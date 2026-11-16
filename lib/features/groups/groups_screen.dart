@@ -70,6 +70,19 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         (a, b) => a.agenda.toLowerCase().compareTo(b.agenda.toLowerCase()),
       );
     }
+    // Pinned groups stay on top, like pinned chats in WhatsApp. The sort is
+    // stable, so the chosen order holds within each part.
+    final pinned = [
+      for (final g in items)
+        if (g.pinned) g,
+    ];
+    final rest = [
+      for (final g in items)
+        if (!g.pinned) g,
+    ];
+    items
+      ..clear()
+      ..addAll([...pinned, ...rest]);
 
     return Scaffold(
       backgroundColor: Brand.canvas,
@@ -634,6 +647,24 @@ class _GroupCard extends ConsumerWidget {
                             ),
                             const SizedBox(width: 6),
                             _RoleTag(controller: controller),
+                            if (group.pinned) ...[
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.push_pin,
+                                key: ValueKey('pinned-${group.id}'),
+                                size: 14,
+                                color: _muted,
+                              ),
+                            ],
+                            if (group.muted) ...[
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.notifications_off_outlined,
+                                key: ValueKey('muted-${group.id}'),
+                                size: 14,
+                                color: _muted,
+                              ),
+                            ],
                           ],
                         ),
                         const SizedBox(height: 3),

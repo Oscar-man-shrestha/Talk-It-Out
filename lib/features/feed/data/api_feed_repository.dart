@@ -133,4 +133,70 @@ class ApiFeedRepository implements FeedRepository {
       }
     });
   }
+
+  @override
+  Future<bool> setFollowing(String postId, {required bool following}) {
+    return guardApi(() async {
+      final path = '/posts/$postId/follow';
+      final response = following
+          ? await _dio.post(path)
+          : await _dio.delete(path);
+      return asJsonMap(response.data)['following'] == true;
+    });
+  }
+
+  @override
+  Future<CommentVote> voteComment(
+    String postId,
+    String commentId, {
+    required bool up,
+  }) {
+    return guardApi(() async {
+      final path = '/posts/$postId/comments/$commentId/vote';
+      final response = up ? await _dio.post(path) : await _dio.delete(path);
+      final json = asJsonMap(response.data);
+      return CommentVote(
+        count: (json['vote_count'] as num?)?.toInt() ?? 0,
+        votedByMe: json['voted_by_me'] == true,
+      );
+    });
+  }
+
+  @override
+  Future<void> setBestAnswer(String postId, String? commentId) {
+    return guardApi(() async {
+      await _dio.put('/posts/$postId/best', data: {'comment_id': commentId});
+    });
+  }
+
+  @override
+  Future<Post> editPost(
+    String postId, {
+    String? title,
+    String? topic,
+    String? content,
+  }) {
+    return guardApi(() async {
+      final response = await _dio.patch(
+        '/posts/$postId',
+        data: {'title': ?title, 'topic': ?topic, 'content': ?content},
+      );
+      return Post.fromJson(asJsonMap(response.data));
+    });
+  }
+
+  @override
+  Future<Comment> editComment(
+    String postId,
+    String commentId, {
+    required String content,
+  }) {
+    return guardApi(() async {
+      final response = await _dio.patch(
+        '/posts/$postId/comments/$commentId',
+        data: {'content': content},
+      );
+      return Comment.fromJson(asJsonMap(response.data));
+    });
+  }
 }

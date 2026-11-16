@@ -148,7 +148,7 @@ def load_config(env: dict[str, str] | None = None) -> Config:
         max_output_chars=max_output,
         lease_seconds=lease,
         max_attempts=_positive_int(env, "PIPELINE_MAX_ATTEMPTS", 3),
-        poll_interval_seconds=_positive_float(env, "PIPELINE_POLL_INTERVAL_SECONDS", 2.0),
+        poll_interval_seconds=_positive_float(env, "PIPELINE_POLL_INTERVAL_SECONDS", 1.0),
         model_endpoint=model_endpoint,
         model_id=model_id,
         # Empty by default: a self-hosted server usually needs no key, and

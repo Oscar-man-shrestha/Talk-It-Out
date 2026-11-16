@@ -3,6 +3,7 @@ import { Pool, PoolClient } from 'pg';
 import { conflict, forbidden, notFound } from '../errors';
 import { RequireAuth } from '../middleware/auth';
 import { withTransaction } from '../db';
+import { notifyMentions } from '../mentions';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -77,6 +78,9 @@ export function createMessagesRouter(pool: Pool, requireAuth: RequireAuth): Rout
           raw.reply_to_id ?? null,
         ],
       );
+      // The real author is never notified, even of a self-mention, and the
+      // notification does not name the sender.
+      await notifyMentions(client, raw.group_id, published[0].id, raw.rewritten_text, raw.author_id);
       await client.query(
         `UPDATE raw_messages
          SET status = 'accepted', published_message_id = $2,

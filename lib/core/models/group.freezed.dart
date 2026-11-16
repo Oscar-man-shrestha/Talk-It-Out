@@ -16,7 +16,10 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Group {
 
- String get id; String get agenda; String get controllerId; String? get sourcePostId; DateTime get createdAt;@JsonKey(unknownEnumValue: GroupRole.contributor) GroupRole get myRole; int? get pendingCount;
+ String get id; String get agenda; String get controllerId; String? get sourcePostId; DateTime get createdAt;@JsonKey(unknownEnumValue: GroupRole.contributor) GroupRole get myRole; int? get pendingCount;/// Group info set by the controller (`API.md` 67).
+ String get description; String get rules; int get memberCount;/// Your own settings for this group: muted groups do not count toward
+/// the Groups badge; pinned groups stay at the top.
+ bool get muted; bool get pinned;
 /// Create a copy of Group
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +33,20 @@ $GroupCopyWith<Group> get copyWith => _$GroupCopyWithImpl<Group>(this as Group, 
 @override
 bool operator ==(Object other) {
   final _this = this as Group;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Group&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.agenda, _this.agenda) || other.agenda == _this.agenda)&&(identical(other.controllerId, _this.controllerId) || other.controllerId == _this.controllerId)&&(identical(other.sourcePostId, _this.sourcePostId) || other.sourcePostId == _this.sourcePostId)&&(identical(other.createdAt, _this.createdAt) || other.createdAt == _this.createdAt)&&(identical(other.myRole, _this.myRole) || other.myRole == _this.myRole)&&(identical(other.pendingCount, _this.pendingCount) || other.pendingCount == _this.pendingCount));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Group&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.agenda, _this.agenda) || other.agenda == _this.agenda)&&(identical(other.controllerId, _this.controllerId) || other.controllerId == _this.controllerId)&&(identical(other.sourcePostId, _this.sourcePostId) || other.sourcePostId == _this.sourcePostId)&&(identical(other.createdAt, _this.createdAt) || other.createdAt == _this.createdAt)&&(identical(other.myRole, _this.myRole) || other.myRole == _this.myRole)&&(identical(other.pendingCount, _this.pendingCount) || other.pendingCount == _this.pendingCount)&&(identical(other.description, _this.description) || other.description == _this.description)&&(identical(other.rules, _this.rules) || other.rules == _this.rules)&&(identical(other.memberCount, _this.memberCount) || other.memberCount == _this.memberCount)&&(identical(other.muted, _this.muted) || other.muted == _this.muted)&&(identical(other.pinned, _this.pinned) || other.pinned == _this.pinned));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as Group;
-  return Object.hash(runtimeType,_this.id,_this.agenda,_this.controllerId,_this.sourcePostId,_this.createdAt,_this.myRole,_this.pendingCount);
+  return Object.hash(runtimeType,_this.id,_this.agenda,_this.controllerId,_this.sourcePostId,_this.createdAt,_this.myRole,_this.pendingCount,_this.description,_this.rules,_this.memberCount,_this.muted,_this.pinned);
 }
 
 @override
 String toString() {
   final _this = this as Group;
-  return 'Group(id: ${_this.id}, agenda: ${_this.agenda}, controllerId: ${_this.controllerId}, sourcePostId: ${_this.sourcePostId}, createdAt: ${_this.createdAt}, myRole: ${_this.myRole}, pendingCount: ${_this.pendingCount})';
+  return 'Group(id: ${_this.id}, agenda: ${_this.agenda}, controllerId: ${_this.controllerId}, sourcePostId: ${_this.sourcePostId}, createdAt: ${_this.createdAt}, myRole: ${_this.myRole}, pendingCount: ${_this.pendingCount}, description: ${_this.description}, rules: ${_this.rules}, memberCount: ${_this.memberCount}, muted: ${_this.muted}, pinned: ${_this.pinned})';
 }
 
 
@@ -54,7 +57,7 @@ abstract mixin class $GroupCopyWith<$Res>  {
   factory $GroupCopyWith(Group value, $Res Function(Group) _then) = _$GroupCopyWithImpl;
 @useResult
 $Res call({
- String id, String agenda, String controllerId, String? sourcePostId, DateTime createdAt,@JsonKey(unknownEnumValue: GroupRole.contributor) GroupRole myRole, int? pendingCount
+ String id, String agenda, String controllerId, String? sourcePostId, DateTime createdAt,@JsonKey(unknownEnumValue: GroupRole.contributor) GroupRole myRole, int? pendingCount, String description, String rules, int memberCount, bool muted, bool pinned
 });
 
 
@@ -71,7 +74,7 @@ class _$GroupCopyWithImpl<$Res>
 
 /// Create a copy of Group
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? agenda = null,Object? controllerId = null,Object? sourcePostId = freezed,Object? createdAt = null,Object? myRole = null,Object? pendingCount = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? agenda = null,Object? controllerId = null,Object? sourcePostId = freezed,Object? createdAt = null,Object? myRole = null,Object? pendingCount = freezed,Object? description = null,Object? rules = null,Object? memberCount = null,Object? muted = null,Object? pinned = null,}) {
   return _then(Group(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,agenda: null == agenda ? _self.agenda : agenda // ignore: cast_nullable_to_non_nullable
@@ -80,7 +83,12 @@ as String,sourcePostId: freezed == sourcePostId ? _self.sourcePostId : sourcePos
 as String?,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,myRole: null == myRole ? _self.myRole : myRole // ignore: cast_nullable_to_non_nullable
 as GroupRole,pendingCount: freezed == pendingCount ? _self.pendingCount : pendingCount // ignore: cast_nullable_to_non_nullable
-as int?,
+as int?,description: null == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
+as String,rules: null == rules ? _self.rules : rules // ignore: cast_nullable_to_non_nullable
+as String,memberCount: null == memberCount ? _self.memberCount : memberCount // ignore: cast_nullable_to_non_nullable
+as int,muted: null == muted ? _self.muted : muted // ignore: cast_nullable_to_non_nullable
+as bool,pinned: null == pinned ? _self.pinned : pinned // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -165,10 +173,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String agenda,  String controllerId,  String? sourcePostId,  DateTime createdAt, @JsonKey(unknownEnumValue: GroupRole.contributor)  GroupRole myRole,  int? pendingCount)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String agenda,  String controllerId,  String? sourcePostId,  DateTime createdAt, @JsonKey(unknownEnumValue: GroupRole.contributor)  GroupRole myRole,  int? pendingCount,  String description,  String rules,  int memberCount,  bool muted,  bool pinned)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Group() when $default != null:
-return $default(_that.id,_that.agenda,_that.controllerId,_that.sourcePostId,_that.createdAt,_that.myRole,_that.pendingCount);case _:
+return $default(_that.id,_that.agenda,_that.controllerId,_that.sourcePostId,_that.createdAt,_that.myRole,_that.pendingCount,_that.description,_that.rules,_that.memberCount,_that.muted,_that.pinned);case _:
   return orElse();
 
 }
@@ -186,10 +194,10 @@ return $default(_that.id,_that.agenda,_that.controllerId,_that.sourcePostId,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String agenda,  String controllerId,  String? sourcePostId,  DateTime createdAt, @JsonKey(unknownEnumValue: GroupRole.contributor)  GroupRole myRole,  int? pendingCount)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String agenda,  String controllerId,  String? sourcePostId,  DateTime createdAt, @JsonKey(unknownEnumValue: GroupRole.contributor)  GroupRole myRole,  int? pendingCount,  String description,  String rules,  int memberCount,  bool muted,  bool pinned)  $default,) {final _that = this;
 switch (_that) {
 case _Group():
-return $default(_that.id,_that.agenda,_that.controllerId,_that.sourcePostId,_that.createdAt,_that.myRole,_that.pendingCount);case _:
+return $default(_that.id,_that.agenda,_that.controllerId,_that.sourcePostId,_that.createdAt,_that.myRole,_that.pendingCount,_that.description,_that.rules,_that.memberCount,_that.muted,_that.pinned);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -206,10 +214,10 @@ return $default(_that.id,_that.agenda,_that.controllerId,_that.sourcePostId,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String agenda,  String controllerId,  String? sourcePostId,  DateTime createdAt, @JsonKey(unknownEnumValue: GroupRole.contributor)  GroupRole myRole,  int? pendingCount)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String agenda,  String controllerId,  String? sourcePostId,  DateTime createdAt, @JsonKey(unknownEnumValue: GroupRole.contributor)  GroupRole myRole,  int? pendingCount,  String description,  String rules,  int memberCount,  bool muted,  bool pinned)?  $default,) {final _that = this;
 switch (_that) {
 case _Group() when $default != null:
-return $default(_that.id,_that.agenda,_that.controllerId,_that.sourcePostId,_that.createdAt,_that.myRole,_that.pendingCount);case _:
+return $default(_that.id,_that.agenda,_that.controllerId,_that.sourcePostId,_that.createdAt,_that.myRole,_that.pendingCount,_that.description,_that.rules,_that.memberCount,_that.muted,_that.pinned);case _:
   return null;
 
 }
@@ -221,7 +229,7 @@ return $default(_that.id,_that.agenda,_that.controllerId,_that.sourcePostId,_tha
 @JsonSerializable()
 
 class _Group implements Group {
-  const _Group({required this.id, required this.agenda, required this.controllerId, this.sourcePostId, required this.createdAt, @JsonKey(unknownEnumValue: GroupRole.contributor) required this.myRole, this.pendingCount});
+  const _Group({required this.id, required this.agenda, required this.controllerId, this.sourcePostId, required this.createdAt, @JsonKey(unknownEnumValue: GroupRole.contributor) required this.myRole, this.pendingCount, this.description = '', this.rules = '', this.memberCount = 0, this.muted = false, this.pinned = false});
   factory _Group.fromJson(Map<String, dynamic> json) => _$GroupFromJson(json);
 
 @override final  String id;
@@ -231,6 +239,14 @@ class _Group implements Group {
 @override final  DateTime createdAt;
 @override@JsonKey(unknownEnumValue: GroupRole.contributor) final  GroupRole myRole;
 @override final  int? pendingCount;
+/// Group info set by the controller (`API.md` 67).
+@override@JsonKey() final  String description;
+@override@JsonKey() final  String rules;
+@override@JsonKey() final  int memberCount;
+/// Your own settings for this group: muted groups do not count toward
+/// the Groups badge; pinned groups stay at the top.
+@override@JsonKey() final  bool muted;
+@override@JsonKey() final  bool pinned;
 
 /// Create a copy of Group
 /// with the given fields replaced by the non-null parameter values.
@@ -245,18 +261,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Group&&(identical(other.id, id) || other.id == id)&&(identical(other.agenda, agenda) || other.agenda == agenda)&&(identical(other.controllerId, controllerId) || other.controllerId == controllerId)&&(identical(other.sourcePostId, sourcePostId) || other.sourcePostId == sourcePostId)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.myRole, myRole) || other.myRole == myRole)&&(identical(other.pendingCount, pendingCount) || other.pendingCount == pendingCount));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Group&&(identical(other.id, id) || other.id == id)&&(identical(other.agenda, agenda) || other.agenda == agenda)&&(identical(other.controllerId, controllerId) || other.controllerId == controllerId)&&(identical(other.sourcePostId, sourcePostId) || other.sourcePostId == sourcePostId)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.myRole, myRole) || other.myRole == myRole)&&(identical(other.pendingCount, pendingCount) || other.pendingCount == pendingCount)&&(identical(other.description, description) || other.description == description)&&(identical(other.rules, rules) || other.rules == rules)&&(identical(other.memberCount, memberCount) || other.memberCount == memberCount)&&(identical(other.muted, muted) || other.muted == muted)&&(identical(other.pinned, pinned) || other.pinned == pinned));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,agenda,controllerId,sourcePostId,createdAt,myRole,pendingCount);
+    return Object.hash(runtimeType,id,agenda,controllerId,sourcePostId,createdAt,myRole,pendingCount,description,rules,memberCount,muted,pinned);
 }
 
 @override
 String toString() {
-    return 'Group(id: $id, agenda: $agenda, controllerId: $controllerId, sourcePostId: $sourcePostId, createdAt: $createdAt, myRole: $myRole, pendingCount: $pendingCount)';
+    return 'Group(id: $id, agenda: $agenda, controllerId: $controllerId, sourcePostId: $sourcePostId, createdAt: $createdAt, myRole: $myRole, pendingCount: $pendingCount, description: $description, rules: $rules, memberCount: $memberCount, muted: $muted, pinned: $pinned)';
 }
 
 
@@ -267,7 +283,7 @@ abstract mixin class _$GroupCopyWith<$Res> implements $GroupCopyWith<$Res> {
   factory _$GroupCopyWith(_Group value, $Res Function(_Group) _then) = __$GroupCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String agenda, String controllerId, String? sourcePostId, DateTime createdAt,@JsonKey(unknownEnumValue: GroupRole.contributor) GroupRole myRole, int? pendingCount
+ String id, String agenda, String controllerId, String? sourcePostId, DateTime createdAt,@JsonKey(unknownEnumValue: GroupRole.contributor) GroupRole myRole, int? pendingCount, String description, String rules, int memberCount, bool muted, bool pinned
 });
 
 
@@ -284,7 +300,7 @@ class __$GroupCopyWithImpl<$Res>
 
 /// Create a copy of Group
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? agenda = null,Object? controllerId = null,Object? sourcePostId = freezed,Object? createdAt = null,Object? myRole = null,Object? pendingCount = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? agenda = null,Object? controllerId = null,Object? sourcePostId = freezed,Object? createdAt = null,Object? myRole = null,Object? pendingCount = freezed,Object? description = null,Object? rules = null,Object? memberCount = null,Object? muted = null,Object? pinned = null,}) {
   return _then(_Group(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,agenda: null == agenda ? _self.agenda : agenda // ignore: cast_nullable_to_non_nullable
@@ -293,7 +309,12 @@ as String,sourcePostId: freezed == sourcePostId ? _self.sourcePostId : sourcePos
 as String?,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,myRole: null == myRole ? _self.myRole : myRole // ignore: cast_nullable_to_non_nullable
 as GroupRole,pendingCount: freezed == pendingCount ? _self.pendingCount : pendingCount // ignore: cast_nullable_to_non_nullable
-as int?,
+as int?,description: null == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
+as String,rules: null == rules ? _self.rules : rules // ignore: cast_nullable_to_non_nullable
+as String,memberCount: null == memberCount ? _self.memberCount : memberCount // ignore: cast_nullable_to_non_nullable
+as int,muted: null == muted ? _self.muted : muted // ignore: cast_nullable_to_non_nullable
+as bool,pinned: null == pinned ? _self.pinned : pinned // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

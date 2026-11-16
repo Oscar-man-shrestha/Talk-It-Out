@@ -122,6 +122,14 @@ abstract final class AppStrings {
       'A message in $agenda is waiting for your review.';
 
   static const notificationGeneric = 'You have a new notification.';
+
+  // Never names the sender: the message may be anonymous.
+  static String mentioned(String agenda) => 'You were mentioned in $agenda.';
+
+  static String questionAnswered(String title) => 'New answer on "$title".';
+
+  static String answerBest(String title) =>
+      'Your answer was marked best on "$title".';
   static const loading = 'Loading';
   static const retry = 'Try again';
   static const errorGeneric = 'Something went wrong. Please try again.';

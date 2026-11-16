@@ -6,6 +6,7 @@ import { buildPage, decodeCursor, encodeCursor, parseListQuery, PageCursor } fro
 import { RequireAuth } from '../middleware/auth';
 import { uniqueConstraint, withTransaction } from '../db';
 import { blockedEitherWay } from '../blocks';
+import { notifyMentions } from '../mentions';
 
 const createGroupSchema = z.object({
   agenda: z
@@ -234,6 +235,11 @@ interface GroupRow {
   created_at: Date;
   role: string;
   pending_count: number | null;
+  description?: string;
+  rules?: string;
+  member_count?: number;
+  muted?: boolean;
+  pinned_at?: Date | null;
 }
 
 function groupJson(row: GroupRow) {
@@ -245,8 +251,29 @@ function groupJson(row: GroupRow) {
     created_at: row.created_at.toISOString(),
     my_role: row.role,
     pending_count: row.pending_count === null ? null : Number(row.pending_count),
+    description: row.description ?? '',
+    rules: row.rules ?? '',
+    member_count: Number(row.member_count ?? 0),
+    muted: row.muted ?? false,
+    pinned: row.pinned_at != null,
   };
 }
+
+/** Columns for groupJson's info fields; gm is the caller's membership. */
+const GROUP_INFO_COLUMNS = `g.description, g.rules,
+  (SELECT count(*)::int FROM group_members mc WHERE mc.group_id = g.id) AS member_count,
+  gm.muted, gm.pinned_at`;
+
+const groupInfoSchema = z
+  .object({
+    description: z.string().trim().max(500, 'Keep the description under 500 characters.').optional(),
+    rules: z.string().trim().max(1000, 'Keep the rules under 1000 characters.').optional(),
+  })
+  .refine((b) => b.description !== undefined || b.rules !== undefined, { message: 'Change something first.' });
+
+const groupSettingsSchema = z
+  .object({ muted: z.boolean().optional(), pinned: z.boolean().optional() })
+  .refine((b) => b.muted !== undefined || b.pinned !== undefined, { message: 'Change something first.' });
 
 /** Returns the caller's role in the group, or null when not a member. */
 async function memberRole(
@@ -323,7 +350,7 @@ export function createGroupsRouter(
     const { rows } = await pool.query(
       `SELECT g.id, g.agenda, g.controller_id, g.source_post_id,
               date_trunc('milliseconds', g.created_at) AS created_at,
-              gm.role,
+              gm.role, ${GROUP_INFO_COLUMNS},
               CASE WHEN gm.role = 'controller' THEN (
                 ${PENDING_FROM_MEMBERS}
               ) END AS pending_count
@@ -349,13 +376,47 @@ export function createGroupsRouter(
     const role = await requireMember(pool, groupId, req.user!.id);
     const { rows } = await pool.query(
       `SELECT g.id, g.agenda, g.controller_id, g.source_post_id, g.created_at,
+              ${GROUP_INFO_COLUMNS},
               CASE WHEN $2 = 'controller' THEN (
                 ${PENDING_FROM_MEMBERS}
               ) END AS pending_count
-       FROM groups g WHERE g.id = $1`,
-      [groupId, role],
+       FROM groups g
+       JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = $3
+       WHERE g.id = $1`,
+      [groupId, role, req.user!.id],
     );
     res.json(groupJson({ ...rows[0], role }));
+  });
+
+  // PATCH /groups/:groupId {description?, rules?} (controller, API.md 67)
+  router.patch('/:groupId', async (req, res) => {
+    const groupId = requireUuid(req.params.groupId, 'group');
+    const role = await requireMember(pool, groupId, req.user!.id);
+    if (role !== 'controller') throw forbidden();
+    const body = parseWith(groupInfoSchema, req.body);
+    await pool.query(
+      `UPDATE groups SET description = COALESCE($2, description), rules = COALESCE($3, rules)
+       WHERE id = $1`,
+      [groupId, body.description ?? null, body.rules ?? null],
+    );
+    res.json({ description: body.description, rules: body.rules });
+  });
+
+  // PUT /groups/:groupId/settings {muted?, pinned?}: only for the caller.
+  router.put('/:groupId/settings', async (req, res) => {
+    const groupId = requireUuid(req.params.groupId, 'group');
+    await requireMember(pool, groupId, req.user!.id);
+    const body = parseWith(groupSettingsSchema, req.body);
+    const { rows } = await pool.query<{ muted: boolean; pinned_at: Date | null }>(
+      `UPDATE group_members SET
+         muted = COALESCE($3, muted),
+         pinned_at = CASE WHEN $4::boolean IS NULL THEN pinned_at
+                          WHEN $4 THEN COALESCE(pinned_at, now()) ELSE NULL END
+       WHERE group_id = $1 AND user_id = $2
+       RETURNING muted, pinned_at`,
+      [groupId, req.user!.id, body.muted ?? null, body.pinned ?? null],
+    );
+    res.json({ muted: rows[0].muted, pinned: rows[0].pinned_at != null });
   });
 
   router.post('/:groupId/members', async (req, res) => {
@@ -882,6 +943,7 @@ export function createGroupsRouter(
          RETURNING id`,
         [groupId, req.user!.id, body.text, attachment, replyTo],
       );
+      await notifyMentions(client, groupId, inserted.rows[0].id, body.text, req.user!.id);
       return inserted.rows;
     });
     const { rows: full } = await pool.query<PublishedRow>(`${PUBLISHED_SELECT} AND p.id = $3`, [

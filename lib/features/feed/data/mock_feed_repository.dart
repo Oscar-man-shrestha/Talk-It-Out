@@ -16,13 +16,18 @@ import 'package:talk_it_out/features/feed/data/reaction_result.dart';
 
 class MockFeedRepository implements FeedRepository {
   MockFeedRepository(this._controls, this._board) {
-    _comments.addAll(_seedComments());
+    // Demo answers get a stable spread of upvotes.
+    _comments.addAll([
+      for (final (i, c) in _seedComments().indexed)
+        c.copyWith(voteCount: c.id.startsWith('qc') ? (i * 7) % 11 : 0),
+    ]);
     // Counts always match the comments that exist (no "5 comments" with
-    // an empty discussion).
+    // an empty discussion); you follow your own questions.
     _posts.addAll([
       for (final post in _seedPosts())
         post.copyWith(
           commentCount: _comments.where((c) => c.postId == post.id).length,
+          following: post.author.id == MockIds.priya,
         ),
     ]);
   }
@@ -76,6 +81,7 @@ class MockFeedRepository implements FeedRepository {
         reactionCount: 0,
         commentCount: 0,
         createdAt: DateTime.now().toUtc(),
+        following: true,
       );
       _nextPost += 1;
       _posts.add(post);
@@ -168,7 +174,10 @@ class MockFeedRepository implements FeedRepository {
       );
       _nextComment += 1;
       _comments.add(comment);
-      _replacePost(post.copyWith(commentCount: post.commentCount + 1));
+      // Answering follows the question, as on the server.
+      _replacePost(
+        post.copyWith(commentCount: post.commentCount + 1, following: true),
+      );
       return comment;
     });
   }
@@ -708,5 +717,117 @@ class MockFeedRepository implements FeedRepository {
         createdAt: DateTime.utc(2026, 10, 17, 14),
       ),
     ];
+  }
+
+  @override
+  Future<bool> setFollowing(String postId, {required bool following}) {
+    return runMock(_controls, () {
+      final post = _requirePost(postId);
+      _replacePost(post.copyWith(following: following));
+      return following;
+    });
+  }
+
+  @override
+  Future<CommentVote> voteComment(
+    String postId,
+    String commentId, {
+    required bool up,
+  }) {
+    return runMock(_controls, () {
+      final comment = _requireComment(postId, commentId);
+      if (up && comment.author.id == MockIds.priya) {
+        throw const RepositoryException(
+          code: 'validation',
+          message: 'You cannot upvote your own answer.',
+        );
+      }
+      if (comment.votedByMe == up) {
+        return CommentVote(count: comment.voteCount, votedByMe: up);
+      }
+      final next = comment.copyWith(
+        votedByMe: up,
+        voteCount: comment.voteCount + (up ? 1 : -1),
+      );
+      _comments[_comments.indexOf(comment)] = next;
+      return CommentVote(count: next.voteCount, votedByMe: up);
+    });
+  }
+
+  @override
+  Future<void> setBestAnswer(String postId, String? commentId) {
+    return runMock(_controls, () {
+      final post = _requirePost(postId);
+      if (post.author.id != MockIds.priya) {
+        throw const RepositoryException(
+          code: 'forbidden',
+          message: 'Only the person who asked can choose the best answer.',
+        );
+      }
+      if (commentId != null) _requireComment(postId, commentId);
+      _replacePost(post.copyWith(bestCommentId: commentId));
+      for (var i = 0; i < _comments.length; i++) {
+        final c = _comments[i];
+        if (c.postId == postId) {
+          _comments[i] = c.copyWith(isBest: c.id == commentId);
+        }
+      }
+    });
+  }
+
+  @override
+  Future<Post> editPost(
+    String postId, {
+    String? title,
+    String? topic,
+    String? content,
+  }) {
+    return runMock(_controls, () {
+      final post = _requirePost(postId);
+      if (post.author.id != MockIds.priya) {
+        throw const RepositoryException(
+          code: 'forbidden',
+          message: 'You can only edit your own question.',
+        );
+      }
+      final next = post.copyWith(
+        title: title ?? post.title,
+        topic: topic ?? post.topic,
+        content: content?.trim() ?? post.content,
+        editedAt: DateTime.now().toUtc(),
+      );
+      _replacePost(next);
+      return next;
+    });
+  }
+
+  @override
+  Future<Comment> editComment(
+    String postId,
+    String commentId, {
+    required String content,
+  }) {
+    return runMock(_controls, () {
+      final comment = _requireComment(postId, commentId);
+      if (comment.author.id != MockIds.priya) {
+        throw const RepositoryException(
+          code: 'forbidden',
+          message: 'You can only edit your own answer.',
+        );
+      }
+      final clean = content.trim();
+      if (clean.isEmpty) {
+        throw const RepositoryException(
+          code: 'validation',
+          message: AppStrings.commentRequired,
+        );
+      }
+      final next = comment.copyWith(
+        content: clean,
+        editedAt: DateTime.now().toUtc(),
+      );
+      _comments[_comments.indexOf(comment)] = next;
+      return next;
+    });
   }
 }

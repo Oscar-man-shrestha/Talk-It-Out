@@ -20,6 +20,11 @@ _Post _$PostFromJson(Map<String, dynamic> json) => _Post(
   myReaction: json['my_reaction'] as String?,
   commentCount: (json['comment_count'] as num).toInt(),
   createdAt: DateTime.parse(json['created_at'] as String),
+  bestCommentId: json['best_comment_id'] as String?,
+  editedAt: json['edited_at'] == null
+      ? null
+      : DateTime.parse(json['edited_at'] as String),
+  following: json['following'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$PostToJson(_Post instance) => <String, dynamic>{
@@ -34,4 +39,7 @@ Map<String, dynamic> _$PostToJson(_Post instance) => <String, dynamic>{
   'my_reaction': instance.myReaction,
   'comment_count': instance.commentCount,
   'created_at': instance.createdAt.toIso8601String(),
+  'best_comment_id': instance.bestCommentId,
+  'edited_at': instance.editedAt?.toIso8601String(),
+  'following': instance.following,
 };

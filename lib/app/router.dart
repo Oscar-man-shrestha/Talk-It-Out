@@ -27,6 +27,7 @@ import 'package:talk_it_out/features/review/review_detail_screen.dart';
 import 'package:talk_it_out/features/review/review_queue_screen.dart';
 import 'package:talk_it_out/features/invites/join_group_screen.dart';
 import 'package:talk_it_out/features/onboarding/welcome_screen.dart';
+import 'package:talk_it_out/features/groups/group_info_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -107,6 +108,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                       groupId: state.pathParameters['groupId']!,
                     ),
                     routes: [
+                      GoRoute(
+                        path: 'info',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) => GroupInfoScreen(
+                          groupId: state.pathParameters['groupId']!,
+                        ),
+                      ),
                       GoRoute(
                         path: 'members',
                         parentNavigatorKey: rootNavigatorKey,

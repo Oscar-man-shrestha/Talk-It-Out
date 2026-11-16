@@ -17,6 +17,12 @@ void main() {
     test('a pending message gets a fresh rewrite', () async {
       final repo = MockReviewRepository(MockControls(delay: Duration.zero));
       await repo.requestRewrite('m201');
+      // Like the server: the message goes back to the AI first...
+      final waiting = await repo.getMessage(MockIds.dashboardGroup, 'm201');
+      expect(waiting.pipelineStatus, PipelineStatus.processing);
+      expect(waiting.rewrittenText, isNull);
+      // ...and comes back with a fresh rewrite.
+      repo.finishPendingRewrites();
       final message = await repo.getMessage(MockIds.dashboardGroup, 'm201');
       expect(message.pipelineStatus, PipelineStatus.done);
       expect(message.rewrittenText, isNotEmpty);

@@ -37,6 +37,7 @@ describe('notifications', () => {
       'created_at',
       'group',
       'id',
+      'post',
       'read_at',
       'ref_id',
       'type',

@@ -195,6 +195,8 @@ final groupsUnreadTotalProvider = Provider<int>((ref) {
   final groups = ref.watch(groupsProvider).value ?? const <Group>[];
   var total = 0;
   for (final group in groups) {
+    // Muted groups keep their own count but stay out of the tab badge.
+    if (group.muted) continue;
     total += ref.watch(groupUnreadCountProvider(group.id));
   }
   return total;

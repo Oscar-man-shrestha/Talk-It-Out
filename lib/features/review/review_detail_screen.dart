@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,7 +22,6 @@ const _kSurfaceMuted = Brand.muted;
 const _kSurfaceSubtle = Brand.canvas;
 const _kBorderSubtle = Brand.border;
 const _kBorderStrong = Brand.borderStrong;
-const _kBorderHairline = Brand.muted;
 const _kTextPrimary = Brand.ink;
 const _kTextSecondary = Brand.inkSoft;
 const _kError = Color(0xFFBA1A1A);
@@ -53,8 +51,10 @@ class _ReviewDetailScreenState extends ConsumerState<ReviewDetailScreen> {
   @override
   void initState() {
     super.initState();
+    // Only refetches while the rewrite is still on its way (a warm model
+    // answers in about 2 s), so a finished rewrite shows up quickly.
     _timer = Timer.periodic(
-      const Duration(seconds: 4),
+      const Duration(seconds: 2),
       (_) => _refreshPipeline(),
     );
   }
@@ -164,6 +164,7 @@ class _ReviewDetailScreenState extends ConsumerState<ReviewDetailScreen> {
                 onToggleDiff: () => setState(() => _diffActive = !_diffActive),
                 onAccept: () => _decide(accept: true),
                 onReject: () => _decide(accept: false),
+                onNewRewrite: _requestRewrite,
               ),
       ),
     );
@@ -312,6 +313,7 @@ class ReviewDetailBody extends StatelessWidget {
     required this.onToggleDiff,
     required this.onAccept,
     required this.onReject,
+    this.onNewRewrite,
     this.error,
     super.key,
   });
@@ -323,6 +325,9 @@ class ReviewDetailBody extends StatelessWidget {
   final VoidCallback onToggleDiff;
   final VoidCallback onAccept;
   final VoidCallback onReject;
+
+  /// Asks the AI for a new rewrite (`API.md` 43).
+  final VoidCallback? onNewRewrite;
   final String? error;
 
   @override
@@ -362,8 +367,13 @@ class ReviewDetailBody extends StatelessWidget {
               ],
               const SizedBox(height: 16),
 
-              // 5. Card 2: AI Structured Proposal
-              _AiProposalCard(message: message, diffActive: diffActive),
+              // 5. Card 2: the AI rewrite
+              _AiProposalCard(
+                message: message,
+                diffActive: diffActive,
+                busy: busy,
+                onNewRewrite: onNewRewrite,
+              ),
               const SizedBox(height: 16),
 
               if (error != null) ...[
@@ -383,6 +393,8 @@ class ReviewDetailBody extends StatelessWidget {
               ? _FixedActionDock(
                   hPad: hPad,
                   busy: busy,
+                  // Publishing needs a finished rewrite.
+                  canPublish: _rewriteReady(message),
                   onAccept: onAccept,
                   onReject: onReject,
                 )
@@ -507,11 +519,6 @@ class _MetadataCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Controllers see the sender even when the message is anonymous.
     final senderLabel = message.senderName;
-    final peerNode = message.senderId.length > 3
-        ? message.senderId
-              .substring(0, min(4, message.senderId.length))
-              .toUpperCase()
-        : 'NODE';
 
     final score = message.relevanceScore;
     final relevance = message.relevanceLabel != null
@@ -575,7 +582,7 @@ class _MetadataCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Received ${formatWhen(message.createdAt)} • Peer Node #$peerNode',
+                  'Received ${formatWhen(message.createdAt)}',
                   style: const TextStyle(fontSize: 12, color: _kTextSecondary),
                 ),
               ],
@@ -592,7 +599,15 @@ class _MetadataCard extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.check_circle, size: 14, color: _kTextPrimary),
+                Icon(
+                  message.relevanceLabel == null
+                      ? Icons.hourglass_empty
+                      : Icons.check_circle,
+                  size: 14,
+                  color: message.relevanceLabel == null
+                      ? _kTextSecondary
+                      : _kTextPrimary,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   scoreText,
@@ -645,7 +660,7 @@ class _SectionToggleBar extends StatelessWidget {
                 const Icon(Icons.tune, size: 14, color: _kTextPrimary),
                 const SizedBox(width: 5),
                 Text(
-                  diffActive ? 'Reset View' : 'Focus Differences',
+                  diffActive ? 'Hide changes' : 'Show changes',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -695,7 +710,7 @@ class _OriginalDraftCard extends StatelessWidget {
                   Icon(Icons.edit_note, size: 17, color: _kTextSecondary),
                   SizedBox(width: 6),
                   Text(
-                    'ORIGINAL CONTRIBUTOR DRAFT',
+                    'ORIGINAL MESSAGE',
                     style: TextStyle(
                       fontFamily: 'monospace',
                       fontSize: 11,
@@ -774,8 +789,8 @@ class _OriginalDraftCard extends StatelessWidget {
               ),
               Text(
                 intentScore == null
-                    ? 'Intent clarity: —'
-                    : 'Intent clarity: ${(intentScore * 100).round()}%',
+                    ? 'Meaning kept: not scored yet'
+                    : 'Meaning kept: ${(intentScore * 100).round()}%',
                 style: const TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 11,
@@ -790,154 +805,164 @@ class _OriginalDraftCard extends StatelessWidget {
   }
 }
 
-// ─── 5. Card 2: AI Structured Proposal ───────────────────────────────────────
+// ─── 5. Card 2: the AI rewrite ───────────────────────────────────────────────
 
 class _AiProposalCard extends StatelessWidget {
-  const _AiProposalCard({required this.message, required this.diffActive});
+  const _AiProposalCard({
+    required this.message,
+    required this.diffActive,
+    required this.busy,
+    this.onNewRewrite,
+  });
 
   final RawMessage message;
   final bool diffActive;
+  final bool busy;
+  final VoidCallback? onNewRewrite;
 
-  String get _rewriteText {
-    if (message.rewriteUnavailable) return AppStrings.rewriteUnavailable;
-    if (message.pipelineStatus == PipelineStatus.queued) {
-      return AppStrings.pipelineQueued;
-    }
-    if (message.pipelineStatus == PipelineStatus.processing) {
-      return AppStrings.pipelineProcessing;
-    }
-    return message.rewrittenText ?? AppStrings.rewriteUnavailable;
-  }
+  bool get _waiting =>
+      message.pipelineStatus == PipelineStatus.queued ||
+      message.pipelineStatus == PipelineStatus.processing;
+
+  /// Still waiting after this long means something is slow (a busy or
+  /// cold model); offer to try again.
+  bool get _slow =>
+      _waiting &&
+      DateTime.now().toUtc().difference(message.createdAt.toUtc()) >
+          const Duration(minutes: 2);
+
+  String get _rewriteText => message.rewrittenText?.trim() ?? '';
 
   @override
   Widget build(BuildContext context) {
+    final ready = _rewriteReady(message);
+    final (badge, badgeDark) = ready
+        ? ('READY', true)
+        : _waiting
+        ? ('REWRITING', false)
+        : ('NOT AVAILABLE', false);
     return Container(
+      key: const ValueKey('rewrite-card'),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: _kSurface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kPrimary, width: 2),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: ready ? _kPrimary : _kBorderSubtle,
+          width: ready ? 2 : 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: const [
-                  Icon(Icons.auto_awesome, size: 18, color: _kPrimary),
-                  SizedBox(width: 6),
-                  Text(
-                    'AI Structured Proposal',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.01,
-                      color: _kTextPrimary,
-                    ),
+              const Icon(Icons.auto_awesome, size: 18, color: _kPrimary),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  'AI rewrite',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: _kTextPrimary,
                   ),
-                ],
+                ),
               ),
               Container(
+                key: ValueKey('rewrite-badge-$badge'),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _kPrimary,
+                  color: badgeDark ? _kPrimary : _kSurfaceSubtle,
                   borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: badgeDark ? _kPrimary : _kBorderSubtle,
+                  ),
                 ),
-                child: const Text(
-                  'DISCUSSION READY',
+                child: Text(
+                  badge,
                   style: TextStyle(
-                    fontFamily: 'monospace',
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 0.08,
-                    color: Colors.white,
+                    letterSpacing: 0.4,
+                    color: badgeDark ? Colors.white : _kTextSecondary,
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: _kSurfaceSubtle,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: _kBorderSubtle),
-            ),
-            child: diffActive
-                ? _buildHighlightedProposal(_rewriteText)
-                : Text(
-                    _rewriteText,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      height: 1.5,
-                      fontWeight: FontWeight.w400,
-                      color: _kTextPrimary,
+          if (ready)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _kSurfaceSubtle,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _kBorderSubtle),
+              ),
+              child: diffActive
+                  ? _buildHighlightedProposal(_rewriteText)
+                  : Text(
+                      _rewriteText,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        height: 1.5,
+                        color: _kTextPrimary,
+                      ),
                     ),
-                  ),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.only(top: 10),
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: _kBorderHairline)),
+            )
+          else if (_waiting)
+            _StatusPanel(
+              key: const ValueKey('rewrite-waiting'),
+              icon: null,
+              title: _slow
+                  ? 'This is taking longer than usual'
+                  : 'The AI is rewriting this message',
+              body: _slow
+                  ? 'The rewrite service may be busy. You can wait, ask for a new rewrite, or reject the message.'
+                  : 'This usually takes a few seconds. This page updates by itself.',
+              action: _slow ? 'Try a new rewrite' : null,
+              onAction: busy ? null : onNewRewrite,
+            )
+          else
+            _StatusPanel(
+              key: const ValueKey('rewrite-failed'),
+              icon: Icons.error_outline,
+              title: 'The AI could not rewrite this message',
+              body: 'Ask for a new rewrite, or reject the message. Only a rewrite can be published, so the original wording never reaches the group.',
+              action: 'Try a new rewrite',
+              onAction: busy ? null : onNewRewrite,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          if (ready) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
               children: [
-                Row(
-                  children: const [
-                    Icon(Icons.insights, size: 15, color: _kTextSecondary),
-                    SizedBox(width: 5),
-                    Text(
-                      'SYNTHESIS RATIONALE',
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.1,
-                        color: _kTextSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    if (message.intentPreservationScore != null)
-                      _RationalePill(
-                        text:
-                            'Intent preserved: '
-                            '${(message.intentPreservationScore! * 100).round()}%',
-                      ),
-                    if (message.relevanceLabel != null)
-                      _RationalePill(
-                        text: relevanceText(message.relevanceLabel!),
-                      ),
-                    _RationalePill(
-                      text: '${_changedWords(_rewriteText)} words changed',
-                    ),
-                  ],
+                if (message.intentPreservationScore != null)
+                  _RationalePill(
+                    text:
+                        'Meaning kept: ${(message.intentPreservationScore! * 100).round()}%',
+                  ),
+                if (message.relevanceLabel != null)
+                  _RationalePill(text: relevanceText(message.relevanceLabel!)),
+                _RationalePill(
+                  text: _changedLabel(_changedWords(_rewriteText)),
                 ),
               ],
             ),
-          ),
+          ],
         ],
       ),
     );
   }
+
+  static String _changedLabel(int n) => switch (n) {
+    0 => 'Wording kept',
+    1 => '1 word changed',
+    _ => '$n words changed',
+  };
 
   static final _word = RegExp(r"[A-Za-z0-9']+");
 
@@ -1059,16 +1084,24 @@ class _DecidedDock extends StatelessWidget {
   }
 }
 
+/// A rewrite the controller can publish.
+bool _rewriteReady(RawMessage m) =>
+    !m.rewriteUnavailable &&
+    m.pipelineStatus == PipelineStatus.done &&
+    (m.rewrittenText?.trim().isNotEmpty ?? false);
+
 class _FixedActionDock extends StatelessWidget {
   const _FixedActionDock({
     required this.hPad,
     required this.busy,
+    required this.canPublish,
     required this.onAccept,
     required this.onReject,
   });
 
   final double hPad;
   final bool busy;
+  final bool canPublish;
   final VoidCallback onAccept;
   final VoidCallback onReject;
 
@@ -1118,7 +1151,7 @@ class _FixedActionDock extends StatelessWidget {
                             Icon(Icons.close, size: 18),
                             SizedBox(width: 8),
                             Text(
-                              'Reject Raw',
+                              'Reject',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
@@ -1136,7 +1169,7 @@ class _FixedActionDock extends StatelessWidget {
                     child: SizedBox(
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: busy ? null : onAccept,
+                        onPressed: busy || !canPublish ? null : onAccept,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _kPrimary,
                           foregroundColor: Colors.white,
@@ -1160,7 +1193,7 @@ class _FixedActionDock extends StatelessWidget {
                                   Icon(Icons.task_alt, size: 18),
                                   SizedBox(width: 8),
                                   Text(
-                                    'Publish Rewrite',
+                                    'Publish rewrite',
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w700,
@@ -1257,6 +1290,84 @@ class _AttachedImageCard extends StatelessWidget {
             groupId: message.groupId,
             attachmentId: message.attachmentId!,
             maxHeight: 320,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Explains a rewrite that is not ready yet, with an optional action.
+class _StatusPanel extends StatelessWidget {
+  const _StatusPanel({
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.action,
+    this.onAction,
+    super.key,
+  });
+
+  /// Null shows a progress spinner.
+  final IconData? icon;
+  final String title;
+  final String body;
+  final String? action;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _kSurfaceSubtle,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _kBorderSubtle),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: icon == null
+                ? const CircularProgressIndicator(strokeWidth: 2)
+                : Icon(icon, size: 20, color: _kTextPrimary),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: _kTextPrimary,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  body,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    height: 1.4,
+                    color: _kTextSecondary,
+                  ),
+                ),
+                if (action != null) ...[
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    key: const ValueKey('rewrite-retry'),
+                    onPressed: onAction,
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: Text(action!),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),

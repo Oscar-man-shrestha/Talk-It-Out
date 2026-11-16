@@ -135,6 +135,16 @@ abstract class GroupRepository {
     int? limit,
     String? cursor,
   });
+
+  /// Controller only: the group's description and rules (`API.md` 67).
+  Future<void> updateGroupInfo(
+    String groupId, {
+    String? description,
+    String? rules,
+  });
+
+  /// Your own mute and pin for this group (`API.md` 67).
+  Future<void> updateGroupSettings(String groupId, {bool? muted, bool? pinned});
 }
 
 typedef MessageHistoryPage = ({

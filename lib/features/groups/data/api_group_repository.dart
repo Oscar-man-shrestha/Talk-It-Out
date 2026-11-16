@@ -368,4 +368,32 @@ class ApiGroupRepository implements GroupRepository {
       await _dio.post('${Endpoints.group(groupId)}/leave');
     });
   }
+
+  @override
+  Future<void> updateGroupInfo(
+    String groupId, {
+    String? description,
+    String? rules,
+  }) {
+    return guardApi(() async {
+      await _dio.patch(
+        Endpoints.group(groupId),
+        data: {'description': ?description, 'rules': ?rules},
+      );
+    });
+  }
+
+  @override
+  Future<void> updateGroupSettings(
+    String groupId, {
+    bool? muted,
+    bool? pinned,
+  }) {
+    return guardApi(() async {
+      await _dio.put(
+        '${Endpoints.group(groupId)}/settings',
+        data: {'muted': ?muted, 'pinned': ?pinned},
+      );
+    });
+  }
 }

@@ -43,6 +43,14 @@ const commentContentSchema = z.object({
     .max(5000, 'Comment is too long.'),
 });
 
+const bestAnswerSchema = z.object({
+  comment_id: z.string().uuid({ error: () => 'Choose an answer.' }).nullable(),
+});
+
+const postEditSchema = postContentSchema
+  .partial()
+  .refine((b) => Object.keys(b).length > 0, { message: 'Change something first.' });
+
 const postReportSchema = z.object({
   reason: z.enum(['spam', 'harassment', 'hate', 'self_harm', 'misinformation', 'other'], {
     error: () => 'Choose a reason.',
@@ -69,6 +77,9 @@ export interface PostRow {
   reaction_count: number;
   comment_count: number;
   my_reaction: boolean;
+  best_comment_id?: string | null;
+  edited_at?: Date | null;
+  following?: boolean;
 }
 
 interface CommentRow {
@@ -84,6 +95,10 @@ interface CommentRow {
   /** Only filled for the question's author; null for everyone else. */
   report_count?: number | null;
   reported_by_me?: boolean;
+  vote_count?: number;
+  voted_by_me?: boolean;
+  is_best?: boolean;
+  edited_at?: Date | null;
 }
 
 /**
@@ -112,6 +127,9 @@ export function postJson(row: PostRow) {
     my_reaction: row.my_reaction ? 'like' : null,
     comment_count: Number(row.comment_count),
     created_at: row.created_at.toISOString(),
+    best_comment_id: row.best_comment_id ?? null,
+    edited_at: row.edited_at ? row.edited_at.toISOString() : null,
+    following: row.following ?? false,
   };
 }
 
@@ -127,6 +145,10 @@ function commentJson(row: CommentRow) {
     created_at: row.created_at.toISOString(),
     report_count: row.report_count ?? null,
     reported_by_me: row.reported_by_me ?? false,
+    vote_count: Number(row.vote_count ?? 0),
+    voted_by_me: row.voted_by_me ?? false,
+    is_best: row.is_best ?? false,
+    edited_at: row.edited_at ? row.edited_at.toISOString() : null,
   };
 }
 
@@ -137,7 +159,11 @@ export const POST_SELECT = `
          (SELECT count(*)::int FROM post_likes l WHERE l.post_id = p.id) AS reaction_count,
          (SELECT count(*)::int FROM comments c WHERE c.post_id = p.id) AS comment_count,
          EXISTS (SELECT 1 FROM post_likes ml
-                 WHERE ml.post_id = p.id AND ml.user_id = $1) AS my_reaction
+                 WHERE ml.post_id = p.id AND ml.user_id = $1) AS my_reaction,
+         p.best_comment_id,
+         date_trunc('milliseconds', p.edited_at) AS edited_at,
+         EXISTS (SELECT 1 FROM post_follows pf
+                 WHERE pf.post_id = p.id AND pf.user_id = $1) AS following
   FROM posts p
   JOIN users u ON u.id = p.author_id`;
 
@@ -151,7 +177,12 @@ const COMMENT_SELECT = `
               THEN (SELECT count(*)::int FROM comment_reports cr WHERE cr.comment_id = c.id)
          END AS report_count,
          EXISTS (SELECT 1 FROM comment_reports mr
-                 WHERE mr.comment_id = c.id AND mr.reporter_id = $5) AS reported_by_me
+                 WHERE mr.comment_id = c.id AND mr.reporter_id = $5) AS reported_by_me,
+         (SELECT count(*)::int FROM comment_votes v WHERE v.comment_id = c.id) AS vote_count,
+         EXISTS (SELECT 1 FROM comment_votes mv
+                 WHERE mv.comment_id = c.id AND mv.user_id = $5) AS voted_by_me,
+         (p.best_comment_id IS NOT DISTINCT FROM c.id) AS is_best,
+         date_trunc('milliseconds', c.edited_at) AS edited_at
   FROM comments c
   JOIN users u ON u.id = c.author_id
   JOIN posts p ON p.id = c.post_id`;
@@ -191,6 +222,11 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
       );
       const post = inserted.rows[0];
       await enqueueFeedAnalysisJob(client, 'post', post.id, post.content_revision);
+      // You follow your own question: new answers notify you (API.md 66).
+      await client.query('INSERT INTO post_follows (post_id, user_id) VALUES ($1, $2)', [
+        post.id,
+        req.user!.id,
+      ]);
       return inserted.rows;
     });
     const row = rows[0];
@@ -202,6 +238,7 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
         reaction_count: 0,
         comment_count: 0,
         my_reaction: false,
+        following: true,
       }),
     );
   });
@@ -365,12 +402,174 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
       );
       const comment = inserted.rows[0];
       await enqueueFeedAnalysisJob(client, 'comment', comment.id, comment.content_revision);
+      // Tell everyone following the question (not the person answering, and
+      // not people who blocked them or whom they blocked).
+      await client.query(
+        `INSERT INTO notifications (recipient_id, type, ref_id, post_id)
+         SELECT f.user_id, 'question_answered', $2, $1
+         FROM post_follows f
+         WHERE f.post_id = $1 AND f.user_id <> $3 AND ${notBlockedSql('$3', 'f.user_id')}`,
+        [postId, comment.id, req.user!.id],
+      );
+      // Answering follows the question, like Quora.
+      await client.query(
+        'INSERT INTO post_follows (post_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [postId, req.user!.id],
+      );
       return inserted.rows;
     });
     const row = rows[0];
     res.status(201).json(
       commentJson({ ...row, author_id: req.user!.id, author_name: req.user!.name }),
     );
+  });
+
+  // ---- Follow, votes, best answer, edits (API.md 65, 66) ----------------
+
+  router.post('/:postId/follow', async (req, res) => {
+    const postId = req.params.postId;
+    if (!UUID_RE.test(postId)) throw notFound();
+    const author = await postAuthor(pool, postId);
+    if (author === null || (await blockedEitherWay(pool, req.user!.id, author))) throw notFound();
+    await pool.query(
+      'INSERT INTO post_follows (post_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [postId, req.user!.id],
+    );
+    res.json({ following: true });
+  });
+
+  router.delete('/:postId/follow', async (req, res) => {
+    const postId = req.params.postId;
+    if (!UUID_RE.test(postId)) throw notFound();
+    await pool.query('DELETE FROM post_follows WHERE post_id = $1 AND user_id = $2', [postId, req.user!.id]);
+    res.json({ following: false });
+  });
+
+  async function voteState(commentId: string, me: string) {
+    const { rows } = await pool.query<{ vote_count: number; voted_by_me: boolean }>(
+      `SELECT (SELECT count(*)::int FROM comment_votes WHERE comment_id = $1) AS vote_count,
+              EXISTS (SELECT 1 FROM comment_votes WHERE comment_id = $1 AND user_id = $2) AS voted_by_me`,
+      [commentId, me],
+    );
+    return rows[0];
+  }
+
+  async function commentOf(postId: string, commentId: string) {
+    if (!UUID_RE.test(postId) || !UUID_RE.test(commentId)) throw notFound();
+    const { rows } = await pool.query<{ author_id: string; post_author: string }>(
+      `SELECT c.author_id, p.author_id AS post_author
+       FROM comments c JOIN posts p ON p.id = c.post_id
+       WHERE c.id = $1 AND c.post_id = $2`,
+      [commentId, postId],
+    );
+    if (!rows[0]) throw notFound();
+    return rows[0];
+  }
+
+  router.post('/:postId/comments/:commentId/vote', async (req, res) => {
+    const { postId, commentId } = req.params;
+    const comment = await commentOf(postId, commentId);
+    const me = req.user!.id;
+    if (await blockedEitherWay(pool, me, comment.author_id)) throw notFound();
+    if (comment.author_id === me) {
+      throw new ApiError(422, 'validation_error', 'You cannot upvote your own answer.');
+    }
+    await pool.query(
+      'INSERT INTO comment_votes (comment_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [commentId, me],
+    );
+    res.json(await voteState(commentId, me));
+  });
+
+  router.delete('/:postId/comments/:commentId/vote', async (req, res) => {
+    const { postId, commentId } = req.params;
+    await commentOf(postId, commentId);
+    await pool.query('DELETE FROM comment_votes WHERE comment_id = $1 AND user_id = $2', [
+      commentId,
+      req.user!.id,
+    ]);
+    res.json(await voteState(commentId, req.user!.id));
+  });
+
+  // PUT /posts/:postId/best {comment_id|null}: the asker picks the answer
+  // that helped most (like Stack Overflow). One at a time.
+  router.put('/:postId/best', async (req, res) => {
+    const postId = req.params.postId;
+    if (!UUID_RE.test(postId)) throw notFound();
+    const body = parseWith(bestAnswerSchema, req.body);
+    const author = await postAuthor(pool, postId);
+    if (author === null) throw notFound();
+    if (author !== req.user!.id) throw forbidden();
+    let commentAuthor: string | null = null;
+    if (body.comment_id) {
+      commentAuthor = (await commentOf(postId, body.comment_id)).author_id;
+    }
+    await withTransaction(pool, async (client) => {
+      const before = await client.query<{ best_comment_id: string | null }>(
+        'SELECT best_comment_id FROM posts WHERE id = $1 FOR UPDATE',
+        [postId],
+      );
+      await client.query('UPDATE posts SET best_comment_id = $2 WHERE id = $1', [postId, body.comment_id]);
+      const changed = before.rows[0]?.best_comment_id !== body.comment_id;
+      if (changed && body.comment_id && commentAuthor && commentAuthor !== req.user!.id) {
+        await client.query(
+          `INSERT INTO notifications (recipient_id, type, ref_id, post_id)
+           VALUES ($1, 'answer_best', $2, $3)`,
+          [commentAuthor, body.comment_id, postId],
+        );
+      }
+    });
+    res.json({ best_comment_id: body.comment_id });
+  });
+
+  // PATCH /posts/:postId {title?, topic?, content?}: the author edits; the
+  // question is marked "edited" and checked again.
+  router.patch('/:postId', async (req, res) => {
+    const postId = req.params.postId;
+    if (!UUID_RE.test(postId)) throw notFound();
+    const author = await postAuthor(pool, postId);
+    if (author === null) throw notFound();
+    if (author !== req.user!.id) throw forbidden();
+    const body = parseWith(postEditSchema, req.body);
+    await withTransaction(pool, async (client) => {
+      const { rows } = await client.query<{ content_revision: number }>(
+        `UPDATE posts SET
+           content = COALESCE($2, content),
+           title = CASE WHEN $5 THEN $3 ELSE title END,
+           topic = CASE WHEN $6 THEN $4 ELSE topic END,
+           edited_at = now(),
+           content_revision = content_revision + 1,
+           analysis_status = 'pending'
+         WHERE id = $1
+         RETURNING content_revision`,
+        [postId, body.content ?? null, body.title ?? null, body.topic ?? null, 'title' in body, 'topic' in body],
+      );
+      await enqueueFeedAnalysisJob(client, 'post', postId, rows[0].content_revision);
+    });
+    const { rows } = await pool.query(`${POST_SELECT} WHERE p.id = $2`, [req.user!.id, postId]);
+    res.json(postJson(rows[0]));
+  });
+
+  router.patch('/:postId/comments/:commentId', async (req, res) => {
+    const { postId, commentId } = req.params;
+    const comment = await commentOf(postId, commentId);
+    if (comment.author_id !== req.user!.id) throw forbidden();
+    const body = parseWith(commentContentSchema, req.body);
+    await withTransaction(pool, async (client) => {
+      const { rows } = await client.query<{ content_revision: number }>(
+        `UPDATE comments SET content = $2, edited_at = now(),
+           content_revision = content_revision + 1, analysis_status = 'pending'
+         WHERE id = $1 RETURNING content_revision`,
+        [commentId, body.content],
+      );
+      await enqueueFeedAnalysisJob(client, 'comment', commentId, rows[0].content_revision);
+    });
+    // COMMENT_SELECT names the caller $5; here it is the second parameter.
+    const { rows } = await pool.query(`${COMMENT_SELECT.replaceAll('$5', '$2')} WHERE c.id = $1`, [
+      commentId,
+      req.user!.id,
+    ]);
+    res.json(commentJson(rows[0]));
   });
 
   // Delete your own question with its likes and comments. A group started
@@ -517,6 +716,11 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
         created_at: group.created_at.toISOString(),
         my_role: 'controller',
         pending_count: 0,
+        description: '',
+        rules: '',
+        member_count: 1,
+        muted: false,
+        pinned: false,
       });
     } catch (err) {
       const constraint = uniqueConstraint(err);

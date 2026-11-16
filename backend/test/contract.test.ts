@@ -75,9 +75,14 @@ describe('client-model contract', () => {
       'agenda',
       'controller_id',
       'created_at',
+      'description',
       'id',
+      'member_count',
+      'muted',
       'my_role',
       'pending_count',
+      'pinned',
+      'rules',
       'source_post_id',
     ]);
     expectIso(detail.body.created_at);
@@ -97,9 +102,14 @@ describe('client-model contract', () => {
       'agenda',
       'controller_id',
       'created_at',
+      'description',
       'id',
+      'member_count',
+      'muted',
       'my_role',
       'pending_count',
+      'pinned',
+      'rules',
       'source_post_id',
     ]);
   });
@@ -235,6 +245,7 @@ describe('client-model contract', () => {
       'created_at',
       'group',
       'id',
+      'post',
       'read_at',
       'ref_id',
       'type',

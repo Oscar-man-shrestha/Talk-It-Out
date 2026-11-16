@@ -80,7 +80,11 @@ async function main() {
   check('create group (creator is controller)', group.status === 201 && group.body.my_role === 'controller');
   const gid = group.body.id;
   const add = await call('POST', `/groups/${gid}/members`, { token: C.token, body: { username: M.username, role: 'contributor' } });
-  check('add member by username', add.status === 201, JSON.stringify(add.body));
+  check('adding sends an invitation', add.status === 202 && add.body.status === 'invited', JSON.stringify(add.body));
+  const pendingInvites = await call('GET', '/invitations', { token: M.token });
+  const inviteId = pendingInvites.body.items?.[0]?.id;
+  const joined = await call('POST', `/invitations/${inviteId}/accept`, { token: M.token });
+  check('the person joins by accepting', joined.status === 200 && joined.body.group_id === gid, JSON.stringify(joined.body));
   check('outsider gets 403 on the group', (await call('GET', `/groups/${gid}/messages`, { token: O.token })).status === 403);
   check('contributor gets 403 on the review queue', (await call('GET', `/groups/${gid}/review-queue`, { token: M.token })).status === 403);
 

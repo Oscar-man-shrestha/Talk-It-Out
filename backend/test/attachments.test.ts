@@ -10,8 +10,7 @@ import {
   resetDb,
   seedGroup,
   testApp,
-  testPool,
-} from './helpers';
+  testPool, acceptInvites } from './helpers';
 
 beforeAll(ensureSchema);
 beforeEach(resetDb);
@@ -122,6 +121,7 @@ describe('chat images', () => {
     const { controller, contributor, groupId } = await seedGroup(app);
     const other = await registerUser(app, 'Other', 'other-att@example.com');
     await api.post(app, `/groups/${groupId}/members`, controller.token, { username: 'other-att' });
+    await acceptInvites(app, other.token);
 
     const up = await uploadTo(app, groupId, contributor.token, jpegWithMetadata());
     expect(up.status).toBe(201);

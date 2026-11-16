@@ -687,3 +687,16 @@ Plain text or several emoji in one reaction give `422`. One person can add at mo
 - When a message is published (an accepted rewrite or a controller announcement), its **published text** is searched for `@Full Name`, `@handle`, or `@FirstName` when only one member has that first name.
 - Each mentioned member (except the author) gets a `mentioned` notification for that group. It never names the sender, so an anonymous message stays anonymous.
 
+### 69. Group invitations (asking before adding)
+- `POST /groups/:id/members {user_id|username}` (controller) no longer adds anyone. It creates an invitation and returns `202 {invitation_id, user_id, name, status: "invited"}`.
+  - The person gets a `group_invitation` notification.
+  - **Errors:** `409 already_member`, `409 already_invited` (one open invitation per person per group), `403 blocked`.
+- **For the invited person:**
+  - `GET /invitations` returns `{items[{id, group {id, agenda, member_count}, invited_by, created_at}]}`.
+  - `POST /invitations/:id/accept` returns `{group_id, joined: true}` and joins as a contributor.
+  - `POST /invitations/:id/decline` returns `204`.
+  - Only the invited person can answer; otherwise the response is `404`. A block made in the meantime stops the join (`403`).
+  - Answering removes the invitation's notification.
+- **For the controller:** `GET /groups/:id/invitations` lists unanswered invitations (`{items[{id, user {id, name}, created_at}]}`). `DELETE /groups/:id/invitations/:invitationId` cancels one.
+- **Unchanged:** invite links (section 61). Opening a link and pressing Join is already the person's own choice.
+

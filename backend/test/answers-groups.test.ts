@@ -1,7 +1,7 @@
 import supertest from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { findMentions } from '../src/mentions';
-import { api, closePool, ensureSchema, registerUser, resetDb, testApp } from './helpers';
+import { api, closePool, ensureSchema, registerUser, resetDb, testApp, acceptInvites } from './helpers';
 
 beforeAll(ensureSchema);
 beforeEach(resetDb);
@@ -104,6 +104,7 @@ describe('group info, mute and pin (API 67)', () => {
     const member = await registerUser(app, 'Member', 'm@example.com');
     const g = await api.post(app, '/groups', ctrl.token, { agenda: 'Retro' });
     await api.post(app, `/groups/${g.body.id}/members`, ctrl.token, { user_id: member.id });
+    await acceptInvites(app, member.token);
     expect((await req(app, 'patch', `/groups/${g.body.id}`, member.token, { rules: 'x' })).status).toBe(403);
     expect((await req(app, 'patch', `/groups/${g.body.id}`, ctrl.token, {})).status).toBe(422);
     await req(app, 'patch', `/groups/${g.body.id}`, ctrl.token, { description: 'Weekly retro', rules: 'Be kind.' });
@@ -142,6 +143,7 @@ describe('@mentions (API 68)', () => {
     const maya = await registerUser(app, 'Maya Tamang', 'maya@example.com');
     const g = await api.post(app, '/groups', ctrl.token, { agenda: 'Team' });
     await api.post(app, `/groups/${g.body.id}/members`, ctrl.token, { user_id: maya.id });
+    await acceptInvites(app, maya.token);
     await api.post(app, `/groups/${g.body.id}/messages/controller`, ctrl.token, {
       text: '@Maya please share the notes. @Controller Person will review.',
     });

@@ -8,8 +8,7 @@ import {
   resetDb,
   seedGroup,
   testApp,
-  testPool,
-} from './helpers';
+  testPool, acceptInvites } from './helpers';
 
 beforeAll(ensureSchema);
 beforeEach(resetDb);
@@ -166,6 +165,7 @@ describe('full moderation flow', () => {
       username: 'other-person',
       role: 'contributor',
     });
+    await acceptInvites(app, other.token);
 
     await api.post(app, `/groups/${groupId}/messages`, contributor.token, {
       text: 'mine only A',

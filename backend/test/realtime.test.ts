@@ -11,8 +11,7 @@ import {
   resetDb,
   seedGroup,
   testApp,
-  testPool,
-} from './helpers';
+  testPool, acceptInvites } from './helpers';
 
 beforeAll(ensureSchema);
 beforeEach(resetDb);
@@ -197,6 +196,9 @@ describe('live updates (SSE)', () => {
       username: 'newcomer',
       role: 'contributor',
     });
+    // The invitation arrives as a notification; joining happens on accept.
+    await n.waitFor((e) => e.event === 'notifications');
+    await acceptInvites(app, newcomer.token);
     await n.waitFor((e) => e.event === 'groups');
     await c.waitFor((e) => e.event === 'members' && e.data.group_id === g.body.id);
     n.close();

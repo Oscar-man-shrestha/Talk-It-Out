@@ -53,6 +53,8 @@ enum NotificationType {
   questionAnswered,
   @JsonValue('answer_best')
   answerBest,
+  @JsonValue('group_invitation')
+  groupInvitation,
   @JsonValue('unknown')
   unknown,
 }

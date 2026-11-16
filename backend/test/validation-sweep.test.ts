@@ -179,6 +179,7 @@ describe('migrations', () => {
       '021_blocks_and_post_reports.sql',
       '022_group_invites.sql',
       '023_answers_follows_groups.sql',
+      '024_group_invitations.sql',
     ]);
   });
 });

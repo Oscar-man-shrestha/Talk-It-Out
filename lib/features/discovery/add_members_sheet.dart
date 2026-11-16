@@ -151,9 +151,9 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
           backgroundColor: Brand.ink,
           content: Text(
             added.length == 1
-                ? 'Added $first to the group.'
-                : 'Added $first and ${added.length - 1} '
-                      '${added.length == 2 ? 'other' : 'others'}.',
+                ? 'Invitation sent to $first. They join after accepting.'
+                : 'Invitations sent to $first and ${added.length - 1} '
+                      '${added.length == 2 ? 'other' : 'others'}. They join after accepting.',
           ),
         ),
       );
@@ -222,7 +222,7 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
               ),
               const Expanded(
                 child: Text(
-                  'Add members',
+                  'Invite members',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 16,
@@ -251,7 +251,7 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
                           color: Colors.white,
                         ),
                       )
-                    : Text(count == 0 ? 'Add' : 'Add ($count)'),
+                    : Text(count == 0 ? 'Invite' : 'Invite ($count)'),
               ),
             ],
           ),

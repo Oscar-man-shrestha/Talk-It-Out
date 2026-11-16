@@ -311,7 +311,10 @@ class _ProfileBody extends ConsumerWidget {
       messenger.showSnackBar(
         SnackBar(
           backgroundColor: Brand.ink,
-          content: Text('Added ${person.profile.name.split(' ').first}.'),
+          content: Text(
+            'Invitation sent to ${person.profile.name.split(' ').first}. '
+            'They join after accepting.',
+          ),
         ),
       );
     } on RepositoryException catch (e) {
@@ -431,7 +434,7 @@ class _ProfileBody extends ConsumerWidget {
                 ),
               ),
               icon: const Icon(Icons.person_add_alt_1, size: 18),
-              label: const Text('Add to group'),
+              label: const Text('Invite to group'),
             ),
           ),
           if (p.bio.isNotEmpty) ...[

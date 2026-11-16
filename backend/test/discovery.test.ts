@@ -1,7 +1,7 @@
 import supertest from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { pruneFeedEvents } from '../src/retention';
-import { api, closePool, ensureSchema, registerUser, resetDb, testApp, testPool } from './helpers';
+import { api, closePool, ensureSchema, registerUser, resetDb, testApp, testPool, acceptInvites } from './helpers';
 
 beforeAll(ensureSchema);
 beforeEach(resetDb);
@@ -24,6 +24,7 @@ describe('people search (API 52)', () => {
     // I share a group with Rohan Basnet only.
     const g = await makeGroup(app, me.token);
     await api.post(app, `/groups/${g}/members`, me.token, { user_id: rohanB.id });
+    await acceptInvites(app, rohanB.token);
 
     const prefix = await api.get(app, '/users/search?q=roh', me.token);
     expect(prefix.status).toBe(200);
@@ -54,6 +55,7 @@ describe('people search (API 52)', () => {
     const outsider = await registerUser(app, 'Out', 'out@example.com');
     const g = await makeGroup(app, me.token);
     await api.post(app, `/groups/${g}/members`, me.token, { user_id: a.id });
+    await acceptInvites(app, a.token);
     const res = await api.get(app, `/users/search?q=ani&group_id=${g}`, me.token);
     expect(res.body.items[0]).toMatchObject({ id: a.id, in_group: true });
     const denied = await api.get(app, `/users/search?q=ani&group_id=${g}`, outsider.token);
@@ -69,9 +71,12 @@ describe('people search (API 52)', () => {
     const b = await registerUser(app, 'Bikash', 'b@example.com');
     const g1 = await makeGroup(app, me.token, 'One');
     await api.post(app, `/groups/${g1}/members`, me.token, { user_id: a.id });
+    await acceptInvites(app, a.token);
     await api.post(app, `/groups/${g1}/members`, me.token, { user_id: b.id });
+    await acceptInvites(app, b.token);
     const g2 = await makeGroup(app, me.token, 'Two');
     await api.post(app, `/groups/${g2}/members`, me.token, { user_id: a.id });
+    await acceptInvites(app, a.token);
 
     const res = await api.get(app, `/users/suggested?group_id=${g2}`, me.token);
     expect(res.status).toBe(200);
@@ -79,15 +84,20 @@ describe('people search (API 52)', () => {
     expect(res.body.items[0].reason).toBe('In one of your groups');
   });
 
-  it('adds a member by user id', async () => {
+  it('invites a member by user id; they join only by accepting', async () => {
     const app = testApp();
     const me = await registerUser(app, 'Oscar', 'o@example.com');
     const a = await registerUser(app, 'Anita', 'a@example.com');
     const g = await makeGroup(app, me.token);
     const added = await api.post(app, `/groups/${g}/members`, me.token, { user_id: a.id });
-    expect(added.status).toBe(201);
+    expect(added.status).toBe(202);
+    expect(added.body).toMatchObject({ user_id: a.id, status: 'invited' });
+    const twice = await api.post(app, `/groups/${g}/members`, me.token, { user_id: a.id });
+    expect(twice.body.error.code).toBe('already_invited');
+    expect(await acceptInvites(app, a.token)).toBe(1);
     const again = await api.post(app, `/groups/${g}/members`, me.token, { user_id: a.id });
     expect(again.status).toBe(409);
+    expect(again.body.error.code).toBe('already_member');
     const none = await api.post(app, `/groups/${g}/members`, me.token, {});
     expect(none.status).toBe(422);
   });

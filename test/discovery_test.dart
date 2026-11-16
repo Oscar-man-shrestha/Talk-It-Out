@@ -136,17 +136,18 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('person-u6')));
     await tester.pump();
-    expect(find.text('Add (2)'), findsOneWidget);
+    expect(find.text('Invite (2)'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('add-members-confirm')));
     await tester.pumpAndSettle();
-    final members =
-        (await container
-                .read(groupRepositoryProvider)
-                .listMembers(MockIds.dashboardGroup))
-            .items
-            .map((m) => m.userId);
-    expect(members, containsAll(['u4', 'u6']));
+    // Asked first: both are invited, neither is a member until they accept.
+    final repo = container.read(groupRepositoryProvider);
+    final members = (await repo.listMembers(MockIds.dashboardGroup)).items
+        .map((m) => m.userId);
+    expect(members, isNot(contains('u4')));
+    final invited = (await repo.listGroupInvitations(MockIds.dashboardGroup))
+        .map((i) => i.userId);
+    expect(invited, containsAll(['u4', 'u6']));
     // Both now show as Recent, on this device only.
     expect(
       container.read(recentPeopleProvider).map((p) => p.id),

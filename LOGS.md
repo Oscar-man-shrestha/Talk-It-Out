@@ -3202,3 +3202,29 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - **Hardened:** in production the API now refuses to start without `CORS_ORIGINS` (an empty value used to allow any site; `*` still works when set on purpose). Docker Compose and `render.yaml` already set it.
   - **Left to the user:** GitHub secret scanning, push protection and Dependabot alerts are off on the repository. They are free for public repos and are the user's account security settings, so they are not changed by the agent (Settings, Advanced Security).
 - **Commands run and results:** backend 295 passed, type-check and lint clean. History scans: `git log --all -S` for each real secret value (0 commits) and pattern scans of `git log --all -p` (0 matches).
+
+### Run 103: Demo fixes and asking before adding people
+- **Date/time:** 2026-11-16 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 42
+- **Prompt / task:** From the public demo: "I can't continue with Google", "delete the demo account" (the user chose: remove the demo button), "while adding other people, ask them for permission", "the rephrasing is slow and not that good", "many more to improve".
+- **Result:** Partly completed (rewrite quality continues next)
+- **Summary:**
+  - **Demo:**
+    - The "Use the demo account" button is removed.
+    - A new account takes the sample seat under its own name: groups, questions, messages, members, review and invites show that name, and profiles stay per account.
+    - Google sign-in shows only where it can work (a live build with `GOOGLE_CLIENT_ID`); the demo's pretend button failed on the public site.
+    - The last decorative emoji were replaced with icons and words.
+  - **Asking before adding (migration 024, API 69):**
+    - adding someone now sends an invitation, and they get a notification;
+    - Groups shows the invitation with Accept and Decline, and the person joins only by accepting;
+    - answered invitations leave the alerts list;
+    - controllers see "Invited (n)" on Members and can cancel;
+    - Add Members and profiles say "Invite";
+    - the demo seeds one invitation ("Design critique" from Rohan) so the flow can be tried.
+  - **Mac resources:** the Mac (8 GB RAM) ran out of memory and disk: 6.2 GB of swap and 143 MB free. Several test runs overlapped, and the AI model was held in memory for 2 hours. The fix:
+    - stopped the extra runs and local servers;
+    - unloaded the model, and lowered `keep_alive` to 15 minutes (pipeline `.env`, and documented in `docs/DEPLOY.md`);
+    - free disk went back to about 2.5 GB.
+- **Commands run and results:** backend 300 passed, type-check and lint clean; Flutter all passed (`--timeout 120s`), analyze 0, format clean.
+

@@ -41,7 +41,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       case 'moderation':
         return item.type == NotificationType.messagePendingReview;
       case 'community':
-        return item.type == NotificationType.questionAnswered ||
+        return item.type == NotificationType.groupInvitation ||
+            item.type == NotificationType.questionAnswered ||
             item.type == NotificationType.answerBest ||
             item.type == NotificationType.mentioned;
       default:
@@ -70,6 +71,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         if (item.group case final g?) context.go('/groups/${g.id}/mine');
       case NotificationType.mentioned:
         if (item.group case final g?) context.go('/groups/${g.id}');
+      case NotificationType.groupInvitation:
+        // Answered on the Groups screen, where the invitation is shown.
+        context.go('/groups');
       case NotificationType.questionAnswered:
       case NotificationType.answerBest:
         if (item.post case final p?) context.push('/feed/${p.id}');
@@ -439,6 +443,11 @@ class _NotificationCard extends StatelessWidget {
         Icons.cancel_outlined,
         'SUBMISSION REJECTED',
         AppStrings.openMyMessages,
+      ),
+      NotificationType.groupInvitation => (
+        Icons.group_add_outlined,
+        'GROUP INVITATION',
+        'Accept or decline',
       ),
       NotificationType.mentioned => (
         Icons.alternate_email,

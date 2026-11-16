@@ -121,9 +121,11 @@ export async function seedGroup(
     controller.token,
     { username: contributorUsername, role: 'contributor' },
   );
-  if (added.status !== 201) {
+  if (added.status !== 202) {
     throw new Error(`seedGroup add member failed: ${JSON.stringify(added.body)}`);
   }
+  // Adding invites (API.md 69); the contributor joins by accepting.
+  await acceptInvites(app, contributor.token);
   return { controller, contributor, contributorUsername, groupId: created.body.id };
 }
 
@@ -144,3 +146,15 @@ export async function submitAndProcess(
   }
   return sent.body.id as string;
 }
+
+/** Accepts every open group invitation for the user (API.md 69). */
+export async function acceptInvites(app: Express, token: string): Promise<number> {
+  const list = await api.get(app, '/invitations', token);
+  const items = (list.body.items ?? []) as Array<{ id: string }>;
+  for (const inv of items) {
+    const res = await api.post(app, `/invitations/${inv.id}/accept`, token);
+    if (res.status !== 200) throw new Error(`accept failed: ${JSON.stringify(res.body)}`);
+  }
+  return items.length;
+}
+

@@ -8,8 +8,7 @@ import {
   resetDb,
   seedGroup,
   testApp,
-  testPool,
-} from './helpers';
+  testPool, acceptInvites } from './helpers';
 
 beforeAll(ensureSchema);
 beforeEach(resetDb);
@@ -244,6 +243,7 @@ describe('removing members', () => {
       username: contributorUsername,
       role: 'contributor',
     });
+    await acceptInvites(app, contributor.token);
 
     expect(
       (await api.del(app, `/groups/${groupId}/members/${contributor.id}`, controller.token))
@@ -283,6 +283,7 @@ describe('leaving groups', () => {
     await api.post(app, `/groups/${groupId}/members`, controller.token, {
       username: 'later-member',
     });
+    await acceptInvites(app, later.token);
 
     const leave = await api.post(app, `/groups/${groupId}/leave`, controller.token);
     expect(leave.status).toBe(204);
@@ -319,6 +320,7 @@ describe('leaving groups', () => {
       username: contributorUsername,
       role: 'contributor',
     });
+    await acceptInvites(app, contributor.token);
     await api.post(app, `/groups/${groupId}/leave`, contributor.token);
     expect((await api.get(app, `/groups/${other.groupId}`, contributor.token)).status).toBe(200);
     void controller;

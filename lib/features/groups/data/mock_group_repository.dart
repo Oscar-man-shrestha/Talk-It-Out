@@ -18,8 +18,36 @@ import 'package:talk_it_out/features/groups/data/mock_message_bridge.dart';
 import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/data/published_message.dart';
 import 'package:talk_it_out/features/groups/data/sent_message.dart';
+import 'package:talk_it_out/features/groups/data/group_invitation.dart';
 
 class MockGroupRepository implements GroupRepository {
+  /// Invitations you sent as a controller, per group.
+  final List<({String groupId, PendingInvitation invitation})> _sent = [];
+
+  /// Invitations waiting for you, with the group you would join. The demo
+  /// starts with one so Accept and Decline can be tried.
+  final List<({GroupInvitation invitation, Group group})> _received = [
+    (
+      invitation: GroupInvitation(
+        id: 'rinv1',
+        groupId: 'g3',
+        agenda: 'Design critique',
+        memberCount: 4,
+        invitedBy: 'Rohan',
+        createdAt: DateTime.utc(2026, 11, 14, 9),
+      ),
+      group: Group(
+        id: 'g3',
+        agenda: 'Design critique',
+        controllerId: MockIds.rohan,
+        createdAt: DateTime.utc(2026, 11, 1),
+        myRole: GroupRole.contributor,
+        description: 'Weekly feedback on new screens before they ship.',
+        rules: 'Critique the design, not the designer.',
+      ),
+    ),
+  ];
+
   MockGroupRepository(this._controls, this._board, this._bridge) {
     if (_bridge.published.isEmpty) {
       _bridge.published.addAll(_seedMessages());
@@ -569,7 +597,25 @@ class MockGroupRepository implements GroupRepository {
         name: userId == null ? clean : (_mockNames[userId] ?? clean),
         role: role,
       );
-      _board.membersByGroup[groupId] = [...currentMembers, newMember];
+      // Ask first (API.md 69): an invitation, not a membership. Demo
+      // people never answer, so they stay "Invited" until cancelled.
+      if (_sent.any(
+        (i) => i.groupId == groupId && i.invitation.userId == newMember.userId,
+      )) {
+        throw const RepositoryException(
+          code: 'already_invited',
+          message: 'Already invited. Waiting for them to accept.',
+        );
+      }
+      _sent.add((
+        groupId: groupId,
+        invitation: PendingInvitation(
+          id: 'inv${_sent.length + 1}',
+          userId: newMember.userId,
+          name: newMember.name,
+          createdAt: DateTime.now().toUtc(),
+        ),
+      ));
       return newMember;
     });
   }
@@ -784,6 +830,62 @@ class MockGroupRepository implements GroupRepository {
       );
     });
   }
+
+  @override
+  Future<List<GroupInvitation>> listMyInvitations() =>
+      runMock(_controls, () => [for (final r in _received) r.invitation]);
+
+  @override
+  Future<String> acceptInvitation(String invitationId) {
+    return runMock(_controls, () {
+      final i = _received.indexWhere((r) => r.invitation.id == invitationId);
+      if (i < 0) {
+        throw const RepositoryException(
+          code: 'not_found',
+          message: 'That invitation is no longer open.',
+        );
+      }
+      final r = _received.removeAt(i);
+      _board.groups.insert(0, r.group);
+      _board.membersByGroup[r.group.id] = [
+        const GroupMember(
+          userId: MockIds.rohan,
+          name: 'Rohan',
+          role: GroupRole.controller,
+        ),
+        GroupMember(
+          userId: MockIds.priya,
+          name: _board.meName,
+          role: GroupRole.contributor,
+        ),
+      ];
+      return r.group.id;
+    });
+  }
+
+  @override
+  Future<void> declineInvitation(String invitationId) => runMock(
+    _controls,
+    () => _received.removeWhere((r) => r.invitation.id == invitationId),
+  );
+
+  @override
+  Future<List<PendingInvitation>> listGroupInvitations(String groupId) =>
+      runMock(
+        _controls,
+        () => [
+          for (final s in _sent)
+            if (s.groupId == groupId) s.invitation,
+        ],
+      );
+
+  @override
+  Future<void> cancelInvitation(String groupId, String invitationId) => runMock(
+    _controls,
+    () => _sent.removeWhere(
+      (s) => s.groupId == groupId && s.invitation.id == invitationId,
+    ),
+  );
 }
 
 /// Names of the demo people search can add (see MockDiscoveryRepository).

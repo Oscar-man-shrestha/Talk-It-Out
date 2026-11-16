@@ -62,5 +62,6 @@ const _$NotificationTypeEnumMap = {
   NotificationType.mentioned: 'mentioned',
   NotificationType.questionAnswered: 'question_answered',
   NotificationType.answerBest: 'answer_best',
+  NotificationType.groupInvitation: 'group_invitation',
   NotificationType.unknown: 'unknown',
 };

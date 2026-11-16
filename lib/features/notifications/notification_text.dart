@@ -14,6 +14,8 @@ String notificationText(AppNotification item) {
       return AppStrings.messageRejected(item.group?.agenda ?? 'a group');
     case NotificationType.messagePendingReview:
       return AppStrings.messagePendingReview(item.group?.agenda ?? 'a group');
+    case NotificationType.groupInvitation:
+      return AppStrings.groupInvitation(item.group?.agenda ?? 'a group');
     case NotificationType.mentioned:
       return AppStrings.mentioned(item.group?.agenda ?? 'a group');
     case NotificationType.questionAnswered:

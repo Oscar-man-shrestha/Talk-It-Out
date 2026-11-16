@@ -8,6 +8,7 @@ import 'package:talk_it_out/features/groups/data/message_reactions.dart';
 import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/data/published_message.dart';
 import 'package:talk_it_out/features/groups/data/sent_message.dart';
+import 'package:talk_it_out/features/groups/data/group_invitation.dart';
 
 abstract class GroupRepository {
   Future<PageResult<Group>> listGroups({int? limit, String? cursor});
@@ -121,6 +122,8 @@ abstract class GroupRepository {
 
   Future<void> removeMember(String groupId, String userId);
 
+  /// Invites someone (`API.md` 69): they join only after accepting. The
+  /// returned member has not joined yet.
   Future<GroupMember> addMember(
     String groupId, {
     String? username,
@@ -145,6 +148,19 @@ abstract class GroupRepository {
 
   /// Your own mute and pin for this group (`API.md` 67).
   Future<void> updateGroupSettings(String groupId, {bool? muted, bool? pinned});
+
+  /// Invitations waiting for your answer.
+  Future<List<GroupInvitation>> listMyInvitations();
+
+  /// Joins the group; returns its id.
+  Future<String> acceptInvitation(String invitationId);
+
+  Future<void> declineInvitation(String invitationId);
+
+  /// Controller: invitations not answered yet.
+  Future<List<PendingInvitation>> listGroupInvitations(String groupId);
+
+  Future<void> cancelInvitation(String groupId, String invitationId);
 }
 
 typedef MessageHistoryPage = ({

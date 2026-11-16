@@ -126,6 +126,9 @@ abstract final class AppStrings {
   // Never names the sender: the message may be anonymous.
   static String mentioned(String agenda) => 'You were mentioned in $agenda.';
 
+  static String groupInvitation(String agenda) =>
+      'You are invited to join $agenda.';
+
   static String questionAnswered(String title) => 'New answer on "$title".';
 
   static String answerBest(String title) =>

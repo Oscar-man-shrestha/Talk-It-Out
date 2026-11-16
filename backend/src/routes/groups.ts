@@ -441,19 +441,76 @@ export function createGroupsRouter(
       throw new ApiError(403, 'blocked', 'You cannot add this person.');
     }
 
-    try {
-      await pool.query(
-        `INSERT INTO group_members (group_id, user_id, role)
-         VALUES ($1, $2, 'contributor')`,
-        [groupId, user.id],
-      );
-    } catch (err) {
-      if (uniqueConstraint(err) === 'group_members_pkey') {
-        throw conflict('already_member', 'That person is already in this group.');
+    // Ask first (API.md 69): adding someone sends an invitation they accept
+    // or decline. Nobody becomes a member without saying yes.
+    const already = await pool.query(
+      'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
+      [groupId, user.id],
+    );
+    if (already.rows[0]) throw conflict('already_member', 'That person is already in this group.');
+    const invitation = await withTransaction(pool, async (client) => {
+      let inserted;
+      try {
+        inserted = await client.query<{ id: string }>(
+          `INSERT INTO group_invitations (group_id, invitee_id, inviter_id)
+           VALUES ($1, $2, $3) RETURNING id`,
+          [groupId, user.id, req.user!.id],
+        );
+      } catch (err) {
+        if (uniqueConstraint(err) === 'group_invitations_one_pending') {
+          throw conflict('already_invited', 'Already invited. Waiting for them to accept.');
+        }
+        throw err;
       }
-      throw err;
-    }
-    res.status(201).json({ user_id: user.id, name: user.name, role: 'contributor' });
+      await client.query(
+        `INSERT INTO notifications (recipient_id, type, ref_id, group_id)
+         VALUES ($1, 'group_invitation', $2, $3)`,
+        [user.id, inserted.rows[0].id, groupId],
+      );
+      return inserted.rows[0].id;
+    });
+    res.status(202).json({ invitation_id: invitation, user_id: user.id, name: user.name, status: 'invited' });
+  });
+
+  // GET /groups/:groupId/invitations (controller): who has not answered yet.
+  router.get('/:groupId/invitations', async (req, res) => {
+    const groupId = requireUuid(req.params.groupId, 'group');
+    const role = await requireMember(pool, groupId, req.user!.id);
+    if (role !== 'controller') throw forbidden();
+    const { rows } = await pool.query(
+      `SELECT i.id, u.id AS user_id, u.name, date_trunc('milliseconds', i.created_at) AS created_at
+       FROM group_invitations i JOIN users u ON u.id = i.invitee_id
+       WHERE i.group_id = $1 AND i.status = 'pending'
+       ORDER BY i.created_at DESC`,
+      [groupId],
+    );
+    res.json({
+      items: rows.map((r) => ({
+        id: r.id,
+        user: { id: r.user_id, name: r.name },
+        created_at: r.created_at.toISOString(),
+      })),
+    });
+  });
+
+  // DELETE /groups/:groupId/invitations/:invitationId (controller): cancel.
+  router.delete('/:groupId/invitations/:invitationId', async (req, res) => {
+    const groupId = requireUuid(req.params.groupId, 'group');
+    const invitationId = requireUuid(req.params.invitationId, 'invitation');
+    const role = await requireMember(pool, groupId, req.user!.id);
+    if (role !== 'controller') throw forbidden();
+    await withTransaction(pool, async (client) => {
+      await client.query(
+        `UPDATE group_invitations SET status = 'cancelled', decided_at = now()
+         WHERE id = $1 AND group_id = $2 AND status = 'pending'`,
+        [invitationId, groupId],
+      );
+      await client.query(
+        `DELETE FROM notifications WHERE type = 'group_invitation' AND ref_id = $1`,
+        [invitationId],
+      );
+    });
+    res.status(204).end();
   });
 
   router.get('/:groupId/members', async (req, res) => {

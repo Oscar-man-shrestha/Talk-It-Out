@@ -15,6 +15,9 @@ import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/groups/group_chat_screen.dart';
 import 'package:talk_it_out/core/ui/empty_state.dart';
 import 'package:talk_it_out/features/invites/join_with_link.dart';
+import 'package:talk_it_out/features/groups/data/group_invitation.dart';
+import 'package:talk_it_out/app/repository_providers.dart';
+import 'package:talk_it_out/core/errors/repository_exception.dart';
 
 const _border = Brand.border;
 const _ink = Brand.ink;
@@ -142,7 +145,14 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         ),
       ),
       body: AsyncBody(
-        status: asyncStatus(groups, isEmpty: allGroups.isEmpty),
+        // With no groups but an invitation, show the list so it can be
+        // answered.
+        status: asyncStatus(
+          groups,
+          isEmpty:
+              allGroups.isEmpty &&
+              (ref.watch(myInvitationsProvider).value?.isEmpty ?? true),
+        ),
         errorMessage: errorText(groups.error),
         onRetry: () => ref.invalidate(groupsProvider),
         empty: const _EmptyGroupsView(),
@@ -305,6 +315,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                 ),
               ],
               const SizedBox(height: 12),
+              const _InvitationsSection(),
               if (items.isEmpty)
                 _NoMatch(
                   onClear: () => setState(() {
@@ -1078,6 +1089,153 @@ class _EmptyGroupsView extends StatelessWidget {
           () => context.go('/feed'),
           icon: Icons.explore_outlined,
         ),
+      ],
+    );
+  }
+}
+
+/// Invitations waiting for your answer (`API.md` 69): you join a group only
+/// by accepting, like WhatsApp's group invites.
+class _InvitationsSection extends ConsumerStatefulWidget {
+  const _InvitationsSection();
+
+  @override
+  ConsumerState<_InvitationsSection> createState() =>
+      _InvitationsSectionState();
+}
+
+class _InvitationsSectionState extends ConsumerState<_InvitationsSection> {
+  final _busy = <String>{};
+
+  Future<void> _answer(GroupInvitation inv, {required bool accept}) async {
+    setState(() => _busy.add(inv.id));
+    final messenger = ScaffoldMessenger.of(context);
+    final repo = ref.read(groupRepositoryProvider);
+    try {
+      if (accept) {
+        final groupId = await repo.acceptInvitation(inv.id);
+        ref.invalidate(groupsProvider);
+        ref.invalidate(myInvitationsProvider);
+        if (mounted) context.push('/groups/$groupId');
+      } else {
+        await repo.declineInvitation(inv.id);
+        ref.invalidate(myInvitationsProvider);
+        messenger.showSnackBar(
+          SnackBar(
+            backgroundColor: Brand.ink,
+            content: Text('Declined. You were not added to ${inv.agenda}.'),
+          ),
+        );
+      }
+    } on RepositoryException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      ref.invalidate(myInvitationsProvider);
+    } finally {
+      if (mounted) setState(() => _busy.remove(inv.id));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final invitations = ref.watch(myInvitationsProvider).value ?? const [];
+    if (invitations.isEmpty) return const SizedBox.shrink();
+    return Column(
+      key: const ValueKey('group-invitations'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8, top: 4),
+          child: Text(
+            invitations.length == 1
+                ? 'Invitation'
+                : 'Invitations (${invitations.length})',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: Brand.ink,
+            ),
+          ),
+        ),
+        for (final inv in invitations)
+          Container(
+            key: ValueKey('invitation-${inv.id}'),
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Brand.ink, width: 1.2),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.group_add_outlined,
+                      size: 20,
+                      color: Brand.ink,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        inv.agenda,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Brand.ink,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${inv.invitedBy ?? 'Someone'} invited you · '
+                  '${inv.memberCount == 1 ? '1 member' : '${inv.memberCount} members'}',
+                  style: const TextStyle(fontSize: 12.5, color: Brand.inkSoft),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'You join only if you accept. Anonymous messages are hidden from the group but visible to the controller.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.35,
+                    color: Brand.inkSoft,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        key: ValueKey('decline-${inv.id}'),
+                        onPressed: _busy.contains(inv.id)
+                            ? null
+                            : () => _answer(inv, accept: false),
+                        child: const Text('Decline'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton(
+                        key: ValueKey('accept-${inv.id}'),
+                        onPressed: _busy.contains(inv.id)
+                            ? null
+                            : () => _answer(inv, accept: true),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Brand.ink,
+                        ),
+                        child: const Text('Accept'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }

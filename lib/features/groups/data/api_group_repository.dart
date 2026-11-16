@@ -12,6 +12,7 @@ import 'package:talk_it_out/features/groups/data/message_reactions.dart';
 import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/data/published_message.dart';
 import 'package:talk_it_out/features/groups/data/sent_message.dart';
+import 'package:talk_it_out/features/groups/data/group_invitation.dart';
 
 class ApiGroupRepository implements GroupRepository {
   ApiGroupRepository(this._dio);
@@ -358,7 +359,13 @@ class ApiGroupRepository implements GroupRepository {
         Endpoints.groupMembers(groupId),
         data: {'username': ?username, 'user_id': ?userId, 'role': role.name},
       );
-      return GroupMember.fromJson(asJsonMap(response.data));
+      // 202: an invitation, not a membership yet (`API.md` 69).
+      final json = asJsonMap(response.data);
+      return GroupMember(
+        userId: json['user_id'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        role: GroupRole.contributor,
+      );
     });
   }
 
@@ -393,6 +400,57 @@ class ApiGroupRepository implements GroupRepository {
       await _dio.put(
         '${Endpoints.group(groupId)}/settings',
         data: {'muted': ?muted, 'pinned': ?pinned},
+      );
+    });
+  }
+
+  List<Map<String, dynamic>> _items(Object? data) {
+    final items = asJsonMap(data)['items'];
+    return [
+      if (items is List)
+        for (final x in items)
+          if (x is Map) Map<String, dynamic>.from(x),
+    ];
+  }
+
+  @override
+  Future<List<GroupInvitation>> listMyInvitations() {
+    return guardApi(() async {
+      final response = await _dio.get('/invitations');
+      return _items(response.data).map(GroupInvitation.fromJson).toList();
+    });
+  }
+
+  @override
+  Future<String> acceptInvitation(String invitationId) {
+    return guardApi(() async {
+      final response = await _dio.post('/invitations/$invitationId/accept');
+      return asJsonMap(response.data)['group_id'] as String? ?? '';
+    });
+  }
+
+  @override
+  Future<void> declineInvitation(String invitationId) {
+    return guardApi(() async {
+      await _dio.post('/invitations/$invitationId/decline');
+    });
+  }
+
+  @override
+  Future<List<PendingInvitation>> listGroupInvitations(String groupId) {
+    return guardApi(() async {
+      final response = await _dio.get(
+        '${Endpoints.group(groupId)}/invitations',
+      );
+      return _items(response.data).map(PendingInvitation.fromJson).toList();
+    });
+  }
+
+  @override
+  Future<void> cancelInvitation(String groupId, String invitationId) {
+    return guardApi(() async {
+      await _dio.delete(
+        '${Endpoints.group(groupId)}/invitations/$invitationId',
       );
     });
   }

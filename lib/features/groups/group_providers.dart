@@ -7,6 +7,7 @@ import 'package:talk_it_out/features/auth/session_controller.dart';
 import 'package:talk_it_out/features/groups/data/message_reactions.dart';
 import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/data/published_message.dart';
+import 'package:talk_it_out/features/groups/data/group_invitation.dart';
 
 class GroupsNotifier extends AsyncNotifier<List<Group>> {
   @override
@@ -327,3 +328,27 @@ final messageReactionsProvider =
     NotifierProvider<MessageReactionsNotifier, MessageReactionsState>(
       MessageReactionsNotifier.new,
     );
+
+/// Group invitations waiting for your answer (`API.md` 69). Refreshes when
+/// a notification arrives, so a new invitation shows up at once.
+final myInvitationsProvider = FutureProvider.autoDispose<List<GroupInvitation>>(
+  (ref) {
+    refreshOnLiveEvents(
+      ref,
+      (e) => e.type == 'notifications' || e.type == 'groups',
+      refresh: ref.invalidateSelf,
+    );
+    return ref.watch(groupRepositoryProvider).listMyInvitations();
+  },
+);
+
+/// Controller: invitations in a group nobody has answered yet.
+final groupInvitationsProvider = FutureProvider.autoDispose
+    .family<List<PendingInvitation>, String>((ref, groupId) {
+      refreshOnLiveEvents(
+        ref,
+        (e) => e.type == 'members' && e.groupId == groupId,
+        refresh: ref.invalidateSelf,
+      );
+      return ref.watch(groupRepositoryProvider).listGroupInvitations(groupId);
+    });

@@ -1,7 +1,7 @@
 import supertest from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { REPORT_HIDE_THRESHOLD } from '../src/blocks';
-import { api, closePool, ensureSchema, registerUser, resetDb, testApp, testPool } from './helpers';
+import { api, closePool, ensureSchema, registerUser, resetDb, testApp, testPool, acceptInvites } from './helpers';
 
 beforeAll(ensureSchema);
 beforeEach(resetDb);
@@ -99,6 +99,7 @@ describe('someone else\'s profile', () => {
     const them = await registerUser(app, 'Anita Gurung', 'anita@example.com');
     const g = await api.post(app, '/groups', me.token, { agenda: 'Team' });
     await api.post(app, `/groups/${g.body.id}/members`, me.token, { user_id: them.id });
+    await acceptInvites(app, them.token);
     const q = await api.post(app, '/posts', them.token, { title: 'Her question', content: 'Hello' });
 
     const profile = await api.get(app, `/users/${them.id}/profile`, me.token);

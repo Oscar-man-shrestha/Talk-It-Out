@@ -291,7 +291,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                     children: [
                       Icon(Icons.person_add_alt_1, size: 16),
                       SizedBox(width: 8),
-                      Text('Add members'),
+                      Text('Invite members'),
                     ],
                   ),
                 ),

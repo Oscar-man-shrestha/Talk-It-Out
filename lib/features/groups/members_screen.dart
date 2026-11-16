@@ -193,7 +193,7 @@ class MembersScreen extends ConsumerWidget {
                 child: FilledButton.icon(
                   onPressed: () => showAddMembersSheet(context, groupId),
                   icon: const Icon(Icons.person_add_alt_1, size: 16),
-                  label: const Text('Add members'),
+                  label: const Text('Invite members'),
                   style: FilledButton.styleFrom(
                     backgroundColor: Brand.ink,
                     foregroundColor: Colors.white,
@@ -225,6 +225,7 @@ class MembersScreen extends ConsumerWidget {
                   ),
                 ),
               ),
+              _PendingInvitations(groupId: groupId),
             ],
             const SizedBox(height: 14),
             for (final member in items) ...[
@@ -408,6 +409,90 @@ class MembersScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Invited, not answered yet (`API.md` 69). The controller can cancel.
+class _PendingInvitations extends ConsumerWidget {
+  const _PendingInvitations({required this.groupId});
+
+  final String groupId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pending =
+        ref.watch(groupInvitationsProvider(groupId)).value ?? const [];
+    if (pending.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      key: const ValueKey('pending-invitations'),
+      padding: const EdgeInsets.only(top: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Invited (${pending.length})',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: Brand.ink,
+            ),
+          ),
+          const SizedBox(height: 2),
+          const Text(
+            'They join after they accept.',
+            style: TextStyle(fontSize: 12, color: Brand.inkSoft),
+          ),
+          const SizedBox(height: 6),
+          for (final inv in pending)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: Brand.accentSoft,
+                    child: Text(
+                      inv.name.isEmpty ? '?' : inv.name[0].toUpperCase(),
+                      style: const TextStyle(
+                        color: Brand.accentInk,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      inv.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const Text(
+                    'Waiting',
+                    style: TextStyle(fontSize: 12, color: Brand.inkSoft),
+                  ),
+                  TextButton(
+                    key: ValueKey('cancel-invitation-${inv.id}'),
+                    onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      try {
+                        await ref
+                            .read(groupRepositoryProvider)
+                            .cancelInvitation(groupId, inv.id);
+                        ref.invalidate(groupInvitationsProvider(groupId));
+                      } on RepositoryException catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(content: Text(e.message)),
+                        );
+                      }
+                    },
+                    child: const Text('Cancel'),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

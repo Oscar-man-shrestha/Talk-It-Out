@@ -22,6 +22,7 @@ import { createRefreshRouter } from './refresh';
 import '../types';
 import { createGroupInvitesRouter, createInvitesRouter } from './invites';
 import { createGroupSummaryRouter } from './groupSummary';
+import { createInvitationsRouter } from './invitations';
 
 /**
  * The full API router. It is mounted at both / and /api/v1 so the Flutter
@@ -93,6 +94,7 @@ export function createApiRouter(
   router.use('/notifications', createNotificationsReadAllRouter(pool, requireAuth));
   router.use('/groups/:groupId/invites', createGroupInvitesRouter(pool, appConfig, requireAuth));
   router.use('/invites', createInvitesRouter(pool, requireAuth));
+  router.use('/invitations', createInvitationsRouter(pool, requireAuth));
   router.use('/groups/:groupId/summary', createGroupSummaryRouter(pool, requireAuth));
   router.use('/users', createPeopleRouter(pool, requireAuth));
   router.use('/users', createProfilesRouter(pool, requireAuth));

@@ -133,6 +133,10 @@ void main() {
     tester,
   ) async {
     await _pumpApp(tester, token: 'mock-token', noGroups: true);
+    // The demo's pending invitation is shown first; declining it leaves
+    // nothing, so the empty screen appears.
+    await tester.tap(find.byKey(const ValueKey('decline-rinv1')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('groups-empty')), findsOneWidget);
     expect(find.text('Start your first safe space'), findsOneWidget);
 

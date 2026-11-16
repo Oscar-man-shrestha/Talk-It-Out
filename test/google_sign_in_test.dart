@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:talk_it_out/features/auth/data/mock_auth_repository.dart';
 import 'package:talk_it_out/app/config.dart';
 import 'package:talk_it_out/app/providers.dart';
 import 'package:talk_it_out/app/repository_providers.dart';
@@ -106,5 +107,19 @@ void main() {
     );
     expect(find.text(AppStrings.continueWithGoogle), findsNothing);
     expect(find.text(AppStrings.orDivider), findsNothing);
+  });
+
+  test('demo: a Google token signs you in as yourself', () async {
+    String part(Map<String, Object> m) =>
+        base64Url.encode(utf8.encode(jsonEncode(m))).replaceAll('=', '');
+    final token =
+        '${part({'alg': 'RS256'})}.${part({'email': 'Maya.Lin@Gmail.com', 'name': 'Maya Lin'})}.sig';
+    final auth = MockAuthRepository(MockControls(delay: Duration.zero));
+    final session = await auth.signInWithGoogle(idToken: token);
+    expect(session.user.name, 'Maya Lin');
+    expect(session.user.email, 'maya.lin@gmail.com');
+    // Signing in again finds the same demo account.
+    final again = await auth.signInWithGoogle(idToken: token);
+    expect(again.user.email, 'maya.lin@gmail.com');
   });
 }

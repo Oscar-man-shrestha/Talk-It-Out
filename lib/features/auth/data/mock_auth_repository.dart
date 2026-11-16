@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/mock/mock_controls.dart';
 import 'package:talk_it_out/core/mock/mock_ids.dart';
@@ -106,8 +108,26 @@ class MockAuthRepository implements AuthRepository {
           message: AppStrings.googleFailed,
         );
       }
-      _currentEmail = mockEmail;
-      return _session(_accounts[mockEmail]!.user);
+      // The demo has no server to verify Google's token, so it only reads
+      // the name and email Google put in it, to show you as yourself. It
+      // grants nothing beyond this browser's own demo data.
+      final claims = _googleClaims(idToken);
+      if (claims == null) {
+        _currentEmail = mockEmail;
+        _board.meName = 'Priya';
+        return _session(_accounts[mockEmail]!.user);
+      }
+      final (name, email) = claims;
+      final account = _accounts.putIfAbsent(
+        email,
+        () => _Account(
+          user: User(id: MockIds.priya, name: name, email: email),
+          password: '',
+        ),
+      );
+      _currentEmail = email;
+      _board.meName = account.user.name;
+      return _session(account.user);
     });
   }
 
@@ -238,4 +258,27 @@ class _Account {
 
   final User user;
   final String password;
+}
+
+/// Name and email from a Google ID token's payload, or null when it is not
+/// one (a stand-in token in tests). Not verified: demo only.
+(String, String)? _googleClaims(String idToken) {
+  final parts = idToken.split('.');
+  if (parts.length != 3) return null;
+  try {
+    final payload = utf8.decode(
+      base64Url.decode(base64Url.normalize(parts[1])),
+    );
+    final json = jsonDecode(payload);
+    if (json is! Map) return null;
+    final email = (json['email'] as String?)?.trim().toLowerCase();
+    if (email == null || email.isEmpty) return null;
+    final name = (json['name'] as String?)?.trim();
+    return (
+      (name == null || name.isEmpty) ? email.split('@').first : name,
+      email,
+    );
+  } catch (_) {
+    return null;
+  }
 }

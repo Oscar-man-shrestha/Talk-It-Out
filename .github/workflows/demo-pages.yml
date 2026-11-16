@@ -40,7 +40,8 @@ jobs:
         run: |
           flutter build web --release \
             --base-href "/${{ github.event.repository.name }}/" \
-            --dart-define=USE_MOCK=true
+            --dart-define=USE_MOCK=true \
+            --dart-define=GOOGLE_CLIENT_ID="${{ vars.GOOGLE_CLIENT_ID }}"
           # Serve files as they are (no Jekyll processing).
           touch build/web/.nojekyll
       - name: Publish to the gh-pages branch

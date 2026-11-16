@@ -649,8 +649,8 @@ class _MinimalSwitch extends StatelessWidget {
 
 /// "or" divider plus Sign in with Google (`API.md` 40). Web shows Google's
 /// own button; mobile draws one that opens Google's sign-in sheet. Shown
-/// only where Google sign-in can really work: a live build with
-/// `GOOGLE_CLIENT_ID`. The demo has no Google account behind it.
+/// only when the build has a `GOOGLE_CLIENT_ID`. In the demo, Google's
+/// token only supplies your name and email for the in-browser demo.
 class _GoogleSignInSection extends ConsumerStatefulWidget {
   const _GoogleSignInSection({
     required this.keepSession,
@@ -677,7 +677,7 @@ class _GoogleSignInSectionState extends ConsumerState<_GoogleSignInSection> {
   @override
   void initState() {
     super.initState();
-    if (!_useMock && _google.configured) _setUp();
+    if (_google.configured) _setUp();
   }
 
   Future<void> _setUp() async {
@@ -734,10 +734,9 @@ class _GoogleSignInSectionState extends ConsumerState<_GoogleSignInSection> {
 
   @override
   Widget build(BuildContext context) {
-    final mock = _useMock;
-    if (mock || !_google.configured) return const SizedBox.shrink();
-    final webButton = !mock && kIsWeb && _ready ? renderGoogleButton() : null;
-    final showOwnButton = mock || (!kIsWeb && _ready);
+    if (!_google.configured) return const SizedBox.shrink();
+    final webButton = kIsWeb && _ready ? renderGoogleButton() : null;
+    final showOwnButton = !kIsWeb && _ready;
 
     return Padding(
       padding: const EdgeInsets.only(top: 14),

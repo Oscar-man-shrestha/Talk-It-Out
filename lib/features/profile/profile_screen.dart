@@ -1400,13 +1400,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
-                                  const Icon(
-                                    Icons.verified,
-                                    size: 17,
-                                    color: _kPrimary,
-                                  ),
-                                  const SizedBox(width: 6),
+                                  const SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 6,
@@ -1450,16 +1444,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               const SizedBox(height: 8),
 
                               // Professional Headline
-                              Text(
-                                profile.headline,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  height: 1.35,
-                                  color: _kTextPrimary,
+                              if (profile.headline.trim().isNotEmpty) ...[
+                                Text(
+                                  profile.headline,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1.35,
+                                    color: _kTextPrimary,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 6),
+                                const SizedBox(height: 6),
+                              ],
 
                               // Location & Network stats
                               Row(
@@ -1745,12 +1741,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'Top Skills & Competencies',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: _kTextPrimary,
+                            const Expanded(
+                              child: Text(
+                                'Top Skills & Competencies',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: _kTextPrimary,
+                                ),
                               ),
                             ),
                             InkWell(
@@ -1758,6 +1756,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               child: const Padding(
                                 padding: EdgeInsets.all(4),
                                 child: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(Icons.add, size: 14, color: _kPrimary),
                                     SizedBox(width: 2),
@@ -2264,22 +2263,29 @@ class _WhoSeesRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(
-            '$who ',
-            style: const TextStyle(fontSize: 11, color: _kTextTertiary),
-          ),
           Expanded(
-            child: Text(
-              what,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: _kTextPrimary,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  who.replaceAll(':', ''),
+                  style: const TextStyle(fontSize: 10.5, color: _kTextTertiary),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  what,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: _kTextPrimary,
+                  ),
+                ),
+              ],
             ),
           ),
+          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(

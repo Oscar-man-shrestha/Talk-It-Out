@@ -696,12 +696,6 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                                 color: _kTextPrimary,
                                               ),
                                             ),
-                                            SizedBox(width: 4),
-                                            Icon(
-                                              Icons.verified,
-                                              size: 15,
-                                              color: _kPrimary,
-                                            ),
                                           ],
                                         ),
                                         SizedBox(height: 1),

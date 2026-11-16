@@ -46,7 +46,9 @@ void main() {
     final fields = find.byType(TextField);
     expect(tester.widget<TextField>(fields.at(0)).controller!.text, isEmpty);
     expect(tester.widget<TextField>(fields.at(1)).controller!.text, isEmpty);
-    expect(find.byKey(const ValueKey('login-demo-account')), findsOneWidget);
+    // No demo shortcut: people sign in or create an account.
+    expect(find.byKey(const ValueKey('login-demo-account')), findsNothing);
+    expect(find.byKey(const ValueKey('login-create-account')), findsOneWidget);
 
     // An unknown email used to be silently swapped for the sample account.
     await tester.enterText(fields.at(0), 'stranger@elsewhere.org');

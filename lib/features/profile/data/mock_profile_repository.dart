@@ -8,11 +8,15 @@ import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/features/auth/data/auth_repository.dart';
 import 'package:talk_it_out/features/profile/data/profile.dart';
 import 'package:talk_it_out/features/profile/data/profile_repository.dart';
+import 'package:talk_it_out/core/mock/mock_board.dart';
 
 /// In-memory profiles, one per mock account. A new account starts empty,
 /// exactly like a backend user who never edited a profile.
 class MockProfileRepository implements ProfileRepository {
-  MockProfileRepository(this._controls, this._auth);
+  MockProfileRepository(this._controls, this._auth, [this._board]);
+
+  /// Shared demo state: renaming yourself renames you everywhere.
+  final MockBoard? _board;
 
   static const maxImageBytes = 2 * 1024 * 1024;
 
@@ -27,17 +31,24 @@ class MockProfileRepository implements ProfileRepository {
     return body();
   }
 
-  Future<Profile> _current() async {
+  /// Profiles are kept per account (email): demo accounts share the sample
+  /// seat's id, but each person keeps their own profile.
+  Future<(String, Profile)> _currentWithKey() async {
     final user = await _auth.me();
-    return _profiles.putIfAbsent(
-      user.id,
+    final key = user.email ?? user.id;
+    final profile = _profiles.putIfAbsent(
+      key,
       () => Profile(id: user.id, name: user.name, email: user.email),
     );
+    return (key, profile);
   }
 
+  Future<Profile> _current() async => (await _currentWithKey()).$2;
+
   Future<Profile> _save(Profile Function(Profile current) change) async {
-    final next = change(await _current());
-    _profiles[next.id] = next;
+    final (key, current) = await _currentWithKey();
+    final next = change(current);
+    _profiles[key] = next;
     return next;
   }
 
@@ -53,7 +64,11 @@ class MockProfileRepository implements ProfileRepository {
           message: AppStrings.profileNameRequired,
         );
       }
-      return _save((current) => current.copyWith(details: details));
+      final saved = await _save(
+        (current) => current.copyWith(details: details),
+      );
+      _board?.meName = details.name.trim();
+      return saved;
     });
   }
 

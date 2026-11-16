@@ -107,7 +107,10 @@ class MockGroupRepository implements GroupRepository {
       _requireGroup(groupId);
       final members = _board.membersByGroup[groupId] ?? const <GroupMember>[];
       return slicePage(
-        List<GroupMember>.of(members),
+        [
+          for (final m in members)
+            m.copyWith(name: _board.nameOf(m.userId, m.name)),
+        ],
         limit: limit,
         cursor: cursor,
       );
@@ -125,7 +128,11 @@ class MockGroupRepository implements GroupRepository {
       final messages = _bridge.published.where(
         (message) => message.groupId == groupId,
       );
-      return slicePage(messages.toList(), limit: limit, cursor: cursor);
+      return slicePage(
+        messages.map(_named).toList(),
+        limit: limit,
+        cursor: cursor,
+      );
     });
   }
 
@@ -259,7 +266,7 @@ class MockGroupRepository implements GroupRepository {
       final size = limit ?? 50;
       final start = end - size < 0 ? 0 : end - size;
       return (
-        items: all.sublist(start, end),
+        items: all.sublist(start, end).map(_named).toList(),
         prevCursor: start > 0 ? '$start' : null,
       );
     });
@@ -280,6 +287,7 @@ class MockGroupRepository implements GroupRepository {
           .where(
             (m) => m.groupId == groupId && m.text.toLowerCase().contains(q),
           )
+          .map(_named)
           .toList()
           .reversed
           .toList();
@@ -602,6 +610,18 @@ class MockGroupRepository implements GroupRepository {
       return slicePage(mine.toList(), limit: limit, cursor: cursor);
     });
   }
+
+  DisplaySender? _sender(DisplaySender? s) => s == null
+      ? null
+      : DisplaySender(id: s.id, name: _board.nameOf(s.id, s.name));
+
+  /// Your own messages (and quotes of them) carry your current demo name.
+  PublishedMessage _named(PublishedMessage m) => m.copyWith(
+    displaySender: _sender(m.displaySender),
+    replyTo: m.replyTo?.copyWith(
+      displaySender: _sender(m.replyTo!.displaySender),
+    ),
+  );
 
   Group _requireGroup(String groupId) {
     for (final group in _board.groups) {

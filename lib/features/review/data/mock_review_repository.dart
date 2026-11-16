@@ -11,16 +11,26 @@ import 'package:talk_it_out/features/groups/data/published_message.dart';
 import 'package:talk_it_out/features/review/data/raw_message.dart';
 import 'package:talk_it_out/features/review/data/review_repository.dart';
 import 'package:talk_it_out/features/review/data/review_result.dart';
+import 'package:talk_it_out/core/mock/mock_board.dart';
 
 class MockReviewRepository implements ReviewRepository {
-  MockReviewRepository(this._controls, [MockMessageBridge? bridge])
-    : _bridge = bridge ?? MockMessageBridge() {
+  MockReviewRepository(
+    this._controls, [
+    MockMessageBridge? bridge,
+    MockBoard? board,
+  ]) : _bridge = bridge ?? MockMessageBridge(),
+       _board = board ?? MockBoard() {
     _messages.addAll(_seed());
   }
 
   final MockControls _controls;
   final MockMessageBridge _bridge;
+  final MockBoard _board;
   final List<RawMessage> _messages = [];
+
+  /// Your own messages carry your current demo name.
+  RawMessage _named(RawMessage m) =>
+      m.copyWith(senderName: _board.nameOf(m.senderId, m.senderName));
 
   /// When each waiting message was first looked at. The demo "pipeline"
   /// finishes a rewrite a few seconds later, like the real worker.
@@ -105,7 +115,11 @@ class MockReviewRepository implements ReviewRepository {
             .where((message) => message.groupId == groupId)
             .map(_fromOutgoing),
       ]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      return slicePage(pending, limit: limit, cursor: cursor);
+      return slicePage(
+        pending.map(_named).toList(),
+        limit: limit,
+        cursor: cursor,
+      );
     });
   }
 
@@ -147,7 +161,7 @@ class MockReviewRepository implements ReviewRepository {
     return runMock(_controls, () {
       _requireControllerGroup(groupId);
       _advancePipeline();
-      return _find(groupId, messageId);
+      return _named(_find(groupId, messageId));
     });
   }
 

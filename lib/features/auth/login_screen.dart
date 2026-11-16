@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:talk_it_out/app/providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
-import 'package:talk_it_out/features/auth/data/mock_auth_repository.dart';
 import 'package:talk_it_out/features/auth/saved_accounts.dart';
 import 'package:talk_it_out/features/auth/google/google_button.dart';
 import 'package:talk_it_out/features/auth/google/google_sign_in_service.dart';
@@ -39,9 +38,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   var _keepSession = true;
   String? _error;
 
-  /// The form always starts empty. Demo builds offer an explicit "Use the
-  /// demo account" button instead of filling it in.
-  bool get _useMock => ref.read(appConfigProvider).useMock;
   final _passwordFocus = FocusNode();
 
   @override
@@ -60,14 +56,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _error = null;
     });
     _passwordFocus.requestFocus();
-  }
-
-  void _useDemoAccount() {
-    setState(() {
-      _email.text = MockAuthRepository.mockEmail;
-      _password.text = MockAuthRepository.mockPassword;
-      _error = null;
-    });
   }
 
   Future<void> _submit() async {
@@ -165,19 +153,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 _password.clear();
               }),
             ),
-            if (_useMock) ...[
-              OutlinedButton.icon(
-                key: const ValueKey('login-demo-account'),
-                onPressed: _busy ? null : _useDemoAccount,
-                icon: const Icon(Icons.play_circle_outline, size: 18),
-                label: const Text('Use the demo account (Priya)'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _kTextPrimary,
-                  minimumSize: const Size.fromHeight(42),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
 
             // Email Label Row
             Row(
@@ -673,8 +648,9 @@ class _MinimalSwitch extends StatelessWidget {
 }
 
 /// "or" divider plus Sign in with Google (`API.md` 40). Web shows Google's
-/// own button; mobile draws one that opens Google's sign-in sheet. Hidden
-/// in live builds without `GOOGLE_CLIENT_ID`; mock builds always show it.
+/// own button; mobile draws one that opens Google's sign-in sheet. Shown
+/// only where Google sign-in can really work: a live build with
+/// `GOOGLE_CLIENT_ID`. The demo has no Google account behind it.
 class _GoogleSignInSection extends ConsumerStatefulWidget {
   const _GoogleSignInSection({
     required this.keepSession,
@@ -759,7 +735,7 @@ class _GoogleSignInSectionState extends ConsumerState<_GoogleSignInSection> {
   @override
   Widget build(BuildContext context) {
     final mock = _useMock;
-    if (!mock && !_google.configured) return const SizedBox.shrink();
+    if (mock || !_google.configured) return const SizedBox.shrink();
     final webButton = !mock && kIsWeb && _ready ? renderGoogleButton() : null;
     final showOwnButton = mock || (!kIsWeb && _ready);
 

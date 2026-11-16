@@ -53,7 +53,11 @@ class MockFeedRepository implements FeedRepository {
               !_board.reportedPostIds.contains(p.id))
             p,
       ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return slicePage(posts, limit: limit, cursor: cursor);
+      return slicePage(
+        posts.map(_namedPost).toList(),
+        limit: limit,
+        cursor: cursor,
+      );
     });
   }
 
@@ -91,7 +95,7 @@ class MockFeedRepository implements FeedRepository {
 
   @override
   Future<Post> getPost(String postId) {
-    return runMock(_controls, () => _requirePost(postId));
+    return runMock(_controls, () => _namedPost(_requirePost(postId)));
   }
 
   @override
@@ -145,6 +149,7 @@ class MockFeedRepository implements FeedRepository {
           .where((comment) => comment.postId == postId)
           .map(
             (comment) => comment.copyWith(
+              author: _author(comment.author),
               reportedByMe: _reported.contains(comment.id),
               reportCount: mine ? 0 : null,
             ),
@@ -286,6 +291,12 @@ class MockFeedRepository implements FeedRepository {
       message: AppStrings.notFound,
     );
   }
+
+  /// Your own questions and answers carry your current demo name.
+  Author _author(Author a) =>
+      Author(id: a.id, name: _board.nameOf(a.id, a.name));
+
+  Post _namedPost(Post p) => p.copyWith(author: _author(p.author));
 
   Post _requirePost(String postId) {
     for (final post in _posts) {

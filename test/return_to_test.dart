@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:talk_it_out/app/app.dart';
+import 'package:talk_it_out/features/auth/data/mock_auth_repository.dart';
 import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/core/api/dio_provider.dart';
 import 'package:talk_it_out/core/mock/mock_controls.dart';
@@ -40,9 +41,9 @@ void main() {
     expect(_where(tester), '/login?from=%2Ffeed');
 
     // Mock builds start filled with the sample account.
-    // Demo builds start empty; the sample account is one tap away.
-    await tester.tap(find.byKey(const ValueKey('login-demo-account')));
-    await tester.pump();
+    final loginFields = find.byType(TextField);
+    await tester.enterText(loginFields.at(0), MockAuthRepository.mockEmail);
+    await tester.enterText(loginFields.at(1), MockAuthRepository.mockPassword);
     await tester.tap(find.widgetWithText(FilledButton, AppStrings.loginAction));
     await tester.pumpAndSettle();
     expect(_where(tester), '/feed');
@@ -69,9 +70,9 @@ void main() {
     GoRouter.of(tester.element(find.byType(Navigator).first))
         .go('/login?from=%2F%2Fevil.example%2Fx');
     await tester.pumpAndSettle();
-    // Demo builds start empty; the sample account is one tap away.
-    await tester.tap(find.byKey(const ValueKey('login-demo-account')));
-    await tester.pump();
+    final loginFields = find.byType(TextField);
+    await tester.enterText(loginFields.at(0), MockAuthRepository.mockEmail);
+    await tester.enterText(loginFields.at(1), MockAuthRepository.mockPassword);
     await tester.tap(find.widgetWithText(FilledButton, AppStrings.loginAction));
     await tester.pumpAndSettle();
     expect(_where(tester), '/groups');

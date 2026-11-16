@@ -6,9 +6,11 @@ import 'package:talk_it_out/core/models/user.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/features/auth/data/auth_repository.dart';
 import 'package:talk_it_out/features/auth/data/auth_session.dart';
+import 'package:talk_it_out/core/mock/mock_board.dart';
 
 class MockAuthRepository implements AuthRepository {
-  MockAuthRepository(this._controls);
+  MockAuthRepository(this._controls, [MockBoard? board])
+    : _board = board ?? MockBoard();
 
   /// Local mock only. Matches the sample in API.md. Not a real credential.
   static const mockPassword = 'secret123';
@@ -18,13 +20,13 @@ class MockAuthRepository implements AuthRepository {
   static const mockResetCode = '123456';
 
   final MockControls _controls;
+  final MockBoard _board;
   final Map<String, _Account> _accounts = {
     mockEmail: const _Account(
       user: User(id: MockIds.priya, name: 'Priya', email: mockEmail),
       password: mockPassword,
     ),
   };
-  var _nextUser = 100;
 
   /// The signed-in mock account. Defaults to the seeded user so a restored
   /// mock token resolves the same way `GET /me` would.
@@ -51,11 +53,13 @@ class MockAuthRepository implements AuthRepository {
           message: AppStrings.emailInUse,
         );
       }
-      final id = 'u$_nextUser';
-      _nextUser += 1;
-      final user = User(id: id, name: cleanName, email: cleanEmail);
+      // The demo has one "you": a new account takes over the sample user's
+      // seat under its own name, so the sample groups and questions are
+      // there to try (there is no server to start an empty account on).
+      final user = User(id: MockIds.priya, name: cleanName, email: cleanEmail);
       _accounts[cleanEmail] = _Account(user: user, password: password);
       _currentEmail = cleanEmail;
+      _board.meName = cleanName;
       return _session(user);
     });
   }
@@ -78,13 +82,18 @@ class MockAuthRepository implements AuthRepository {
         );
       }
       _currentEmail = cleanEmail;
+      _board.meName = account.user.name;
       return _session(account.user);
     });
   }
 
   @override
   Future<User> me() {
-    return runMock(_controls, () => _accounts[_currentEmail]!.user);
+    return runMock(_controls, () {
+      final user = _accounts[_currentEmail]!.user;
+      _board.meName = user.name;
+      return user;
+    });
   }
 
   /// Mock only: any Google sign-in becomes the seeded sample account.

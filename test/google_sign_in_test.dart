@@ -14,9 +14,7 @@ import 'package:talk_it_out/core/mock/mock_controls.dart';
 import 'package:talk_it_out/core/storage/token_store.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/features/auth/data/api_auth_repository.dart';
-import 'package:talk_it_out/features/auth/data/mock_auth_repository.dart';
 import 'package:talk_it_out/features/auth/login_screen.dart';
-import 'package:talk_it_out/features/auth/session_controller.dart';
 
 class _FakeAdapter implements HttpClientAdapter {
   _FakeAdapter(this.handler);
@@ -89,18 +87,14 @@ void main() {
     expect(session.user.name, 'Maya Lin');
   });
 
-  testWidgets('mock build: Continue with Google signs in', (tester) async {
-    final container = await _pumpLogin(
+  testWidgets('demo build hides Google: there is no Google account behind it', (
+    tester,
+  ) async {
+    await _pumpLogin(
       tester,
       config: const AppConfig(useMock: true, apiBaseUrl: 'http://api.test'),
     );
-    expect(find.text(AppStrings.continueWithGoogle), findsOneWidget);
-    await tester.tap(find.text(AppStrings.continueWithGoogle));
-    await tester.pumpAndSettle();
-    expect(
-      container.read(sessionProvider).value?.email,
-      MockAuthRepository.mockEmail,
-    );
+    expect(find.text(AppStrings.continueWithGoogle), findsNothing);
   });
 
   testWidgets('live build without GOOGLE_CLIENT_ID hides the button', (

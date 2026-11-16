@@ -20,6 +20,14 @@ class MockBoard {
   /// People the demo user blocked, and questions they reported. The feed
   /// mock hides both, like the server (`API.md` 59, 60).
   final Set<String> blockedUserIds = {};
+
+  /// The demo's "you". Someone who creates an account in the demo takes
+  /// over the sample user's seat (MockIds.priya) under their own name, so
+  /// the sample groups and questions are theirs to try.
+  String meName = 'Priya';
+
+  /// [name], or your current name when [id] is your seat.
+  String nameOf(String id, String name) => id == MockIds.priya ? meName : name;
   final Set<String> reportedPostIds = {};
   var nextGroupNumber = 3;
 

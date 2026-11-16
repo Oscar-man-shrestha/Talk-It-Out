@@ -92,7 +92,7 @@ PIPELINE_BACKEND_BASE_URL=https://talkitout-api.onrender.com
 PIPELINE_API_KEY=<the PIPELINE_API_KEY from Render>
 MODEL_ENDPOINT=http://127.0.0.1:11434/v1/chat/completions
 MODEL_ID=qwen2.5:3b
-MODEL_EXTRA_BODY={"keep_alive":"2h"}
+MODEL_EXTRA_BODY={"keep_alive":"15m"}
 PIPELINE_POLL_INTERVAL_SECONDS=1
 ```
 
@@ -102,7 +102,7 @@ Start the worker, and leave it running while you want rewrites:
 python3 -m talkitout_pipeline
 ```
 
-It logs `model warm in ...s`, then `worker loop started`. A rewrite then takes about 2 seconds on a recent laptop. The worker's polling also keeps the free Render service awake while it runs.
+It logs `model warm in ...s`, then `worker loop started`. A rewrite then takes about 2 seconds on a recent laptop. `keep_alive` keeps the model in memory for 15 minutes after each message (about 2 GB); on a computer with 16 GB or more you can raise it, for example to `2h`. The worker's polling also keeps the free Render service awake while it runs.
 
 If you want group messages to work without your computer, set `PIPELINE_MODE=stub` and `RUN_STUB_WORKER=true` on Render instead. Messages then get a clearly labelled placeholder instead of a real rewrite, which is useful for demos but not for real users.
 

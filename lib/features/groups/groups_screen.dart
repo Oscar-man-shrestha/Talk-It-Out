@@ -793,9 +793,9 @@ class _GroupCard extends ConsumerWidget {
     final who = m.displaySender?.name ?? AppStrings.anonymousUser;
     final first = who.split(' ').first;
     final body = m.poll != null
-        ? '📊 ${m.text}'
+        ? 'Poll: ${m.text}'
         : m.attachmentId != null
-        ? '📷 ${m.text}'
+        ? (m.text.trim().isEmpty ? 'Photo' : 'Photo: ${m.text}')
         : m.text;
     return '$first: ${body.replaceAll('\n', ' ')}';
   }

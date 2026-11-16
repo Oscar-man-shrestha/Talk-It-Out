@@ -38,7 +38,10 @@ final mockMessageBridgeProvider = Provider<MockMessageBridge>(
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   if (_useMock(ref)) {
-    return MockAuthRepository(ref.watch(mockControlsProvider));
+    return MockAuthRepository(
+      ref.watch(mockControlsProvider),
+      ref.watch(mockBoardProvider),
+    );
   }
   return ApiAuthRepository(ref.watch(dioProvider));
 });
@@ -59,6 +62,7 @@ final reviewRepositoryProvider = Provider<ReviewRepository>((ref) {
     return MockReviewRepository(
       ref.watch(mockControlsProvider),
       ref.watch(mockMessageBridgeProvider),
+      ref.watch(mockBoardProvider),
     );
   }
   return ApiReviewRepository(ref.watch(dioProvider));
@@ -109,6 +113,7 @@ final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
     return MockProfileRepository(
       ref.watch(mockControlsProvider),
       ref.watch(authRepositoryProvider),
+      ref.watch(mockBoardProvider),
     );
   }
   return ApiProfileRepository(ref.watch(dioProvider));

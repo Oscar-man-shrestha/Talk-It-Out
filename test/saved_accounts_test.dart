@@ -45,8 +45,9 @@ void main() {
     // First visit: nobody to continue as.
     expect(find.text('Continue as'), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('login-demo-account')));
-    await tester.pump();
+    final loginFields = find.byType(TextField);
+    await tester.enterText(loginFields.at(0), MockAuthRepository.mockEmail);
+    await tester.enterText(loginFields.at(1), MockAuthRepository.mockPassword);
     await tester.tap(find.widgetWithText(FilledButton, AppStrings.loginAction));
     await tester.pumpAndSettle();
     expect(find.byType(NavigationBar), findsOneWidget);

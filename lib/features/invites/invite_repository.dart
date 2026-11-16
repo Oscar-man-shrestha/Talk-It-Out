@@ -237,7 +237,7 @@ class MockInviteRepository implements InviteRepository {
         groupId: i.groupId,
         agenda: group.agenda,
         memberCount: members.length,
-        invitedBy: 'Priya',
+        invitedBy: _board.meName,
         alreadyMember: members.any((m) => m.userId == _me),
       );
     });

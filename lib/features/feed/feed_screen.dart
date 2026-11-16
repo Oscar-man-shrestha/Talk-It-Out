@@ -1276,7 +1276,7 @@ class _VoiceTile extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '⚡ ${voice.score} pts',
+                  '${voice.score} pts',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 10, color: _muted),
@@ -1478,13 +1478,24 @@ class PostCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: _border),
                     ),
-                    child: Text(
-                      '⚡ ${post.reactionCount}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _ink,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.favorite_border,
+                          size: 12,
+                          color: _ink,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          '${post.reactionCount}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _ink,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -1841,7 +1852,7 @@ class _InterestBar extends StatelessWidget {
             ),
             child: const Row(
               children: [
-                Text('✨', style: TextStyle(fontSize: 22)),
+                Icon(Icons.auto_awesome, size: 22, color: Brand.ink),
                 SizedBox(width: 12),
                 Expanded(
                   child: Column(

@@ -513,7 +513,7 @@ class MockDiscoveryRepository implements DiscoveryRepository {
       return LikersPage(
         items: [
           if (mine)
-            const PersonResult(id: MockIds.priya, name: 'Priya', reason: 'You'),
+            PersonResult(id: MockIds.priya, name: _board.meName, reason: 'You'),
           for (final p in others.take(wanted))
             PersonResult(
               id: p.id,

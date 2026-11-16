@@ -141,7 +141,7 @@ docker run -d -p 3000:3000 \
   otherwise outside tests). Same rule for `PIPELINE_API_KEY` when set.
   Generate with
   `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`.
-- Set `CORS_ORIGINS` to the exact origins the Flutter web build is served
+- **Required in production** (the server will not start without it): set `CORS_ORIGINS` to the exact origins the Flutter web build is served
   from; never `*` in production.
 - Set `JWT_EXPIRES_IN` deliberately (default 7d; there are no refresh tokens).
 

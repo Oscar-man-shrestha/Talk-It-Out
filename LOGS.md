@@ -3182,3 +3182,23 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - Flutter 159 passed, analyze 0, format clean;
   - `live-check.mjs` 83/83 in 23 s against the running stack (backend, worker and local Qwen2.5-3B).
 
+### Run 102: README, free deployment and a security check
+- **Date/time:** 2026-11-16 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** 41 (Docs / Release / Security)
+- **Prompt / task:** "Write a good README and description and say how I can deploy for now", "no money for now", "don't merge into main", "hope security-wise it's good and nothing serious is pushed", then "do it".
+- **Result:** Completed
+- **Summary:**
+  - **README:** rewritten professionally, without emoji.
+  - **Repository description:** set on GitHub, at the user's request.
+  - **Free deployment:** `docs/DEPLOY.md` covers Neon (database), Render (API, via `render.yaml`), GitHub Pages (web app, via `.github/workflows/deploy-web.yml`) and AI rewrites from the user's own computer.
+  - **Fix:** `Dockerfile.web` now copies `assets/`.
+  - **Not done:** nothing was merged into `main`, and no pull request was opened (the user said not to merge).
+  - **Security check:**
+    - None of the real secrets in `backend/.env` and `pipeline/.env` (database URL, JWT secret, pipeline key, SMTP password, Google client id) appears in any of the 96 commits on any branch.
+    - No private keys or AWS, Google, GitHub, Hugging Face or Slack tokens in the history, and no personal email of the user.
+    - Only `.example` templates with placeholders are tracked.
+    - `npm audit --omit=dev`: 0 vulnerabilities.
+  - **Hardened:** in production the API now refuses to start without `CORS_ORIGINS` (an empty value used to allow any site; `*` still works when set on purpose). Docker Compose and `render.yaml` already set it.
+  - **Left to the user:** GitHub secret scanning, push protection and Dependabot alerts are off on the repository. They are free for public repos and are the user's account security settings, so they are not changed by the agent (Settings, Advanced Security).
+- **Commands run and results:** backend 295 passed, type-check and lint clean. History scans: `git log --all -S` for each real secret value (0 commits) and pattern scans of `git log --all -p` (0 matches).

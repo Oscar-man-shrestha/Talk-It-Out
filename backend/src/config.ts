@@ -131,8 +131,24 @@ export function validateSecrets(env: NodeJS.ProcessEnv): void {
   check('PIPELINE_API_KEY', env.PIPELINE_API_KEY, false);
 }
 
+/**
+ * In production the API must name the websites allowed to call it from a
+ * browser. An empty CORS_ORIGINS used to mean "any site"; now it stops the
+ * server instead. "*" still works when someone really wants it.
+ */
+export function validateOrigins(env: NodeJS.ProcessEnv): void {
+  if (env.NODE_ENV !== 'production') return;
+  if ((env.CORS_ORIGINS ?? '').trim() === '') {
+    throw new Error(
+      'CORS_ORIGINS must be set in production: the web app address, for example ' +
+        'https://you.github.io (comma-separated for several; "*" allows any site).',
+    );
+  }
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   validateSecrets(env);
+  validateOrigins(env);
   return {
     databaseUrl:
       env.DATABASE_URL ??

@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
 import supertest from 'supertest';
 import { Pool } from 'pg';
-import { loadConfig, validateSecrets } from '../src/config';
+import { loadConfig, parseCorsOrigins, validateOrigins, validateSecrets } from '../src/config';
 import { createPool } from '../src/db';
 import { buildApp } from '../src/app';
 import { closePool, ensureSchema, resetDb, testApp } from './helpers';
@@ -167,3 +167,23 @@ describe('startup secret validation (AMENDMENT)', () => {
     ).not.toThrow();
   });
 });
+
+describe('allowed web origins', () => {
+  it('production refuses to start without CORS_ORIGINS', () => {
+    expect(() => validateOrigins({ NODE_ENV: 'production' })).toThrow(/CORS_ORIGINS must be set/);
+    expect(() => validateOrigins({ NODE_ENV: 'production', CORS_ORIGINS: '  ' })).toThrow();
+    expect(() =>
+      validateOrigins({ NODE_ENV: 'production', CORS_ORIGINS: 'https://you.github.io' }),
+    ).not.toThrow();
+    // Any site, only when asked for explicitly.
+    expect(() => validateOrigins({ NODE_ENV: 'production', CORS_ORIGINS: '*' })).not.toThrow();
+    // Development and tests keep the convenient default.
+    expect(() => validateOrigins({ NODE_ENV: 'development' })).not.toThrow();
+  });
+
+  it('parses a comma-separated list', () => {
+    expect(parseCorsOrigins('https://a.io, https://b.io')).toEqual(['https://a.io', 'https://b.io']);
+    expect(parseCorsOrigins('')).toBe('*');
+  });
+});
+

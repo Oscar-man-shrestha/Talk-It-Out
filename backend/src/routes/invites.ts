@@ -185,7 +185,7 @@ export function createInvitesRouter(pool: Pool, requireAuth: RequireAuth): Route
       );
       if (already.rows[0]) return { groupId: i.group_id, joined: false };
       if (!usable(i)) throw invalid();
-      if (i.created_by && (await blockedEitherWay(pool, me, i.created_by))) throw invalid();
+      if (i.created_by && (await blockedEitherWay(client, me, i.created_by))) throw invalid();
       await client.query(
         `INSERT INTO group_members (group_id, user_id, role) VALUES ($1, $2, 'contributor')`,
         [i.group_id, me],

@@ -2,7 +2,7 @@
  * Block and report rules shared by the feed, people and profile routes
  * (API.md 59, 60). SQL fragments take parameter references such as '$1'.
  */
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 
 /** Distinct reports that hide a question from everyone but its author. */
 export const REPORT_HIDE_THRESHOLD = 5;
@@ -27,9 +27,9 @@ export function visiblePostSql(me: string, post = 'p'): string {
          OR (SELECT count(*) FROM post_reports ar WHERE ar.post_id = ${post}.id) < ${REPORT_HIDE_THRESHOLD}))`;
 }
 
-export async function blockedEitherWay(pool: Pool, a: string, b: string): Promise<boolean> {
+export async function blockedEitherWay(client: Pool | PoolClient, a: string, b: string): Promise<boolean> {
   if (a === b) return false;
-  const { rows } = await pool.query(
+  const { rows } = await client.query(
     `SELECT 1 FROM user_blocks
      WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)`,
     [a, b],

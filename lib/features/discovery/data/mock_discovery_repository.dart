@@ -210,7 +210,7 @@ class MockDiscoveryRepository implements DiscoveryRepository {
       final h = handle.trim().toLowerCase().replaceFirst(RegExp('^@+'), '');
       final problem = _problem(h);
       if (problem != null) {
-        throw RepositoryException(code: 'validation_error', message: problem);
+        throw RepositoryException(code: 'validation', message: problem);
       }
       if (_taken(h)) {
         throw const RepositoryException(

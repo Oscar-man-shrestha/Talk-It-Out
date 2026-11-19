@@ -169,23 +169,25 @@ export const POST_SELECT = `
 
 // $5 is the caller. Report counts are shown only to the question's author,
 // who is the one who may remove a reported comment.
-const COMMENT_SELECT = `
+function commentSelectSql(viewerParam = '$5'): string {
+  return `
   SELECT c.id, c.post_id, c.content, c.analysis_status, c.analysis_nsfw,
          c.analysis_flags, date_trunc('milliseconds', c.created_at) AS created_at,
          u.id AS author_id, u.name AS author_name,
-         CASE WHEN p.author_id = $5
+         CASE WHEN p.author_id = ${viewerParam}
               THEN (SELECT count(*)::int FROM comment_reports cr WHERE cr.comment_id = c.id)
          END AS report_count,
          EXISTS (SELECT 1 FROM comment_reports mr
-                 WHERE mr.comment_id = c.id AND mr.reporter_id = $5) AS reported_by_me,
+                 WHERE mr.comment_id = c.id AND mr.reporter_id = ${viewerParam}) AS reported_by_me,
          (SELECT count(*)::int FROM comment_votes v WHERE v.comment_id = c.id) AS vote_count,
          EXISTS (SELECT 1 FROM comment_votes mv
-                 WHERE mv.comment_id = c.id AND mv.user_id = $5) AS voted_by_me,
+                 WHERE mv.comment_id = c.id AND mv.user_id = ${viewerParam}) AS voted_by_me,
          (p.best_comment_id IS NOT DISTINCT FROM c.id) AS is_best,
          date_trunc('milliseconds', c.edited_at) AS edited_at
   FROM comments c
   JOIN users u ON u.id = c.author_id
   JOIN posts p ON p.id = c.post_id`;
+}
 
 /** Enqueues a feed analysis job; the job never carries text or identity. */
 function enqueueFeedAnalysisJob(
@@ -366,7 +368,7 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
     }
     const { limit, cursor } = parseListQuery(req);
     const { rows } = await pool.query(
-      `${COMMENT_SELECT}
+      `${commentSelectSql('$5')}
        WHERE c.post_id = $1
          AND ${notBlockedSql('$5', 'c.author_id')}
          AND ($2::timestamptz IS NULL
@@ -472,7 +474,7 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
     const me = req.user!.id;
     if (await blockedEitherWay(pool, me, comment.author_id)) throw notFound();
     if (comment.author_id === me) {
-      throw new ApiError(422, 'validation_error', 'You cannot upvote your own answer.');
+      throw new ApiError(422, 'validation', 'You cannot upvote your own answer.');
     }
     await pool.query(
       'INSERT INTO comment_votes (comment_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
@@ -564,8 +566,7 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
       );
       await enqueueFeedAnalysisJob(client, 'comment', commentId, rows[0].content_revision);
     });
-    // COMMENT_SELECT names the caller $5; here it is the second parameter.
-    const { rows } = await pool.query(`${COMMENT_SELECT.replaceAll('$5', '$2')} WHERE c.id = $1`, [
+    const { rows } = await pool.query(`${commentSelectSql('$2')} WHERE c.id = $1`, [
       commentId,
       req.user!.id,
     ]);
@@ -618,7 +619,7 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
     const author = await postAuthor(pool, postId);
     if (author === null) throw notFound();
     if (author === req.user!.id) {
-      throw new ApiError(422, 'validation_error', 'You cannot report your own question.');
+      throw new ApiError(422, 'validation', 'You cannot report your own question.');
     }
     await pool.query(
       `INSERT INTO post_reports (post_id, reporter_id, reason) VALUES ($1, $2, $3)

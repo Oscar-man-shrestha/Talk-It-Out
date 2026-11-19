@@ -287,7 +287,7 @@ export function createPeopleRouter(pool: Pool, requireAuth: RequireAuth): Router
     const { handle } = parseWith(handleBody, req.body);
     const me = req.user!.id;
     const problem = handleProblem(handle);
-    if (problem) throw new ApiError(422, 'validation_error', problem);
+    if (problem) throw new ApiError(422, 'validation', problem);
     try {
       const { rows } = await pool.query(
         `UPDATE users SET username = $2, username_chosen = true
@@ -337,7 +337,7 @@ export function createPeopleRouter(pool: Pool, requireAuth: RequireAuth): Router
   router.post('/:userId/block', async (req, res) => {
     const target = req.params.userId;
     if (!UUID_RE.test(target)) throw notFound('We could not find that person.');
-    if (target === req.user!.id) throw new ApiError(422, 'validation_error', 'You cannot block yourself.');
+    if (target === req.user!.id) throw new ApiError(422, 'validation', 'You cannot block yourself.');
     const exists = await pool.query('SELECT 1 FROM users WHERE id = $1', [target]);
     if (!exists.rows[0]) throw notFound('We could not find that person.');
     await pool.query(

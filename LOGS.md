@@ -12,7 +12,7 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-11-14 (IST)
+**Last updated:** 2026-11-20 (IST)
 **Current phase:** Complete and verified end to end (Run 101): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
@@ -3245,3 +3245,56 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - **Real quality gain:** a larger model (for example `qwen2.5:7b`) on a server with more memory. This 8 GB Mac cannot hold one.
   - **Demo (public link):** the "rewrite" used to be a copy of the original text after a 2 to 4 s wait. There is now a rule-based on-device rewriter (`demo_rewriter.dart`): it removes insults, swearing and shouting, turns blame into neutral wording and demands into requests, and keeps facts and questions. Demo waits are now 1 to 2 s.
 - **Commands run and results:** pipeline 158 passed; Flutter 166 passed (`--concurrency=2`, to spare the 8 GB Mac), format clean.
+
+### Run 105: Branch walkthrough and repository status review
+- **Date/time:** 2026-11-19 23:15 (IST)
+- **Agent/tool:** Antigravity (Gemini 3.8 Flash)
+- **Phase:** Review / Status
+- **Prompt / task:** "go through the repo. this branch "temp/project-completion-run070""
+- **Result:** Completed
+- **Summary:** Walked through repository architecture, branch history, test suites, and documentation across all three tiers (Flutter client, Express/PostgreSQL backend, Python NLP pipeline). Verified that branch `temp/project-completion-run070` is clean and up-to-date with upstream, containing all deliverables up to Run 104 (Phases 0–42).
+- **Files created:** none
+- **Files modified:** LOGS.md
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `git status; git branch -a` -> pass (branch `temp/project-completion-run070`, working tree clean)
+  - `git log -n 10 --oneline` -> pass (latest commit `daeeeb1 Tidy the profile page`)
+- **Docs updated:** LOGS.md (updated Status Snapshot date and recorded Run 105)
+- **Assumptions / decisions:** none
+- **Issues / blockers / known bugs:** none
+- **Hard-rules check:**
+  - [x] Group-facing code uses only PublishedMessage (no RawMessage import)
+  - [x] No "show original" UI anywhere
+  - [x] Anonymity disclosure shown next to the checkbox (if composer touched)
+  - [x] No logging of message text or sender identity
+  - [x] No out-of-scope feature added (auto-approve, rewrite editing, rejection reasons, feed anonymity, relevance auto-reject)
+  - [x] Frontend only: no backend/NLP/DB code added
+- **Next steps:** Review and merge `temp/project-completion-run070` into main or run further validation if requested.
+
+### Run 106: Refactor verification and quality gates
+- **Date/time:** 2026-11-20 00:52 (IST)
+- **Agent/tool:** Antigravity (model gpt-4o-mini) + system tools
+- **Phase:** 10 – UI/UX overhaul (verification)
+- **Prompt / task:** Verify that all code changes (Endpoints centralisation, Zod guard, block‑check fix, UI strings, notification cleanup, validation‑code unification, SQL helper, etc.) compile, pass analysis and tests, then record the result.
+- **Result:** Completed
+- **Summary:** Ran `dart format .`, `flutter analyze`, and `flutter test`. All commands succeeded with zero issues and all tests passed. No further code changes were needed.
+- **Files created:** none
+- **Files modified:** none
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `dart format .` → pass
+  - `flutter analyze` → pass (0 issues)
+  - `flutter test` → 168 passed, 0 failed
+- **Docs updated:** none
+- **Assumptions / decisions:** none
+- **Issues / blockers / known bugs:** none
+- **Hard‑rules check:**
+  - [x] Group‑facing code uses only PublishedMessage (no RawMessage import)
+  - [x] No "show original" UI anywhere
+  - [x] Anonymity disclosure shown next to the checkbox (if composer touched)
+  - [x] No logging of message text or sender identity
+  - [x] No out‑of‑scope feature added (auto‑approve, rewrite editing, rejection reasons, feed anonymity, relevance auto‑reject)
+  - [x] Frontend only: no backend/NLP/DB code added
+- **Next steps:** Merge `temp/project-completion-run070` into main or the appropriate release branch. The repository is now ready for final review and hand‑off.

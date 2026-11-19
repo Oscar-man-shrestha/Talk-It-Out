@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:talk_it_out/core/api/api_guard.dart';
+import 'package:talk_it_out/core/api/endpoints.dart';
 import 'package:talk_it_out/core/models/page_result.dart';
 import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
 import 'package:talk_it_out/features/discovery/data/discovery_repository.dart';
@@ -14,7 +15,7 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
   Future<PeopleSearchResult> searchPeople(String query, {String? groupId}) {
     return guardApi(() async {
       final response = await _dio.get(
-        '/users/search',
+        Endpoints.usersSearch,
         queryParameters: {'q': query, 'group_id': ?groupId},
       );
       return PeopleSearchResult.fromJson(asJsonMap(response.data));
@@ -25,7 +26,7 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
   Future<List<PersonResult>> suggestedPeople({String? groupId}) {
     return guardApi(() async {
       final response = await _dio.get(
-        '/users/suggested',
+        Endpoints.usersSuggested,
         queryParameters: {'group_id': ?groupId},
       );
       return PeopleSearchResult.fromJson(asJsonMap(response.data)).items;
@@ -35,7 +36,7 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
   @override
   Future<HandleState> getHandle() {
     return guardApi(() async {
-      final response = await _dio.get('/users/me/handle');
+      final response = await _dio.get(Endpoints.myHandle);
       return HandleState.fromJson(asJsonMap(response.data));
     });
   }
@@ -44,7 +45,7 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
   Future<HandleCheck> checkHandle(String handle) {
     return guardApi(() async {
       final response = await _dio.get(
-        '/users/handle-available',
+        Endpoints.handleAvailable,
         queryParameters: {'handle': handle},
       );
       return HandleCheck.fromJson(asJsonMap(response.data));
@@ -55,7 +56,7 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
   Future<String> setHandle(String handle) {
     return guardApi(() async {
       final response = await _dio.put(
-        '/users/me/handle',
+        Endpoints.myHandle,
         data: {'handle': handle},
       );
       final saved = asJsonMap(response.data)['handle'];
@@ -66,7 +67,7 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
   @override
   Future<InterestState> getInterests() {
     return guardApi(() async {
-      final response = await _dio.get('/users/me/interests');
+      final response = await _dio.get(Endpoints.myInterests);
       return InterestState.fromJson(asJsonMap(response.data));
     });
   }
@@ -74,7 +75,7 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
   @override
   Future<void> setInterests(List<String> interests) {
     return guardApi(() async {
-      await _dio.put('/users/me/interests', data: {'interests': interests});
+      await _dio.put(Endpoints.myInterests, data: {'interests': interests});
     });
   }
 
@@ -82,7 +83,7 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
   Future<PageResult<RankedPost>> forYou({int? limit, String? cursor}) {
     return guardApi(() async {
       final response = await _dio.get(
-        '/posts',
+        Endpoints.posts,
         queryParameters: {
           'mode': 'for_you',
           ...pageQuery(limit: limit, cursor: cursor),
@@ -96,7 +97,7 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
   Future<FeedSearchResult> searchPosts(String query) {
     return guardApi(() async {
       final response = await _dio.get(
-        '/posts/search',
+        Endpoints.postsSearch,
         queryParameters: {'q': query},
       );
       return FeedSearchResult.fromJson(asJsonMap(response.data));
@@ -107,7 +108,7 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
   Future<TopicIdeas> classifyDraft({String? title, required String content}) {
     return guardApi(() async {
       final response = await _dio.post(
-        '/posts/classify',
+        Endpoints.postsClassify,
         data: {'title': title, 'content': content},
       );
       return TopicIdeas.fromJson(asJsonMap(response.data));
@@ -117,14 +118,17 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
   @override
   Future<void> sendSignal(String postId, String kind, {bool on = true}) {
     return guardApi(() async {
-      await _dio.post('/posts/$postId/signals', data: {'kind': kind, 'on': on});
+      await _dio.post(
+        Endpoints.postSignals(postId),
+        data: {'kind': kind, 'on': on},
+      );
     });
   }
 
   @override
   Future<void> setPersonalized(bool on) {
     return guardApi(() async {
-      await _dio.put('/users/me/feed-settings', data: {'personalized': on});
+      await _dio.put(Endpoints.myFeedSettings, data: {'personalized': on});
     });
   }
 
@@ -135,7 +139,7 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
   }) {
     return guardApi(() async {
       final response = await _dio.post(
-        '/posts/similar',
+        Endpoints.postsSimilar,
         data: {'title': title, 'content': content},
       );
       final items = asJsonMap(response.data)['items'];
@@ -151,7 +155,7 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
   @override
   Future<PersonProfile> getPerson(String userId) {
     return guardApi(() async {
-      final response = await _dio.get('/users/$userId/profile');
+      final response = await _dio.get(Endpoints.userProfile(userId));
       return PersonProfile.fromJson(asJsonMap(response.data));
     });
   }
@@ -159,7 +163,7 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
   @override
   Future<List<Post>> personPosts(String userId) {
     return guardApi(() async {
-      final response = await _dio.get('/users/$userId/posts');
+      final response = await _dio.get(Endpoints.userPosts(userId));
       return decodePage(response.data, Post.fromJson).items;
     });
   }
@@ -167,21 +171,21 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
   @override
   Future<void> block(String userId) {
     return guardApi(() async {
-      await _dio.post('/users/$userId/block');
+      await _dio.post(Endpoints.userBlock(userId));
     });
   }
 
   @override
   Future<void> unblock(String userId) {
     return guardApi(() async {
-      await _dio.delete('/users/$userId/block');
+      await _dio.delete(Endpoints.userBlock(userId));
     });
   }
 
   @override
   Future<List<PersonResult>> blockedPeople() {
     return guardApi(() async {
-      final response = await _dio.get('/users/me/blocked');
+      final response = await _dio.get(Endpoints.myBlocked);
       return PeopleSearchResult.fromJson(asJsonMap(response.data)).items;
     });
   }
@@ -189,21 +193,24 @@ class ApiDiscoveryRepository implements DiscoveryRepository {
   @override
   Future<void> reportPost(String postId, ReportReason reason) {
     return guardApi(() async {
-      await _dio.post('/posts/$postId/report', data: {'reason': reason.id});
+      await _dio.post(
+        Endpoints.postReport(postId),
+        data: {'reason': reason.id},
+      );
     });
   }
 
   @override
   Future<void> withdrawReport(String postId) {
     return guardApi(() async {
-      await _dio.delete('/posts/$postId/report');
+      await _dio.delete(Endpoints.postReport(postId));
     });
   }
 
   @override
   Future<LikersPage> likers(String postId) {
     return guardApi(() async {
-      final response = await _dio.get('/posts/$postId/likes');
+      final response = await _dio.get(Endpoints.postLikes(postId));
       return LikersPage.fromJson(asJsonMap(response.data));
     });
   }

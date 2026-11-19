@@ -53,6 +53,12 @@ abstract final class AppStrings {
   static const intentLabel = 'Intent preservation';
   static const accept = 'Accept';
   static const reject = 'Reject';
+  static const publishRewrite = 'Publish rewrite';
+  static const diffView = 'Diff view';
+  static const hideChanges = 'Hide changes';
+  static const showChanges = 'Show changes';
+  static const helpful = 'Helpful';
+  static const editYourAnswer = 'Edit your answer';
   static const rewriteUnavailable = 'Rewrite unavailable';
   static const pipelineQueued = 'Waiting to rewrite';
   static const pipelineProcessing = 'Rewriting…';

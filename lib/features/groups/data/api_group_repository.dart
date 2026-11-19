@@ -232,7 +232,7 @@ class ApiGroupRepository implements GroupRepository {
   @override
   Future<void> withdrawMessage(String messageId) {
     return guardApi(() async {
-      await _dio.post('/messages/$messageId/withdraw');
+      await _dio.post(Endpoints.withdrawMessage(messageId));
     });
   }
 
@@ -243,7 +243,7 @@ class ApiGroupRepository implements GroupRepository {
     required bool pinned,
   }) {
     return guardApi(() async {
-      final path = '${Endpoints.groupMessages(groupId)}/$messageId/pin';
+      final path = Endpoints.messagePin(groupId, messageId);
       if (pinned) {
         await _dio.post(path);
       } else {
@@ -260,7 +260,7 @@ class ApiGroupRepository implements GroupRepository {
   }) {
     return guardApi(() async {
       final response = await _dio.post(
-        '/groups/$groupId/polls',
+        Endpoints.groupPolls(groupId),
         data: {'question': question, 'options': options},
       );
       return PublishedMessage.fromJson(asJsonMap(response.data));
@@ -270,7 +270,7 @@ class ApiGroupRepository implements GroupRepository {
   @override
   Future<void> vote(String groupId, String pollId, int? optionIndex) {
     return guardApi(() async {
-      final path = '/groups/$groupId/polls/$pollId/vote';
+      final path = Endpoints.groupPollVote(groupId, pollId);
       if (optionIndex == null) {
         await _dio.delete(path);
       } else {
@@ -311,7 +311,7 @@ class ApiGroupRepository implements GroupRepository {
   @override
   Future<void> deleteMessage(String groupId, String messageId) {
     return guardApi(() async {
-      await _dio.delete('${Endpoints.groupMessages(groupId)}/$messageId');
+      await _dio.delete(Endpoints.groupMessage(groupId, messageId));
     });
   }
 
@@ -343,7 +343,7 @@ class ApiGroupRepository implements GroupRepository {
   @override
   Future<void> removeMember(String groupId, String userId) {
     return guardApi(() async {
-      await _dio.delete('${Endpoints.groupMembers(groupId)}/$userId');
+      await _dio.delete(Endpoints.groupMember(groupId, userId));
     });
   }
 
@@ -372,7 +372,7 @@ class ApiGroupRepository implements GroupRepository {
   @override
   Future<void> leaveGroup(String groupId) {
     return guardApi(() async {
-      await _dio.post('${Endpoints.group(groupId)}/leave');
+      await _dio.post(Endpoints.groupLeave(groupId));
     });
   }
 
@@ -398,7 +398,7 @@ class ApiGroupRepository implements GroupRepository {
   }) {
     return guardApi(() async {
       await _dio.put(
-        '${Endpoints.group(groupId)}/settings',
+        Endpoints.groupSettings(groupId),
         data: {'muted': ?muted, 'pinned': ?pinned},
       );
     });
@@ -416,7 +416,7 @@ class ApiGroupRepository implements GroupRepository {
   @override
   Future<List<GroupInvitation>> listMyInvitations() {
     return guardApi(() async {
-      final response = await _dio.get('/invitations');
+      final response = await _dio.get(Endpoints.invitations);
       return _items(response.data).map(GroupInvitation.fromJson).toList();
     });
   }
@@ -424,7 +424,9 @@ class ApiGroupRepository implements GroupRepository {
   @override
   Future<String> acceptInvitation(String invitationId) {
     return guardApi(() async {
-      final response = await _dio.post('/invitations/$invitationId/accept');
+      final response = await _dio.post(
+        Endpoints.acceptInvitation(invitationId),
+      );
       return asJsonMap(response.data)['group_id'] as String? ?? '';
     });
   }
@@ -432,16 +434,14 @@ class ApiGroupRepository implements GroupRepository {
   @override
   Future<void> declineInvitation(String invitationId) {
     return guardApi(() async {
-      await _dio.post('/invitations/$invitationId/decline');
+      await _dio.post(Endpoints.declineInvitation(invitationId));
     });
   }
 
   @override
   Future<List<PendingInvitation>> listGroupInvitations(String groupId) {
     return guardApi(() async {
-      final response = await _dio.get(
-        '${Endpoints.group(groupId)}/invitations',
-      );
+      final response = await _dio.get(Endpoints.groupInvitations(groupId));
       return _items(response.data).map(PendingInvitation.fromJson).toList();
     });
   }
@@ -449,9 +449,7 @@ class ApiGroupRepository implements GroupRepository {
   @override
   Future<void> cancelInvitation(String groupId, String invitationId) {
     return guardApi(() async {
-      await _dio.delete(
-        '${Endpoints.group(groupId)}/invitations/$invitationId',
-      );
+      await _dio.delete(Endpoints.groupInvitation(groupId, invitationId));
     });
   }
 }

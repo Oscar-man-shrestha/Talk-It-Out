@@ -12,11 +12,11 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-11-14 (IST)
-**Current phase:** Complete and verified end to end (Run 101): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Last updated:** 2026-11-19 (IST)
+**Current phase:** Complete; all four test suites green again and both failing CI jobs fixed locally (Run 105, not yet pushed). Verified end to end in Run 101: Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
-The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
-**Next step:** Review and merge `temp/project-completion-run070`. Optional: Gmail app password in `backend/.env` for real reset emails (user enters it); a larger model for higher rewrite fidelity.
+The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. Screens are wired to the backend (Run 071 onward). Rewrites run on a local Qwen2.5-3B model through Ollama (Run 081). Latest gates are in Run 105: Flutter 167, backend 300, pipeline 158.
+**Next step:** Commit and push the Run 105 CI fixes so `backend-ci` and `stack-ci` go green, then review and merge `temp/project-completion-run070` (the user decides when; nothing merges into `main` without them). Open decisions D23 to D26 still need the user's answer. Optional: a larger model on a bigger machine for better rewrites.
 **Blockers:** None. Reset codes are emailed through Gmail SMTP from the project's own account, talkitoutapp.mail@gmail.com (verified 2026-11-14 with `npm run mail:test`).
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
@@ -71,7 +71,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
-**Quality gates (latest known):** Run 084: live whole-stack check 51/51; Flutter 88 passed, analyze 0, format clean; pipeline 152 passed; backend 208 passed, lint clean. GitHub Actions `backend-ci`, `flutter-ci`, `pipeline-ci`, `stack-ci` green on the last pushed commits.
+**Quality gates (latest known):** Run 105 (local): Flutter 167 passed, analyze 0, format clean; backend 300 passed, type-check and lint clean; pipeline 158 passed; `scripts/demo-flow.sh` passes against a scratch database. On GitHub, `backend-ci` (since Run 102) and `stack-ci` (since Run 103) were red on the last pushed commits; Run 105 fixes both but is not pushed yet. `flutter-ci`, `pipeline-ci` and `demo-pages` were green.
 
 **Pipeline notebook handoff:** Kaggle GPU environment verified with vLLM serving Qwen2.5-3B-Instruct (0 hijacks on adversarial probes). End-to-end claim/rewrite/result cycle against live backend verified (Run 057).
 
@@ -3245,3 +3245,34 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - **Real quality gain:** a larger model (for example `qwen2.5:7b`) on a server with more memory. This 8 GB Mac cannot hold one.
   - **Demo (public link):** the "rewrite" used to be a copy of the original text after a 2 to 4 s wait. There is now a rule-based on-device rewriter (`demo_rewriter.dart`): it removes insults, swearing and shouting, turns blame into neutral wording and demands into requests, and keeps facts and questions. Demo waits are now 1 to 2 s.
 - **Commands run and results:** pipeline 158 passed; Flutter 166 passed (`--concurrency=2`, to spare the 8 GB Mac), format clean.
+
+### Run 105: Readiness check, CI fixes, unlogged commits recorded
+- **Date/time:** 2026-11-19 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Fix
+- **Prompt / task:** "Work on this, make everything ready, whatever is needed, see everything."
+- **Result:** Completed (not committed or pushed; waiting on the user)
+- **Summary:**
+  - **Unlogged commits found:** `ad9e5fd` (Google sign-in on the public demo, when the build has `GOOGLE_CLIENT_ID`) and `daeeeb1` (profile tidy: no "verified" tick, no empty headline gap, wrapping skills title, "Group sees" / "Controller sees" labels above their values) were pushed after Run 104 without a log entry. They are recorded here.
+  - **`backend-ci` red since Run 102:** the production-config test expected "tests only" for `MAIL_TRANSPORT=memory`, but the newer `CORS_ORIGINS` check fired first. The test's production settings now set `CORS_ORIGINS`, so each check is tested on its own.
+  - **`stack-ci` red since Run 103:** `backend/scripts/demo-flow.sh` still added the contributor directly. Since invitations (API 69), adding sends an invitation, so the contributor's message was refused (`403`). The script now accepts the invitation as the contributor first. Verified against a scratch database (`talkitout_flowcheck`, created, migrated to 024, then dropped) and an API on port 3100 with the stub worker: all checks the CI step greps for pass.
+  - **This Mac:** the data disk was full (about 135 MB free, 200 of 228 GB used). The agent cleared only the npm cache and the regenerable Flutter `build/` folder; other cleanup was left to the user. About 2 GB was free at the end of the run.
+- **Files created:** none
+- **Files modified:** `backend/test/password-reset.test.ts`, `backend/scripts/demo-flow.sh`, `LOGS.md`
+- **Files deleted:** `build/` (Flutter build output, regenerated by any build)
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `dart format` -> pass (0 changed)
+  - `flutter analyze` -> pass (0 issues)
+  - `flutter test --concurrency=2` -> 167 passed
+  - backend `vitest run` -> 300 passed. One earlier full run had 3 failures in 4 files that did not come back on the next two runs; most likely timing on the low-disk machine.
+  - backend `tsc --noEmit` and `eslint .` -> clean
+  - pipeline `pytest` -> 158 passed
+  - `scripts/demo-flow.sh` against a scratch stack -> exit 0
+- **Docs updated:** none (API.md already describes invitations, API 69)
+- **Assumptions / decisions:** none new. D23 to D26 are still open.
+- **Issues / blockers / known bugs:** the fixes are not on GitHub until committed and pushed, so CI stays red until then. Rewrite quality is still limited by the 3B model (Run 104).
+- **Hard-rules check:**
+  - [x] Group-facing code uses only PublishedMessage (no RawMessage import); `lib/` not touched
+  - [x] No "show original" UI anywhere
+  - [x] Anonymity disclosure unchanged (composer not touched)

@@ -271,6 +271,7 @@ describe('mail configuration', () => {
       NODE_ENV: 'production',
       JWT_SECRET: 'x'.repeat(40),
       PIPELINE_API_KEY: '',
+      CORS_ORIGINS: 'https://app.example.com',
     } as NodeJS.ProcessEnv;
     expect(() => loadConfig({ ...prod, MAIL_TRANSPORT: 'log' })).toThrow(/production/);
     expect(() => loadConfig({ ...prod, MAIL_TRANSPORT: 'memory' })).toThrow(/tests only/);

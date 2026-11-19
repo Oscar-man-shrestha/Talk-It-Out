@@ -22,10 +22,13 @@ GROUP=$(curl -s -X POST "$BASE/groups" -H "Authorization: Bearer $CTRL_TOKEN" \
 GROUP_ID=$(json_field .id "$GROUP")
 echo "group: $GROUP_ID"
 
-echo "== 3. Controller adds the contributor by username =="
-curl -s -X POST "$BASE/groups/$GROUP_ID/members" -H "Authorization: Bearer $CTRL_TOKEN" \
+echo "== 3. Controller invites the contributor by username; the contributor accepts =="
+INVITE=$(curl -s -X POST "$BASE/groups/$GROUP_ID/members" -H "Authorization: Bearer $CTRL_TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"username":"demo-contributor","role":"contributor"}'
+  -d '{"username":"demo-contributor","role":"contributor"}')
+echo "invite: $INVITE"
+INVITATION_ID=$(json_field .invitation_id "$INVITE")
+curl -s -X POST "$BASE/invitations/$INVITATION_ID/accept" -H "Authorization: Bearer $CONTRIB_TOKEN"
 echo
 
 echo "== 4. Contributor submits an ANONYMOUS message =="

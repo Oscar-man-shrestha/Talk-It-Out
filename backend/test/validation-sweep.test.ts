@@ -180,6 +180,7 @@ describe('migrations', () => {
       '022_group_invites.sql',
       '023_answers_follows_groups.sql',
       '024_group_invitations.sql',
+      '025_invitation_live_updates.sql',
     ]);
   });
 });

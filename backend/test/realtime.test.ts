@@ -205,6 +205,34 @@ describe('live updates (SSE)', () => {
     c.close();
   });
 
+  it('sending and declining an invitation refresh the controller and the invitee', async () => {
+    const app = await start();
+    const controller = await registerUser(app, 'C', 'c@example.com');
+    const invitee = await registerUser(app, 'I', 'invitee@example.com');
+    const g = await api.post(app, '/groups', controller.token, { agenda: 'Live invites' });
+    const c = await open(controller.token);
+    const i = await open(invitee.token);
+    const sent = await api.post(app, `/groups/${g.body.id}/members`, controller.token, {
+      username: 'invitee',
+    });
+    expect(sent.status).toBe(202);
+    // The controller's "Invited" list refreshes on a 'members' event.
+    await c.waitFor((e) => e.event === 'members' && e.data.group_id === g.body.id);
+    await i.waitFor((e) => e.event === 'groups');
+    c.events.length = 0;
+    i.events.length = 0;
+    const declined = await api.post(
+      app,
+      `/invitations/${sent.body.invitation_id}/decline`,
+      invitee.token,
+    );
+    expect(declined.status).toBe(204);
+    await c.waitFor((e) => e.event === 'members' && e.data.group_id === g.body.id);
+    await i.waitFor((e) => e.event === 'groups');
+    c.close();
+    i.close();
+  });
+
   it('feed changes reach everyone connected', async () => {
     const app = await start();
     const a = await registerUser(app, 'A', 'a@example.com');

@@ -8,11 +8,16 @@ import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
 import 'package:talk_it_out/features/discovery/recent_people.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
+import 'package:talk_it_out/features/invites/invite_sheet.dart';
+
+/// Returned by the sheet when the controller picks "Invite with a link".
+const _openLinkSheet = -1;
 
 /// Instagram-style "Add people": search with typo-tolerant suggestions,
 /// people you may know, multi-select, then add everyone at once.
 /// Returns how many people were added.
 Future<int> showAddMembersSheet(BuildContext context, String groupId) async {
+  final container = ProviderScope.containerOf(context, listen: false);
   final added = await showModalBottomSheet<int>(
     context: context,
     isScrollControlled: true,
@@ -26,6 +31,17 @@ Future<int> showAddMembersSheet(BuildContext context, String groupId) async {
       child: AddMembersSheet(groupId: groupId),
     ),
   );
+  if (added == _openLinkSheet) {
+    if (context.mounted) {
+      await showInviteSheet(
+        context,
+        groupId: groupId,
+        agenda:
+            container.read(groupDetailProvider(groupId)).value?.agenda ?? '',
+      );
+    }
+    return 0;
+  }
   return added ?? 0;
 }
 
@@ -47,6 +63,7 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
   String? _error;
   PeopleSearchResult? _results;
   List<PersonResult>? _suggested;
+  String? _suggestedError;
   final _selected = <String, PersonResult>{};
   var _requestId = 0;
 
@@ -64,13 +81,25 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
   }
 
   Future<void> _loadSuggested() async {
+    if (_suggestedError != null) {
+      setState(() {
+        _suggested = null;
+        _suggestedError = null;
+      });
+    }
     try {
       final people = await ref
           .read(discoveryRepositoryProvider)
           .suggestedPeople(groupId: widget.groupId);
       if (mounted) setState(() => _suggested = people);
     } on RepositoryException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      // Stop the spinner and say why; search still works.
+      if (mounted) {
+        setState(() {
+          _suggested = const [];
+          _suggestedError = e.message;
+        });
+      }
     }
   }
 
@@ -113,8 +142,15 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
     }
   }
 
+  /// People who already have an open invitation to this group.
+  Set<String> _invitedIds({bool listen = false}) {
+    final provider = groupInvitationsProvider(widget.groupId);
+    final pending = listen ? ref.watch(provider) : ref.read(provider);
+    return {for (final i in pending.value ?? const []) i.userId};
+  }
+
   void _toggle(PersonResult person) {
-    if (person.inGroup) return;
+    if (person.inGroup || _invitedIds().contains(person.id)) return;
     setState(() {
       if (_selected.remove(person.id) == null) _selected[person.id] = person;
     });
@@ -141,31 +177,38 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
     }
     ref.invalidate(membersProvider(widget.groupId));
     ref.invalidate(groupDetailProvider(widget.groupId));
+    // The "Invited (n)" list on Members shows the new invitations at once.
+    ref.invalidate(groupInvitationsProvider(widget.groupId));
     if (!mounted) return;
+    if (failed.isNotEmpty) {
+      // Stay open with only the people who still need inviting selected,
+      // so the controller can fix or drop them without starting over.
+      setState(() {
+        for (final p in addedPeople) {
+          _selected.remove(p.id);
+        }
+        _adding = false;
+        final sent = added.isEmpty
+            ? ''
+            : 'Sent to ${added.map((n) => n.split(' ').first).join(', ')}. ';
+        _error = '${sent}Not sent:\n${failed.join('\n')}';
+      });
+      return;
+    }
     final messenger = ScaffoldMessenger.of(context);
     Navigator.of(context).pop(added.length);
-    if (added.isNotEmpty) {
-      final first = added.first.split(' ').first;
-      messenger.showSnackBar(
-        SnackBar(
-          backgroundColor: Brand.ink,
-          content: Text(
-            added.length == 1
-                ? 'Invitation sent to $first. They join after accepting.'
-                : 'Invitations sent to $first and ${added.length - 1} '
-                      '${added.length == 2 ? 'other' : 'others'}. They join after accepting.',
-          ),
+    final first = added.first.split(' ').first;
+    messenger.showSnackBar(
+      SnackBar(
+        backgroundColor: Brand.ink,
+        content: Text(
+          added.length == 1
+              ? 'Invitation sent to $first. They join after accepting.'
+              : 'Invitations sent to $first and ${added.length - 1} '
+                    '${added.length == 2 ? 'other' : 'others'}. They join after accepting.',
         ),
-      );
-    }
-    if (failed.isNotEmpty) {
-      messenger.showSnackBar(
-        SnackBar(
-          backgroundColor: Colors.red.shade800,
-          content: Text(failed.join('\n')),
-        ),
-      );
-    }
+      ),
+    );
   }
 
   @override
@@ -184,6 +227,7 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
     final suggestedIds = {
       for (final p in _suggested ?? const <PersonResult>[]) p.id,
     };
+    final invitedIds = _invitedIds(listen: true);
     final recent = showingSearch
         ? const <PersonResult>[]
         : [
@@ -329,11 +373,42 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
             children: [
               if (_error != null)
                 Padding(
+                  key: const ValueKey('add-members-error'),
                   padding: const EdgeInsets.all(16),
                   child: Text(
                     _error!,
-                    style: TextStyle(color: Colors.red.shade800),
+                    style: TextStyle(color: Colors.red.shade800, height: 1.35),
                   ),
+                ),
+              if (!showingSearch)
+                ListTile(
+                  key: const ValueKey('add-members-link'),
+                  leading: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      color: Brand.muted,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.link, color: Brand.ink, size: 20),
+                  ),
+                  title: const Text(
+                    'Invite with a link',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: Brand.ink,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'For people who are not on Talk It Out yet',
+                    style: TextStyle(fontSize: 12.5, color: Brand.inkSoft),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: Brand.inkFaint,
+                  ),
+                  onTap: () => Navigator.of(context).pop(_openLinkSheet),
                 ),
               if (showingSearch && (_results?.similarOnly ?? false))
                 const _Hint(
@@ -359,6 +434,7 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
                   _PersonTile(
                     person: p,
                     query: '',
+                    invited: invitedIds.contains(p.id),
                     selected: _selected.containsKey(p.id),
                     onTap: () => _toggle(p),
                   ),
@@ -372,6 +448,27 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
                   padding: EdgeInsets.all(24),
                   child: Center(
                     child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              if (!showingSearch && _suggestedError != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Could not load suggestions: $_suggestedError',
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: Brand.inkSoft,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _loadSuggested,
+                        child: const Text('Retry'),
+                      ),
+                    ],
                   ),
                 ),
               if (!showingSearch && _suggested != null && people.isEmpty)
@@ -392,6 +489,7 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
                 _PersonTile(
                   person: p,
                   query: showingSearch ? _query : '',
+                  invited: invitedIds.contains(p.id),
                   selected: _selected.containsKey(p.id),
                   onTap: () => _toggle(p),
                 ),
@@ -498,6 +596,7 @@ class _PersonTile extends StatelessWidget {
   const _PersonTile({
     required this.person,
     required this.query,
+    this.invited = false,
     required this.selected,
     required this.onTap,
   });
@@ -505,6 +604,9 @@ class _PersonTile extends StatelessWidget {
   final PersonResult person;
   final String query;
   final bool selected;
+
+  /// Already has an open invitation: shown as "Invited", not selectable.
+  final bool invited;
   final VoidCallback onTap;
 
   /// Bold the part of the name that matches what was typed.
@@ -543,7 +645,7 @@ class _PersonTile extends StatelessWidget {
     final subtitle = person.subtitle;
     return InkWell(
       key: ValueKey('person-${person.id}'),
-      onTap: person.inGroup ? null : onTap,
+      onTap: person.inGroup || invited ? null : onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
@@ -575,7 +677,7 @@ class _PersonTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            if (person.inGroup)
+            if (person.inGroup || invited)
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -585,8 +687,8 @@ class _PersonTile extends StatelessWidget {
                   color: Brand.muted,
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: const Text(
-                  'Member',
+                child: Text(
+                  person.inGroup ? 'Member' : 'Invited',
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,

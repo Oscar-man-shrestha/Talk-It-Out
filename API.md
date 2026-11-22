@@ -699,4 +699,5 @@ Plain text or several emoji in one reaction give `422`. One person can add at mo
   - Answering removes the invitation's notification.
 - **For the controller:** `GET /groups/:id/invitations` lists unanswered invitations (`{items[{id, user {id, name}, created_at}]}`). `DELETE /groups/:id/invitations/:invitationId` cancels one.
 - **Unchanged:** invite links (section 61). Opening a link and pressing Join is already the person's own choice.
+- **Live updates (migration 025):** sending, accepting, declining or cancelling an invitation sends the invited person a `groups` event and the group's connected members a `members` event (group id only), so the Invited list and the Groups screen refresh without a reload.
 

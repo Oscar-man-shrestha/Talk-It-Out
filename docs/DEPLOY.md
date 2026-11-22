@@ -38,7 +38,7 @@ cd backend
 DATABASE_URL='postgresql://...your Neon string...' npm run migrate
 ```
 
-You should see `Applied 001_init.sql` through `Applied 023_answers_follows_groups.sql`. Run the same command after every update that adds a migration.
+You should see `Applied 001_init.sql` through `Applied 025_invitation_live_updates.sql`. After that you don't need to run it by hand: the Render service applies any new migrations each time it starts (`dockerCommand` in `render.yaml`).
 
 4. Optional starter content, 61 questions across all 30 interests:
 
@@ -50,14 +50,16 @@ DATABASE_URL='postgresql://...' npm run seed:questions
 
 1. Sign in at render.com with GitHub and allow it to read the `Talk-It-Out` repository.
 2. Choose **New**, then **Blueprint**, pick the repository and the branch you want to deploy. Render reads `render.yaml` from the repository.
-3. Render asks for four values:
+3. Render asks for these values:
 
 | Setting | Value |
 |---|---|
 | `DATABASE_URL` | Your Neon connection string from Step 1. |
 | `CORS_ORIGINS` | `https://<your-github-username>.github.io` (all lowercase). |
 | `APP_WEB_URL` | `https://<your-github-username>.github.io/Talk-It-Out` |
-| `GOOGLE_CLIENT_ID` | Leave empty for now, or see Step 6. |
+| `GOOGLE_CLIENT_ID` | The same web client ID as the GitHub variable (Step 6), or empty to hide Google sign-in. |
+| `SMTP_USER` | The Gmail address that sends password-reset codes. |
+| `SMTP_PASS` | A Gmail app password for that address (`docs/SETUP_GOOGLE_AND_EMAIL.md`). Required: the API will not start without it unless you change `MAIL_TRANSPORT` to `disabled`. |
 
 4. Choose **Apply**. The first build takes a few minutes. When it is live, open `https://talkitout-api.onrender.com/ready` (Render shows the exact address). It should say `{"status":"ready"}`.
 5. In the service's **Environment** tab, copy the generated `PIPELINE_API_KEY`. The worker needs it in Step 4.
@@ -117,7 +119,7 @@ On a phone, use the browser's **Add to Home screen**. The app then opens full sc
 
 ## Step 6: Optional extras (still free)
 
-- **Password-reset email:** in Render set `MAIL_TRANSPORT=smtp`, `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`, `SMTP_USER` (your Gmail address), `SMTP_PASS` (a Gmail app password) and `MAIL_FROM`. See `docs/SETUP_GOOGLE_AND_EMAIL.md`.
+- **Password-reset email:** the blueprint already uses Gmail SMTP (`MAIL_TRANSPORT=smtp`, `smtp.gmail.com`, port 465) with the `SMTP_USER` and `SMTP_PASS` you entered in Step 2. Optionally set `MAIL_FROM` for the sender name. See `docs/SETUP_GOOGLE_AND_EMAIL.md`.
 - **Sign in with Google:**
   1. Create an OAuth web client in Google Cloud Console and add `https://<your-github-username>.github.io` as an authorised JavaScript origin.
   2. Put the client ID in Render (`GOOGLE_CLIENT_ID`) and in the GitHub variable of the same name.

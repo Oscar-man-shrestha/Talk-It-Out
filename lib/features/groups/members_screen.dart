@@ -8,9 +8,11 @@ import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/core/ui/labels.dart';
 import 'package:talk_it_out/core/ui/screen_async.dart';
 import 'package:talk_it_out/core/ui/stitch_chrome.dart';
+import 'package:talk_it_out/core/utils/relative_time.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/discovery/add_members_sheet.dart';
 import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
+import 'package:talk_it_out/features/groups/data/group_invitation.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/invites/invite_sheet.dart';
@@ -29,9 +31,9 @@ class MembersScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Kick $name?'),
+        title: Text('Remove $name?'),
         content: Text(
-          'Are you sure you want to kick $name from this group? They will lose access to the ongoing deliberation.',
+          '$name will leave this group and stop seeing its messages. You can invite them again later.',
         ),
         actions: [
           TextButton(
@@ -41,24 +43,28 @@ class MembersScreen extends ConsumerWidget {
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Kick Member'),
+            child: const Text('Remove'),
           ),
         ],
       ),
     );
 
     if (confirmed == true && context.mounted) {
-      await ref.read(groupRepositoryProvider).removeMember(groupId, userId);
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        await ref.read(groupRepositoryProvider).removeMember(groupId, userId);
+      } on RepositoryException catch (error) {
+        messenger.showSnackBar(SnackBar(content: Text(error.message)));
+        return;
+      }
       ref.invalidate(membersProvider(groupId));
       ref.invalidate(groupDetailProvider(groupId));
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$name was kicked from the group.'),
-            backgroundColor: Brand.ink,
-          ),
-        );
-      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('$name was removed from the group.'),
+          backgroundColor: Brand.ink,
+        ),
+      );
     }
   }
 
@@ -69,11 +75,11 @@ class MembersScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Leave Group?'),
+        title: const Text('Leave this group?'),
         content: Text(
           isController
-              ? 'Are you sure you want to leave this deliberation? You will no longer receive updates or be able to submit messages. The member who joined earliest will become the controller.'
-              : 'Are you sure you want to leave this deliberation? You will no longer receive updates or be able to submit messages.',
+              ? 'You will stop seeing its messages and cannot send new ones. The member who joined earliest becomes the controller.'
+              : 'You will stop seeing its messages and cannot send new ones.',
         ),
         actions: [
           TextButton(
@@ -174,7 +180,7 @@ class MembersScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: const Text(
-                        'MODERATOR CONTROLS ACTIVE',
+                        'YOU ARE THE CONTROLLER',
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w700,
@@ -293,7 +299,7 @@ class MembersScreen extends ConsumerWidget {
                           ),
                           if (member.role == GroupRole.controller)
                             const Text(
-                              'Group Creator & Review Controller',
+                              'Reviews every message before it is shared',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Brand.inkSoft,
@@ -328,7 +334,7 @@ class MembersScreen extends ConsumerWidget {
                         member.role != GroupRole.controller) ...[
                       const SizedBox(width: 8),
                       IconButton(
-                        tooltip: 'Kick ${member.name}',
+                        tooltip: 'Remove ${member.name}',
                         icon: const Icon(
                           Icons.person_remove_outlined,
                           color: Colors.redAccent,
@@ -369,7 +375,7 @@ class MembersScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Deliberation Participation',
+                          'Leave this group',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -378,7 +384,7 @@ class MembersScreen extends ConsumerWidget {
                         ),
                         SizedBox(height: 2),
                         Text(
-                          'Leaving will forfeit your access to agenda updates and room discussions.',
+                          'You will stop seeing its messages. You can rejoin only if invited again.',
                           style: TextStyle(
                             fontSize: 11.5,
                             color: Color(0xFF7F1D1D),
@@ -419,6 +425,49 @@ class _PendingInvitations extends ConsumerWidget {
   const _PendingInvitations({required this.groupId});
 
   final String groupId;
+
+  Future<void> _cancel(
+    BuildContext context,
+    WidgetRef ref,
+    PendingInvitation inv,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Cancel the invitation to ${inv.name}?'),
+        content: const Text(
+          'They will no longer be able to accept it. You can invite them again later.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Keep'),
+          ),
+          FilledButton(
+            key: const ValueKey('confirm-cancel-invitation'),
+            style: FilledButton.styleFrom(backgroundColor: Brand.ink),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Cancel invitation'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(groupRepositoryProvider).cancelInvitation(groupId, inv.id);
+      ref.invalidate(groupInvitationsProvider(groupId));
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: Brand.ink,
+          content: Text('Invitation to ${inv.name} cancelled.'),
+        ),
+      );
+    } on RepositoryException catch (e) {
+      ref.invalidate(groupInvitationsProvider(groupId));
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -468,25 +517,13 @@ class _PendingInvitations extends ConsumerWidget {
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
-                  const Text(
-                    'Waiting',
-                    style: TextStyle(fontSize: 12, color: Brand.inkSoft),
+                  Text(
+                    'Invited ${relativeTime(inv.createdAt)}',
+                    style: const TextStyle(fontSize: 12, color: Brand.inkSoft),
                   ),
                   TextButton(
                     key: ValueKey('cancel-invitation-${inv.id}'),
-                    onPressed: () async {
-                      final messenger = ScaffoldMessenger.of(context);
-                      try {
-                        await ref
-                            .read(groupRepositoryProvider)
-                            .cancelInvitation(groupId, inv.id);
-                        ref.invalidate(groupInvitationsProvider(groupId));
-                      } on RepositoryException catch (e) {
-                        messenger.showSnackBar(
-                          SnackBar(content: Text(e.message)),
-                        );
-                      }
-                    },
+                    onPressed: () => _cancel(context, ref, inv),
                     child: const Text('Cancel'),
                   ),
                 ],

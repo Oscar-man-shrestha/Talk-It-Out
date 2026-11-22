@@ -14,6 +14,7 @@ import 'package:talk_it_out/features/discovery/handle_editor.dart';
 import 'package:talk_it_out/features/discovery/interest_picker_screen.dart';
 import 'package:talk_it_out/features/discovery/recent_people.dart';
 import 'package:talk_it_out/features/feed/feed_screen.dart';
+import 'package:talk_it_out/features/groups/members_screen.dart';
 
 ProviderContainer _container() {
   final container = ProviderContainer(
@@ -153,6 +154,68 @@ void main() {
       container.read(recentPeopleProvider).map((p) => p.id),
       containsAll(['u4', 'u6']),
     );
+  });
+
+  testWidgets('Add members: someone already invited shows "Invited"', (
+    tester,
+  ) async {
+    final container = _container();
+    await container
+        .read(groupRepositoryProvider)
+        .addMember(MockIds.dashboardGroup, userId: 'u4');
+    await _pump(
+      tester,
+      container,
+      const Scaffold(body: AddMembersSheet(groupId: MockIds.dashboardGroup)),
+    );
+    // People not on the app yet can be invited with a link.
+    expect(find.byKey(const ValueKey('add-members-link')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('add-members-search')),
+      'anita',
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    final tile = find.byKey(const ValueKey('person-u4'));
+    expect(
+      find.descendant(of: tile, matching: find.text('Invited')),
+      findsOneWidget,
+    );
+    // Tapping does not select them again (no error later).
+    await tester.tap(tile);
+    await tester.pump();
+    expect(find.text('Invite'), findsOneWidget);
+    expect(find.text('Invite (1)'), findsNothing);
+  });
+
+  testWidgets('Members: cancelling an invitation asks first, then confirms', (
+    tester,
+  ) async {
+    final container = _container();
+    await container
+        .read(groupRepositoryProvider)
+        .addMember(MockIds.dashboardGroup, userId: 'u4');
+    await _pump(
+      tester,
+      container,
+      const MembersScreen(groupId: MockIds.dashboardGroup),
+    );
+    expect(find.text('Invited (1)'), findsOneWidget);
+    expect(find.text('Invited just now'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('cancel-invitation-inv1')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Cancel the invitation to'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('confirm-cancel-invitation')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Invited (1)'), findsNothing);
+    expect(find.textContaining('cancelled.'), findsOneWidget);
+    final left = await container
+        .read(groupRepositoryProvider)
+        .listGroupInvitations(MockIds.dashboardGroup);
+    expect(left, isEmpty);
   });
 
   testWidgets('Interest picker needs 3 picks, then saves', (tester) async {

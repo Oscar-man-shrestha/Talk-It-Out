@@ -15,8 +15,8 @@ Rules for this file:
 **Last updated:** 2026-11-22 (IST)
 **Current phase:** Complete; all four test suites green. Run 105's fixes are pushed and `stack-ci` is green; `backend-ci` is green again as of `b6758f8` (Run 107; confirmed in Run 108), including the Docker smoke test. Verified end to end in Run 101: Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
-The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. Screens are wired to the backend (Run 071 onward). Rewrites run on a local Qwen2.5-3B model through Ollama (Run 081). Latest gates are in Run 105: Flutter 167, backend 300, pipeline 158.
-**Next step:** Review and merge PR #3 (`temp/project-completion-run070` into `main`, opened in Run 109); the user decides when (nothing merges into `main` without them). Open decisions D23 to D26 still need the user's answer. Optional: a larger model on a bigger machine for better rewrites.
+The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. Screens are wired to the backend (Run 071 onward). Rewrites run on a local Qwen2.5-3B model through Ollama (Run 081). Run 110 made rewrites faster and more reliable (model kept warm while the worker runs; one corrected attempt when a rewrite drops meaning) and fixed three review/profile display bugs. Latest gates are in Run 110: Flutter 170, pipeline 167, live check 84/84 (backend source unchanged since Run 105: 300).
+**Next step:** Commit and push Runs 110 and 111 (not committed yet; waiting on the user). Then review and merge PR #3 (`temp/project-completion-run070` into `main`, opened in Run 109); the user decides when (nothing merges into `main` without them). Open decisions D23 to D26 still need the user's answer. Optional: a larger model on a bigger machine for better rewrites.
 **Blockers:** None. Reset codes are emailed through Gmail SMTP from the project's own account, talkitoutapp.mail@gmail.com (verified 2026-11-14 with `npm run mail:test`).
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
@@ -71,7 +71,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
-**Quality gates (latest known):** Run 105 (local): Flutter 167 passed, analyze 0, format clean; backend 300 passed, type-check and lint clean; pipeline 158 passed; `scripts/demo-flow.sh` passes against a scratch database. On GitHub, `backend-ci` (since Run 102) and `stack-ci` (since Run 103) were red on the last pushed commits; Run 105 fixes both but is not pushed yet. `flutter-ci`, `pipeline-ci` and `demo-pages` were green.
+**Quality gates (latest known):** Run 111 (local): Flutter 172 passed, analyze 0, format clean; backend 301 passed (300 in the full run plus the migration-list test fixed and rerun), type-check and lint clean. Run 110: pipeline 167 passed; `live-check.mjs` 84/84. On GitHub every workflow was green on `b6758f8` and later pushed commits; Runs 110 and 111 are not pushed yet.
 
 **Pipeline notebook handoff:** Kaggle GPU environment verified with vLLM serving Qwen2.5-3B-Instruct (0 hijacks on adversarial probes). End-to-end claim/rewrite/result cycle against live backend verified (Run 057).
 
@@ -3386,3 +3386,102 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] Group-facing code uses only PublishedMessage (no RawMessage import); `lib/` not touched
   - [x] No "show original" UI anywhere
   - [x] Anonymity disclosure unchanged (composer not touched)
+
+### Run 110: Faster, more reliable rewrites; review and profile bug fixes; Google sign-in and reset codes checked; deploy fixes
+- **Date/time:** 2026-11-22 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Fix / Release
+- **Prompt / task:** "Pull everything latest ... why pipeline is taking a lot of time to rewrite and many bugs fix and make it deploy ready", then "where sign in with Google ... make sure OTP is working if forget password and everything".
+- **Result:** Completed (not committed or pushed; waiting on the user)
+- **Summary:**
+  - **Pulled:** `git fetch --all`; the branch was already current with GitHub (Runs 106 to 109 from another session; that session opened PR #3 into `main`). `main` has nothing newer. No open issues. All GitHub workflows green.
+  - **Why rewrites were slow (measured on this 8 GB M1, Qwen2.5-3B via Ollama):**
+    - Cold model: about 23 s (11.4 s load plus 7.7 s first prompt) after 15 idle minutes, when Ollama unloads it (`keep_alive` 15m). The worker warmed it only at start.
+    - Warm: 2.6 to 5.3 s per rewrite. The text generates at about 8 tokens/s, roughly a third of normal for this chip, because the Mac was swapping (5.6 of 6.4 GB swap used). The 580-token instructions take about 1 s each time; Ollama reuses them only for an exact repeat.
+    - Validation retries: when a rewrite drops meaning (for example "nobody fixed it"), the validator rejects it and the backend retries with backoff. The model repeats the same mistake, so a hard message spent about 14 s on 3 attempts and then failed for good.
+  - **Pipeline fixes (`pipeline/`, version 0.4.0):**
+    - `MODEL_KEEP_WARM_SECONDS` (default 600, `0` turns it off). While idle, the worker sends the existing content-free one-token ping, so the model never unloads while the worker runs; it still unloads 15 minutes after the worker stops. Checked live with 20 s: the ping fired and Ollama's timer was renewed.
+    - One corrected attempt in the same job. When a rewrite fails a meaning check (negation, numbers, URL, too long, AI-directed text, blank), the worker asks once more, adding its first try and a fixed note ("keep that negative meaning", or the lost digits; never other message text). The second output passes the same validator or the job fails as before. Scaffold echoes and the hard output limit are not retried. Live: the message that always failed now gets a correct rewrite.
+    - `pipeline_version` bumped to `talkitout-pipeline 0.4.0` (prompt flow changed). README and `.env.example` updated.
+  - **Bugs fixed (Flutter, small and targeted; no restyling):**
+    - Review queue header counted a failed rewrite as "rewriting" forever. It now counts only queued or running jobs and adds "n not available"; a failed card says "Rewrite unavailable. Use the retry button to try a new rewrite." (D1).
+    - Review screen said "This is taking longer than usual" right after retrying an old message: it measured from when the message was sent, days earlier. It now measures from the later of sending and the retry.
+    - Profile "Personalise For You" always said "Off: ..." even with the switch on. The caption now follows the switch.
+  - **Deploy readiness:**
+    - Migrations: the local database lacked migration 024, so inviting people returned 500 (`relation "group_invitations" does not exist`); the live check showed 13/17 until `npm run migrate`. On Render, migrations ran only by hand, so a deploy would hit the same 500. `render.yaml` now starts with `node dist/migrate-cli.js && node dist/server.js` (each migration runs once in its own transaction). `docs/DEPLOY.md` updated (024, automatic).
+    - Password-reset email: `render.yaml` had `MAIL_TRANSPORT=disabled`, so "Forgot?" could never send a code on Render. It now uses Gmail SMTP and asks for `SMTP_USER` and `SMTP_PASS` at setup. Checked with `loadConfig`: filled-in production settings start; blank ones refuse with a clear message. `docs/DEPLOY.md` updated.
+  - **Google sign-in and reset codes checked:**
+    - Gmail SMTP login with the project's settings: OK (`verify()`, nothing sent).
+    - Whole reset flow on a scratch server and database with `MAIL_TRANSPORT=log` (port 3100, `talkitout_otpcheck`, dropped after): unknown email 404, code sent 202, second request within a minute 429, wrong code 400 with tries left, right code gives a 64-character reset token, new password 204, token reuse 400, old password 401, new password 200.
+    - Google: a forged token is refused (401). The live web build now passes `GOOGLE_CLIENT_ID`, and "Continue with Google" shows on the login page (`http://localhost:52001` is an allowed origin since Run 079). The GitHub variable `GOOGLE_CLIENT_ID` is set, and both web workflows pass it. Not done by the agent: signing in with a real Google account (the user's own sign-in).
+    - "Forgot?" screen in the live build: renders step 1 of 3, and an unknown email shows "No account uses this email" (no email sent).
+- **Files created:** `test/review_queue_counts_test.dart`
+- **Files modified:** `pipeline/talkitout_pipeline/{config,worker,__main__,errors,rewrite}.py`, `pipeline/tests/{test_worker,test_config,test_rewrite}.py`, `pipeline/README.md`, `pipeline/.env.example`, `lib/features/review/review_queue_screen.dart`, `lib/features/review/review_detail_screen.dart`, `lib/features/profile/profile_screen.dart`, `render.yaml`, `docs/DEPLOY.md`, `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `dart format` -> pass; `flutter analyze` -> 0 issues; `flutter test --concurrency=2` -> 170 passed
+  - pipeline `python -m compileall` and `python -m unittest discover` -> 167 passed
+  - `live-check.mjs` -> 84/84 in 19 s (after `npm run migrate` on the local database)
+  - Ollama timing script (`/api/chat`, cold and warm) and SMTP `verify()` -> as above
+  - backend `vitest` -> not run (no backend source changed; 300 passed in Run 105)
+- **Docs updated:** `docs/DEPLOY.md` (automatic migrations, reset email at setup), `pipeline/README.md` (keep-warm setting, corrected attempt), `pipeline/.env.example`
+- **Assumptions / decisions:** keep-warm on by default (600 s), because the worker running means rewrites are wanted; it holds about 2 GB of memory while the worker runs. One corrected attempt only, so a bad message costs at most one extra call. Render uses Gmail SMTP by default.
+- **Issues / blockers / known bugs:**
+  - This Mac's memory is the biggest remaining speed limit (heavy swap). A restart, fewer open apps, or a server with more memory would roughly triple generation speed.
+  - Relevance labels are word-overlap heuristics (D18): "the filters panel is hard to find" shows 0% / off topic for "Dashboard improvements". Advisory only, unchanged.
+  - For Google sign-in on the public site, its address (`https://<username>.github.io`) must be an authorised JavaScript origin on the Google client (Google Cloud Console, the user's account). Not checked by the agent.
+  - D23 to D26 still open.
+- **Hard-rules check:**
+  - [x] Group-facing code uses only PublishedMessage (no RawMessage import); the review changes stay inside `features/review`
+  - [x] No "show original" UI anywhere
+  - [x] Anonymity disclosure unchanged (composer not touched)
+  - [x] No message text or identity in logs; retry notes carry fixed text and digits only
+
+### Run 111: Inviting members: fixes and improvements, live invitation updates
+- **Date/time:** 2026-11-22 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Fix / Change (groups: members and invitations)
+- **Prompt / task:** "Invite members and all, improve that and see what else you can improve there."
+- **Result:** Completed (not committed or pushed; waiting on the user)
+- **Summary:**
+  - **Found by walking the flow (live build, controller account):**
+    - After inviting, the Members screen's "Invited (n)" list did not update until a reload (the sheet never refreshed it).
+    - People who already had an open invitation looked selectable; inviting them again only failed afterwards with "Already invited".
+    - If loading suggestions failed, the sheet showed the error with a spinner that never stopped.
+    - With several people selected, one failure closed the sheet and lost the selection.
+    - Declines, cancels and new invitations reached other screens only on reload: the database sent live signals for membership changes, not for invitations.
+    - Removing a member had no error handling; cancelling an invitation had no confirmation and no feedback.
+    - Wording: "Kick", "MODERATOR CONTROLS ACTIVE", "Group Creator & Review Controller" (the controller is not always the creator, D4), "Deliberation Participation", "forfeit your access to agenda updates and room discussions".
+  - **Invite sheet (`add_members_sheet.dart`):**
+    - People with an open invitation show "Invited" and cannot be selected.
+    - Sending refreshes the Invited list at once.
+    - If some invitations fail, the sheet stays open with only those people selected and says which were sent and why the rest were not.
+    - Failed suggestions show the reason and a Retry button; search still works.
+    - New "Invite with a link" row ("For people who are not on Talk It Out yet") opens the existing link/QR sheet.
+  - **Members screen (`members_screen.dart`):**
+    - Pending invitations show "Invited 5m ago" (was "Waiting").
+    - Cancel asks first and confirms with "Invitation to X cancelled."
+    - Remove (was Kick) handles errors.
+    - Plain wording: "YOU ARE THE CONTROLLER", "Reviews every message before it is shared", "Leave this group" with "You will stop seeing its messages", and clearer remove/leave dialogs. Layout and colours unchanged.
+  - **Backend: migration 025** (`025_invitation_live_updates.sql`). A trigger on `group_invitations` (insert, status change) sends the existing `members` signal. The invited person gets a `groups` event; connected members get a `members` event with the group id only, so nobody learns who was invited from the event. Checked live: after a decline through the API, the controller's Invited list emptied within 2 s without a reload.
+- **Files created:** `backend/migrations/025_invitation_live_updates.sql`
+- **Files modified:** `lib/features/discovery/add_members_sheet.dart`, `lib/features/groups/members_screen.dart`, `test/discovery_test.dart` (2 new widget tests), `backend/test/realtime.test.ts` (1 new test), `backend/test/validation-sweep.test.ts` (migration list), `API.md` (section 69 live updates), `docs/DEPLOY.md` (migrations through 025), `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `dart format` -> pass; `flutter analyze` -> 0 issues; `flutter test --concurrency=2` -> 172 passed
+  - backend `vitest run` -> 300 passed, 1 failed (`validation-sweep` pins the migration list; 025 added, rerun 5/5); `tsc --noEmit` and `eslint` clean
+  - `npm run migrate` on the local database -> applied 025
+  - Live web build checked at `http://127.0.0.1:52001`: invite, "Invited just now", live removal after decline
+- **Docs updated:** `API.md` (69), `docs/DEPLOY.md`
+- **Assumptions / decisions:** none new. The sheet marks "Invited" from the controller's own pending list, so no API change was needed. Removing a member is not undoable, so the dialog says they can be invited again.
+- **Issues / blockers / known bugs:**
+  - On `http://127.0.0.1:52001` the Google button did not render in this check, while it does on `http://localhost:52001`; no console error. Use `localhost` locally.
+  - Riverpod retries failed requests automatically. A screen left open after switching accounts in another tab repeats a 403 a few times a minute. Harmless; not changed.
+  - D23 to D26 still open (D26 is who can create invite links).
+- **Hard-rules check:**
+  - [x] Group-facing code uses only PublishedMessage (no RawMessage import)
+  - [x] No "show original" UI anywhere
+  - [x] Anonymity disclosure unchanged (composer not touched)
+  - [x] Live invitation events carry no identity to other members

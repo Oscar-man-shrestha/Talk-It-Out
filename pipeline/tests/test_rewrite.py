@@ -15,7 +15,9 @@ from .helpers import make_config
 
 
 class RecordingAdapter:
-    """Mock inference: returns scripted text, records the prompt."""
+    """Mock inference: returns scripted text, records the prompt. When the
+    script runs out the last output repeats, like a model that makes the
+    same mistake again on the corrected attempt."""
 
     def __init__(self, outputs):
         self.outputs = list(outputs)
@@ -24,7 +26,7 @@ class RecordingAdapter:
     def complete(self, messages, *, temperature, max_tokens):
         self.calls.append({"messages": messages, "temperature": temperature,
                            "max_tokens": max_tokens})
-        item = self.outputs.pop(0)
+        item = self.outputs.pop(0) if len(self.outputs) > 1 else self.outputs[0]
         if isinstance(item, Exception):
             raise item
         return item
@@ -204,6 +206,39 @@ class OutputValidationTests(unittest.TestCase):
         with self.assertRaises(OutputValidationError) as ctx:
             service.rewrite("I don't want to attend the meeting", "agenda")
         self.assertEqual(ctx.exception.code, "intent_not_preserved")
+
+    def test_dropped_negation_gets_one_corrected_attempt(self):
+        service, adapter = make_service(
+            ["I do want to attend the meeting.", "I don't want to attend the meeting."]
+        )
+        outcome = service.rewrite("I don't want to attend the meeting", "agenda")
+        self.assertIn("don't", outcome.rewritten_text)
+        self.assertEqual(len(adapter.calls), 2)
+        retry = adapter.calls[1]["messages"]
+        # The first try and a fixed note are added after the original prompt.
+        self.assertEqual(retry[:2], adapter.calls[0]["messages"])
+        self.assertEqual(retry[2], {"role": "assistant", "content": "I do want to attend the meeting."})
+        self.assertIn("negative", retry[3]["content"])
+
+    def test_only_one_corrected_attempt(self):
+        service, adapter = make_service(["I do want to attend the meeting."])
+        with self.assertRaises(OutputValidationError):
+            service.rewrite("I don't want to attend the meeting", "agenda")
+        self.assertEqual(len(adapter.calls), 2)
+
+    def test_lost_number_hint_names_only_the_digits(self):
+        service, adapter = make_service(["The sync is soon.", "The sync is at 15:30."])
+        service.rewrite("the sync is at 15:30, sorry for shouting", "agenda")
+        note = adapter.calls[1]["messages"][3]["content"]
+        self.assertIn("15, 30", note)
+        self.assertNotIn("sync", note)
+        self.assertNotIn("shouting", note)
+
+    def test_scaffold_leak_is_not_retried(self):
+        service, adapter = make_service([f"{MESSAGE_START} leaked"])
+        with self.assertRaises(OutputValidationError):
+            service.rewrite("please send the notes", "agenda")
+        self.assertEqual(len(adapter.calls), 1)
 
     def test_negation_preserved_accepted(self):
         service, _ = make_service(["I don't want to attend the meeting."])

@@ -9,6 +9,10 @@ services:
     plan: free
     rootDir: backend
     dockerfilePath: ./Dockerfile
+    # Apply any new migrations before the API starts. Each migration runs
+    # once, in its own transaction, so this is a no-op when nothing is new.
+    # (Render's free plan has no pre-deploy step, so it goes here.)
+    dockerCommand: sh -c "node dist/migrate-cli.js && node dist/server.js"
     healthCheckPath: /health
     autoDeploy: false
     envVars:
@@ -38,7 +42,20 @@ services:
         sync: false
       - key: TRUST_PROXY
         value: "1"
+      # Password-reset codes ("Forgot?") are emailed through Gmail SMTP.
+      # SMTP_USER is the Gmail address, SMTP_PASS a Gmail app password
+      # (docs/SETUP_GOOGLE_AND_EMAIL.md). The API refuses to start with
+      # smtp and no password; set MAIL_TRANSPORT to disabled to run
+      # without email ("Forgot?" then says email is not set up).
       - key: MAIL_TRANSPORT
-        value: disabled
+        value: smtp
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false

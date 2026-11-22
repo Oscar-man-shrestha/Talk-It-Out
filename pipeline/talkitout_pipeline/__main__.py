@@ -34,10 +34,16 @@ def build_worker(config: Config) -> Worker:
         extra_body=config.model_extra_body,
     )
     service = RewriteService(adapter=adapter, config=config)
-    return Worker(client=client, service=service, config=config, sleep=time.sleep)
+    return Worker(
+        client=client,
+        service=service,
+        config=config,
+        sleep=time.sleep,
+        keep_warm=lambda: warm_up_model(config, announce=False),
+    )
 
 
-def warm_up_model(config: Config, poster=None) -> bool:
+def warm_up_model(config: Config, poster=None, announce: bool = True) -> bool:
     """Loads the model before the first real message (a cold model can take
     15 s or more; a warm one about 2 s). Sends a one-word prompt with no
     user content. Never raises: a failure only means the first rewrite is
@@ -58,7 +64,8 @@ def warm_up_model(config: Config, poster=None) -> bool:
             "model warm-up failed; the first rewrite may be slow"
         )
         return False
-    logging.getLogger("talkitout.main").info(
+    log = logging.getLogger("talkitout.main")
+    (log.info if announce else log.debug)(
         "model warm in %.1fs", time.monotonic() - started
     )
     return True

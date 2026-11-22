@@ -62,7 +62,8 @@ gitignored). All variables:
 | `PIPELINE_MAX_OUTPUT_CHARS` | `8000` | Mirror of the backend's (provisional) output limit |
 | `PIPELINE_LEASE_SECONDS` | `300` | Mirror of the backend's lease |
 | `PIPELINE_MAX_ATTEMPTS` | `3` | Mirror of the backend's retry cap |
-| `PIPELINE_POLL_INTERVAL_SECONDS` | `2` | Sleep between empty claims |
+| `PIPELINE_POLL_INTERVAL_SECONDS` | `1` | Sleep between empty claims |
+| `MODEL_KEEP_WARM_SECONDS` | `600` | While idle, ping the model this often (no message content) so it stays loaded; `0` turns it off. Keep it below the server's unload timer (Ollama `keep_alive`) |
 | `MODEL_ENDPOINT` | — (required) | Full URL of the self-hosted OpenAI-compatible `/v1/chat/completions` |
 | `MODEL_ID` | — (required) | Model identifier the server expects |
 | `MODEL_API_KEY` | *(empty)* | Only if your self-hosted server requires auth; NOT a provider key |
@@ -360,6 +361,16 @@ into the rewrite; outputs may not exceed 4× the original length, echo
 the prompt scaffold, or be blank/over-limit. Limitations: presence
 checks are not meaning checks, and numerals must stay numerals — both
 are documented trade-offs of deterministic checks.
+
+Corrected attempt (since 0.4.0): when a rewrite fails one of these checks
+(except a scaffold echo or the hard output limit), the worker asks the
+model once more in the same job, adding its first try and a fixed note
+saying what was lost ("keep that negative meaning", or the digits that
+went missing; never other message text). The second output goes through
+the same checks; if it fails too, the job reports `intent_not_preserved`
+as before. The model tends to repeat a mistake, so this replaces about
+10 to 15 s of plain retries (with backoff) with one extra call of about
+3 to 4 s on this Mac.
 
 ## Limits status (do not finalize)
 

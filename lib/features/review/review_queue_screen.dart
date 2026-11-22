@@ -341,6 +341,18 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
         groupAsync.value?.agenda ?? 'AI Ethics & Workplace Policy';
     final pending = queue.value ?? const <RawMessage>[];
     final ready = pending.where((m) => m.rewrittenText != null).length;
+    // Only queued or running jobs are "rewriting"; a failed one is not.
+    final rewriting = pending
+        .where(
+          (m) =>
+              m.rewrittenText == null &&
+              (m.pipelineStatus == PipelineStatus.queued ||
+                  m.pipelineStatus == PipelineStatus.processing),
+        )
+        .length;
+    final unavailable = pending
+        .where((m) => m.rewrittenText == null && m.rewriteUnavailable)
+        .length;
     final counts = ref.watch(reviewCountsProvider(widget.groupId)).value;
     final historyStatus = _activeTab == 1
         ? MessageStatus.accepted
@@ -638,7 +650,10 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '${pending.length - ready} rewriting',
+                            unavailable == 0
+                                ? '$rewriting rewriting'
+                                : '$rewriting rewriting • '
+                                      '$unavailable not available',
                             style: TextStyle(
                               fontSize: 11,
                               color: _kTextSecondary,
@@ -1173,6 +1188,14 @@ class _QueueCard extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          if (message.rewrittenText == null && message.rewriteUnavailable) ...[
+            Text(
+              '${AppStrings.rewriteUnavailable}. Use the retry button to '
+              'try a new rewrite.',
+              style: TextStyle(fontSize: 12, color: _kTextSecondary),
             ),
             const SizedBox(height: 10),
           ],

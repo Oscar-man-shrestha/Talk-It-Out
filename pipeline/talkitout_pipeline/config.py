@@ -61,6 +61,13 @@ def _positive_float(env: dict[str, str], name: str, default: float) -> float:
     return value
 
 
+def _non_negative_float(env: dict[str, str], name: str, default: float) -> float:
+    """Like _positive_float, but 0 is allowed (it means "off")."""
+    if env.get(name, "").strip() in ("0", "0.0"):
+        return 0.0
+    return _positive_float(env, name, default)
+
+
 def _positive_int(env: dict[str, str], name: str, default: int) -> int:
     value = _positive_float(env, name, float(default))
     as_int = int(value)
@@ -102,6 +109,12 @@ class Config:
     # Reported verbatim in every successful result (contract §3).
     pipeline_version: str
     log_level: str
+
+    # While idle, ping the model this often (seconds) so the server does
+    # not unload it; a cold model takes about 20 s to answer on an 8 GB
+    # Mac against 2 to 4 s warm. 0 turns it off. Keep it below the
+    # server's own unload timer (Ollama keep_alive, 15 minutes here).
+    model_keep_warm_seconds: float = 0.0
 
 
 def load_config(env: dict[str, str] | None = None) -> Config:
@@ -158,6 +171,7 @@ def load_config(env: dict[str, str] | None = None) -> Config:
         model_max_tokens=_positive_int(env, "MODEL_MAX_TOKENS", 1024),
         model_request_timeout_seconds=timeout,
         model_extra_body=extra_body,
-        pipeline_version=env.get("PIPELINE_VERSION", "").strip() or "talkitout-pipeline 0.3.0",
+        pipeline_version=env.get("PIPELINE_VERSION", "").strip() or "talkitout-pipeline 0.4.0",
         log_level=env.get("PIPELINE_LOG_LEVEL", "INFO").strip().upper(),
+        model_keep_warm_seconds=_non_negative_float(env, "MODEL_KEEP_WARM_SECONDS", 600.0),
     )

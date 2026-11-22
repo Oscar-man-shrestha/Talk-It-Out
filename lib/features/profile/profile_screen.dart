@@ -3197,11 +3197,11 @@ class _FeedInterestsCard extends StatelessWidget {
           const SizedBox(height: 4),
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Personalise For You',
                       style: TextStyle(
                         fontSize: 13,
@@ -3209,10 +3209,16 @@ class _FeedInterestsCard extends StatelessWidget {
                         color: _kTextPrimary,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
-                      'Off: For You shows what is popular and new, and your activity is not used.',
-                      style: TextStyle(fontSize: 11.5, color: _kTextSecondary),
+                      // Says what the switch is doing now, not only "off".
+                      (state?.personalized ?? true)
+                          ? 'On: For You uses your topics and the questions you like and answer.'
+                          : 'Off: For You shows what is popular and new, and your activity is not used.',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: _kTextSecondary,
+                      ),
                     ),
                   ],
                 ),

@@ -46,6 +46,10 @@ class _ReviewDetailScreenState extends ConsumerState<ReviewDetailScreen> {
   var _diffActive = false;
   String? _error;
 
+  /// When this screen last asked for a new rewrite. The message's own
+  /// time is when it was sent, which can be days before a retry.
+  DateTime? _rewriteRequestedAt;
+
   ReviewKey get _key => (groupId: widget.groupId, messageId: widget.messageId);
 
   @override
@@ -85,6 +89,7 @@ class _ReviewDetailScreenState extends ConsumerState<ReviewDetailScreen> {
     });
     try {
       await ref.read(reviewRepositoryProvider).requestRewrite(widget.messageId);
+      _rewriteRequestedAt = DateTime.now().toUtc();
       ref.invalidate(reviewDetailProvider(_key));
       ref.invalidate(reviewQueueProvider(widget.groupId));
       if (mounted) {
@@ -165,6 +170,7 @@ class _ReviewDetailScreenState extends ConsumerState<ReviewDetailScreen> {
                 onAccept: () => _decide(accept: true),
                 onReject: () => _decide(accept: false),
                 onNewRewrite: _requestRewrite,
+                rewriteRequestedAt: _rewriteRequestedAt,
               ),
       ),
     );
@@ -315,6 +321,7 @@ class ReviewDetailBody extends StatelessWidget {
     required this.onReject,
     this.onNewRewrite,
     this.error,
+    this.rewriteRequestedAt,
     super.key,
   });
 
@@ -329,6 +336,9 @@ class ReviewDetailBody extends StatelessWidget {
   /// Asks the AI for a new rewrite (`API.md` 43).
   final VoidCallback? onNewRewrite;
   final String? error;
+
+  /// When a new rewrite was last asked for on this screen, if ever.
+  final DateTime? rewriteRequestedAt;
 
   @override
   Widget build(BuildContext context) {
@@ -373,6 +383,7 @@ class ReviewDetailBody extends StatelessWidget {
                 diffActive: diffActive,
                 busy: busy,
                 onNewRewrite: onNewRewrite,
+                rewriteRequestedAt: rewriteRequestedAt,
               ),
               const SizedBox(height: 16),
 
@@ -813,23 +824,31 @@ class _AiProposalCard extends StatelessWidget {
     required this.diffActive,
     required this.busy,
     this.onNewRewrite,
+    this.rewriteRequestedAt,
   });
 
   final RawMessage message;
   final bool diffActive;
   final bool busy;
   final VoidCallback? onNewRewrite;
+  final DateTime? rewriteRequestedAt;
 
   bool get _waiting =>
       message.pipelineStatus == PipelineStatus.queued ||
       message.pipelineStatus == PipelineStatus.processing;
 
   /// Still waiting after this long means something is slow (a busy or
-  /// cold model); offer to try again.
-  bool get _slow =>
-      _waiting &&
-      DateTime.now().toUtc().difference(message.createdAt.toUtc()) >
-          const Duration(minutes: 2);
+  /// cold model); offer to try again. Counted from the later of when the
+  /// message was sent and when a new rewrite was asked for, so an old
+  /// message is not called slow the moment it is retried.
+  bool get _slow {
+    if (!_waiting) return false;
+    final sent = message.createdAt.toUtc();
+    final retried = rewriteRequestedAt?.toUtc();
+    final since = retried != null && retried.isAfter(sent) ? retried : sent;
+    return DateTime.now().toUtc().difference(since) >
+        const Duration(minutes: 2);
+  }
 
   String get _rewriteText => message.rewrittenText?.trim() ?? '';
 

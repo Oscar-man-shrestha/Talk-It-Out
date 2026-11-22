@@ -13,11 +13,11 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-20 (IST)
-**Current phase:** Complete and verified end to end (Run 101): Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Current phase:** Complete and ready for final review, with three UX fixes from Run 108 awaiting a fresh Flutter-tooling verification. The repository walkthrough in Run 107 confirmed the clean branch `temp/project-completion-run070`, its three-tier Flutter/Express/PostgreSQL/Python-worker structure, and the review-model privacy boundary. Earlier end-to-end verification remains recorded in Run 101.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. The visual overhaul screens still bypass those data layers with demo chrome. On Kaggle, Qwen2.5-3B-Instruct is serving and the rewrite path works (Run 065); the laptop worker still cannot reach that `127.0.0.1` endpoint. Flutter quality gates were last verified in Run 039 (26 tests). Pipeline unit tests passed 148/148 both locally (Run 061) and in the Kaggle notebook (Run 065).
-**Next step:** Review and merge `temp/project-completion-run070`. Optional: Gmail app password in `backend/.env` for real reset emails (user enters it); a larger model for higher rewrite fidelity.
-**Blockers:** None. Reset codes are emailed through Gmail SMTP from the project's own account, talkitoutapp.mail@gmail.com (verified 2026-11-14 with `npm run mail:test`).
+**Next step:** Rerun the Kaggle ngrok cell to obtain a fresh tunnel URL, replace the expired `MODEL_ENDPOINT` in ignored `pipeline/.env`, restore the local backend/database to `/ready`, then start the external rewrite worker and run an end-to-end rewrite check. Rerun Flutter quality gates afterwards and review/merge `temp/project-completion-run070`.
+**Blockers:** The saved ngrok tunnel URL returns `ERR_NGROK_6024` and can no longer reach the Kaggle model. The local backend responds 503 from `/ready`, so the worker cannot claim jobs even with a fresh model endpoint. Docker Compose could not be inspected in this environment because its root stack variables are unset and the Docker Desktop engine is inaccessible. Reset codes are emailed through Gmail SMTP from the project's own account, talkitoutapp.mail@gmail.com (verified 2026-11-14 with `npm run mail:test`).
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
 8. Run 060 assessed the current repository: the Flutter frontend retains the intended feature-first/Riverpod/repository structure and privacy test boundary, but the latest visual screens bypass their repository models with fixed demo content. Flutter verification was attempted but produced no output for 90 seconds and was stopped, so no current analysis or test pass is claimed.
@@ -3324,3 +3324,193 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] No out-of-scope feature added (auto-approve, rewrite editing, rejection reasons, feed anonymity, relevance auto-reject)
   - [x] Frontend only: no backend/NLP/DB code added
 - **Next steps:** None (project fully verified).
+
+### Run 107: Repository walkthrough and architecture review
+- **Date/time:** 2026-11-20 (IST)
+- **Agent/tool:** Codex (GPT-5)
+- **Phase:** Review / Status
+- **Prompt / task:** "go through the repo"
+- **Result:** Completed
+- **Summary:** Reviewed the repository structure, current branch state, root and pipeline agent rules, README, package manifests, Flutter route/provider boundaries, pipeline integration contract, and privacy-isolation test. The repository is a three-tier product: Flutter/Riverpod client, Express/PostgreSQL API, and a separate Python rewrite worker. The current branch is `temp/project-completion-run070`, aligned with `origin`; its working tree was clean.
+- **Files created:** none
+- **Files modified:** LOGS.md
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `git -c core.fsmonitor=false status --branch --short` -> pass (clean branch tracking `origin/temp/project-completion-run070`)
+  - Repository inventory -> 488 tracked source/documentation files outside generated dependency folders; Flutter features cover auth, groups, review, feed, discovery, invites, onboarding, notifications, profile, and legal.
+  - Privacy-boundary scan -> pass: `RawMessage` references in `lib/` are confined to `features/review`; `test/no_raw_message_import_test.dart` enforces the group-facing import boundary.
+  - Contract review -> pass: the worker is restricted to authenticated `/internal/pipeline/claim`, `/result`, and `/fail` calls and receives no sender identity; the documented contract preserves controller review on rewrite failure.
+- **Docs updated:** LOGS.md
+- **Assumptions / decisions:** none
+- **Issues / blockers / known bugs:** No runtime validation was run in this review. Documentation needs later reconciliation: `ARCHITECTURE.md` still presents a proposed Redis/WebSocket/NestJS-or-Go design, while the implemented/currently documented stack is Express, PostgreSQL, HTTP worker polling, and SSE. Root `AGENTS.md` also retains older frontend-only/change-scope language that conflicts with the current full-stack status snapshot. No source changes were made because this task was review-only.
+- **Hard-rules check:**
+  - [x] Group-facing code uses only PublishedMessage (no RawMessage import)
+  - [x] No "show original" UI found in production group-facing code
+  - [x] Controller-only RawMessage model remains inside `features/review`
+  - [x] Pipeline contract excludes sender identity and database access
+  - [x] No out-of-scope feature added
+- **Next steps:** If requested, reconcile the stale architecture/governance documents or run a fresh full-stack verification. The project is otherwise ready for final review and hand-off.
+
+### Run 108: Chat input, registration feedback, and rewrite-delay diagnosis
+- **Date/time:** 2026-11-20 (IST)
+- **Agent/tool:** Codex (GPT-5)
+- **Phase:** UX fixes / operational diagnosis
+- **Prompt / task:** Make Enter send (Shift+Enter for a line break), fix registration password correction, provide an accept option for slow rewrites, and investigate consistently slow rewrites.
+- **Result:** Partly completed — frontend fixes applied; external rewrite service must be started/configured before real rewrites can complete.
+- **Summary:**
+  - **Chat composer:** Both contributor and controller composers now intercept Enter to send. Shift+Enter is left to the multiline `TextField`, so it inserts a line break. This applies to the web behavior shown in the screenshot.
+  - **Registration:** Password/confirmation edits now clear stale validation feedback immediately, and changing the terms checkbox clears its validation error. A corrected password therefore no longer appears invalid until a refresh.
+  - **Review long-wait state:** Removed the misleading in-progress “Try a new rewrite” action. The server rejects that action by design while an active rewrite job exists (`rewrite_in_progress`), so the screen now explains that it is waiting and that only a generated rewrite can be published. A retry remains available when the worker has actually reported a failure.
+  - **Accept without rewrite:** Not implemented. Publishing without a rewrite would break the required privacy/lifecycle rule: acceptance publishes only the rewrite, never the original wording. The disabled Publish button is intentional until a safe rewrite exists.
+  - **Delay diagnosis:** The backend is configured with `PIPELINE_MODE=external`; the worker configuration points to `http://127.0.0.1:8000/v1/chat/completions`. No listener was visible at the local API/model ports and both local health probes were unreachable from the inspection environment. With no running external worker/model service, jobs remain queued indefinitely, explaining the repeated long waits. This needs an operational start/configuration fix, not a new reject/accept UI action.
+- **Files created:** none
+- **Files modified:** `lib/features/groups/group_chat_screen.dart`, `lib/features/auth/register_screen.dart`, `lib/features/review/review_detail_screen.dart`, LOGS.md
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - Local listener/process/configuration inspection -> external pipeline mode confirmed; configured model endpoint is `127.0.0.1:8000`; no reachable local API/model listener in this environment.
+  - `git diff --check` -> pass.
+  - `dart format`, `flutter analyze`, and `flutter test` were attempted but produced no result within the 30-second tool window; no quality-gate pass is claimed. Rerun these after the local Flutter tooling is responsive.
+- **Docs updated:** LOGS.md
+- **Assumptions / decisions:** Enter should send in both types of group composer, and Shift+Enter should remain the explicit multiline shortcut.
+- **Issues / blockers / known bugs:** The external worker/model must be running and reachable to process queued rewrite jobs. The current API retry contract does not allow replacing an in-progress job; showing a retry button in that state was therefore misleading.
+- **Hard-rules check:**
+  - [x] No original message can be published without a rewrite
+  - [x] No rewrite editor, auto-approval, or rejection reason added
+  - [x] Group-facing `RawMessage` boundary unchanged
+  - [x] No raw message or sender data logged
+- **Next steps:** Start the worker against a reachable local or remote model endpoint, validate an end-to-end rewrite, then rerun `dart format .`, `flutter analyze`, and `flutter test`.
+
+### Run 109: Rewrite-service recovery instructions
+- **Date/time:** 2026-11-20 (IST)
+- **Agent/tool:** Codex (GPT-5)
+- **Phase:** Operations guidance
+- **Prompt / task:** "how to fix this?" (external worker/model endpoint unavailable)
+- **Result:** Completed
+- **Summary:** Confirmed the supported local recovery path from the repository documentation: use Ollama with Qwen2.5-3B, configure the worker to Ollama's OpenAI-compatible endpoint at `http://127.0.0.1:11434/v1/chat/completions`, keep the same pipeline key as the backend, then start `python -m talkitout_pipeline`. The current worker configuration points instead at `127.0.0.1:8000` / `qwen3-4b`, which requires a separate vLLM-compatible model server and is not running. For an immediate non-AI demo, `PIPELINE_MODE=stub` plus `RUN_STUB_WORKER=true` is the documented fallback; it produces clearly labelled placeholder rewrites.
+- **Files created:** none
+- **Files modified:** LOGS.md
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:** Documentation/configuration review only; no services started and no secrets read or changed.
+- **Docs updated:** LOGS.md
+- **Assumptions / decisions:** Recommended the documented Ollama/Qwen2.5-3B local configuration over the unserved `qwen3-4b` endpoint.
+- **Issues / blockers / known bugs:** A running backend/database and an Ollama installation with enough local memory are prerequisites. Jobs already marked `running` may wait up to the configured five-minute lease before the worker can reclaim them.
+- **Hard-rules check:**
+  - [x] No credentials exposed or changed
+  - [x] Worker continues to use only the internal HTTP contract
+  - [x] No raw message content logged
+- **Next steps:** Apply the documented local worker configuration, start Ollama and the worker, then submit a test message and confirm a rewrite appears within seconds.
+
+### Run 110: Kaggle endpoint clarification
+- **Date/time:** 2026-11-20 (IST)
+- **Agent/tool:** Codex (GPT-5)
+- **Phase:** Operations guidance
+- **Prompt / task:** Clarified that the model endpoint runs in Kaggle.
+- **Result:** Completed
+- **Summary:** Corrected the recovery path: a model listening on `127.0.0.1:8000` in Kaggle is reachable only inside the Kaggle notebook. The laptop-side Python worker must instead use the active authenticated Cloudflare tunnel URL produced by the Kaggle notebook (`https://<subdomain>.trycloudflare.com/v1/chat/completions`) and the matching `MODEL_API_KEY`; it then polls the local/backend API as normal. Kaggle tunnel URLs disappear whenever the notebook session stops, so a stale URL produces the observed endless rewrite wait.
+- **Files created:** none
+- **Files modified:** LOGS.md
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:** Reused the documented Kaggle endpoint runbook; no credentials, tunnel, or service state changed.
+- **Docs updated:** LOGS.md
+- **Assumptions / decisions:** none
+- **Issues / blockers / known bugs:** The active Kaggle notebook must keep vLLM and its authenticated tunnel running. The worker still must run locally (or elsewhere with access to both the backend and the tunnel).
+- **Hard-rules check:**
+  - [x] No credentials exposed or changed
+  - [x] No raw content logged
+- **Next steps:** Restart/verify the Kaggle model and tunnel, place the fresh tunnel URL and matching key in `pipeline/.env`, then restart the local worker.
+
+### Run 111: Checked-in Kaggle notebook comparison
+- **Date/time:** 2026-11-20 (IST)
+- **Agent/tool:** Codex (GPT-5)
+- **Phase:** Operations diagnosis
+- **Prompt / task:** Inspect `model_endpoint_1`, the active Kaggle model notebook.
+- **Result:** Completed
+- **Summary:** Located `pipeline/notebooks/model-endpoint-1.ipynb`. Its checked-in version starts Qwen2.5-3B-Instruct as `qwen2.5-3b-instruct` at Kaggle-local `http://127.0.0.1:8000/v1/chat/completions`; it contains no tunnel or API-key cell. The screenshot is a newer Kaggle draft: its successful `with key -> 200` result confirms the model server is alive and auth-protected, but an infinite keep-alive cell does not expose port 8000 to the laptop. The separate current helper, `pipeline/scripts/kaggle_serve.py`, and `pipeline/KAGGLE_ENDPOINT_RUNBOOK.md` provide the missing authenticated Cloudflare-tunnel step and print the three laptop configuration values (`MODEL_ENDPOINT`, `MODEL_ID`, `MODEL_API_KEY`).
+- **Files created:** none
+- **Files modified:** LOGS.md
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:** Read-only inspection of the checked-in notebook, Kaggle serving helper, and endpoint runbook.
+- **Docs updated:** LOGS.md
+- **Assumptions / decisions:** Did not overwrite the checked-in notebook with the user's unsaved Kaggle draft.
+- **Issues / blockers / known bugs:** The current checked-in notebook is stale relative to the running Kaggle draft and cannot alone expose the endpoint to the laptop. The tunnel URL is temporary and must never be committed.
+- **Hard-rules check:**
+  - [x] No keys, tunnel URLs, or user content copied into the repository
+  - [x] No database access by the worker
+- **Next steps:** In Kaggle, verify/start the Cloudflare tunnel; on the laptop use its fresh endpoint URL and matching model key in `pipeline/.env`, then start the worker.
+
+### Run 112: Updated Kaggle notebook review
+- **Date/time:** 2026-11-20 (IST)
+- **Agent/tool:** Codex (GPT-5)
+- **Phase:** Security and operational review
+- **Prompt / task:** Check the updated `model-endpoint-1` notebook in the repository.
+- **Result:** Reviewed; not ready to publish as-is.
+- **Summary:** The updated `pipeline/notebooks/model-endpoint-1.ipynb` correctly configures Qwen2.5-3B-Instruct as `qwen2.5-3b-instruct`, reads `model_api_key` and `ngrok_authtoken` from Kaggle Secrets, starts vLLM with the inherited authentication environment, validates that unauthenticated requests receive 401, starts an HTTPS ngrok tunnel, and verifies the tunnel gives 401 without the key and 200 with it. The keep-alive cell preserves the live Kaggle session.
+- **Security finding:** The notebook output includes a live temporary ngrok endpoint URL. The repository rules and notebook copy say tunnel URLs must not be saved or committed. Clear all notebook outputs (especially the tunnel-output cell) before committing or sharing the notebook. No API key value was found in the checked-in notebook.
+- **Quality finding:** The recorded synthetic smoke test is functionally successful but ends `ADVERSARIAL RESULT: FAIL` because two probes are `SUSPECTED`. Do not treat this model/prompt combination as production-ready until those outcomes are reviewed and resolved according to the pipeline evaluation process.
+- **Files created:** none
+- **Files modified:** LOGS.md
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:** Read-only JSON-level notebook inspection and diff review; no Kaggle service, tunnel, secret, or source file changed.
+- **Docs updated:** LOGS.md
+- **Assumptions / decisions:** none
+- **Issues / blockers / known bugs:** Clear the saved ngrok URL before any commit. To process real app jobs, the laptop worker still needs the current tunnel endpoint and matching model key in the ignored `pipeline/.env`; keep the Kaggle notebook alive while it runs.
+- **Hard-rules check:**
+  - [x] No secret value repeated in this log
+  - [x] No raw message content logged
+  - [x] No worker database access added
+- **Next steps:** Clear notebook outputs, verify/review the two suspected adversarial cases, then configure and start the laptop worker against the active authenticated tunnel.
+
+### Run 113: Notebook and log consistency recheck
+- **Date/time:** 2026-11-20 (IST)
+- **Agent/tool:** Codex (GPT-5)
+- **Phase:** Operations diagnosis
+- **Prompt / task:** Recheck the updated `model_endpoint-1.ipynb` and LOGS.md.
+- **Result:** Completed
+- **Summary:** The current notebook has 22 cells and is internally consistent for its Kaggle role: Qwen2.5-3B-Instruct (`qwen2.5-3b-instruct`), Kaggle Secrets for the model and ngrok keys, authenticated vLLM, an HTTPS ngrok tunnel, and checks recording 401 without the model key plus 200 with it. It contains no literal model key or ngrok token. The current log has been updated to identify ngrok as the live tunnel mechanism; prior entries that referred to Cloudflare describe the earlier documented alternative rather than the active notebook.
+- **Security finding:** The notebook's saved output contains a live ngrok endpoint URL. It is not an API key, but it is temporary operational data and must be cleared before the notebook is committed or shared.
+- **Quality finding:** The stored synthetic smoke run is functional but reports an adversarial failure with two suspected probes; it is not a production-readiness pass.
+- **Files created:** none
+- **Files modified:** LOGS.md
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:** JSON-level notebook inspection; log-tail and working-tree review; `git diff --check` passed.
+- **Docs updated:** LOGS.md
+- **Assumptions / decisions:** none
+- **Issues / blockers / known bugs:** The local Python worker will continue to target an unreachable endpoint until its ignored `.env` is changed to the current ngrok endpoint and matching key, then restarted. The notebook must remain running for that endpoint to work.
+- **Hard-rules check:**
+  - [x] No secret literal found in the notebook source
+  - [x] No secret or live endpoint copied into this log
+  - [x] No worker database access added
+- **Next steps:** Clear notebook outputs before any commit; configure and start the local worker using the live ngrok endpoint and Kaggle model key; then perform an end-to-end rewrite check.
+
+### Run 114: Attempted live worker recovery
+- **Date/time:** 2026-11-21 (IST)
+- **Agent/tool:** Codex (GPT-5)
+- **Phase:** Operations recovery
+- **Prompt / task:** Complete the remaining Kaggle-worker setup work, except clearing notebook output.
+- **Result:** Blocked by expired tunnel and unavailable backend/database.
+- **Summary:** Updated ignored `pipeline/.env` to the notebook's recorded Qwen2.5 model identity and ngrok model endpoint, then ran the worker's synthetic smoke test. The sandbox could not resolve public DNS, so a host-context worker was launched for a real check. It started successfully but logged a failed model warm-up and repeated backend-claim transients. Host checks established that the saved tunnel responds with `ERR_NGROK_6024` (expired/unavailable) and the local backend's `/ready` endpoint returns 503. The worker was stopped after diagnosis to avoid repeated failed requests.
+- **Files created:** `pipeline/worker.log`, `pipeline/worker-error.log` (untracked operational logs)
+- **Files modified:** `pipeline/.env` (ignored local endpoint/model configuration), LOGS.md
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `py scripts/smoke_model.py` -> functional failure: model unavailable.
+  - Host worker launch -> started, but model warm-up failed and job claims were transient failures.
+  - Host tunnel probe -> `ERR_NGROK_6024`; endpoint is no longer active.
+  - Host backend probe -> `/ready` returned 503.
+  - Docker Compose inspection -> unavailable: required root stack variables are unset and Docker Desktop engine access was denied.
+- **Docs updated:** LOGS.md
+- **Assumptions / decisions:** Left notebook output untouched at the user's request. Stopped only the worker process launched during this run once both endpoints were confirmed unavailable.
+- **Issues / blockers / known bugs:** A fresh public Kaggle endpoint is required; then a ready backend/database is required before any worker can process jobs. The locally stored endpoint must be replaced after each tunnel restart.
+- **Hard-rules check:**
+  - [x] No model, pipeline, database, or ngrok secrets printed or logged
+  - [x] Worker used only the internal HTTP contract and no database connection
+  - [x] No user message content was used in diagnostics
+- **Next steps:** Rerun the ngrok cell in Kaggle and provide/use its new endpoint locally; restore the backend database so `/ready` returns 200; start the worker and run the end-to-end rewrite check.

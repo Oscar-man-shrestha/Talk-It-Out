@@ -13,10 +13,10 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-22 (IST)
-**Current phase:** Complete; all four test suites green. Run 105's fixes are pushed and `stack-ci` is green; `backend-ci`'s Docker smoke test is fixed locally (Run 106, not yet committed or pushed). Verified end to end in Run 101: Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Current phase:** Complete; all four test suites green. Run 105's fixes are pushed and `stack-ci` is green; `backend-ci`'s Docker smoke test: Run 106's fix (pushed as `956bf69`) covered only the API start; Run 107 adds the migration step, locally, not yet committed or pushed. Verified end to end in Run 101: Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. Screens are wired to the backend (Run 071 onward). Rewrites run on a local Qwen2.5-3B model through Ollama (Run 081). Latest gates are in Run 105: Flutter 167, backend 300, pipeline 158.
-**Next step:** Commit and push the Run 106 smoke-test fix so `backend-ci` goes green, then review and merge `temp/project-completion-run070` (the user decides when; nothing merges into `main` without them). Open decisions D23 to D26 still need the user's answer. Optional: a larger model on a bigger machine for better rewrites.
+**Next step:** Commit and push the Run 107 smoke-test fix so `backend-ci` goes green, then review and merge `temp/project-completion-run070` (the user decides when; nothing merges into `main` without them). Open decisions D23 to D26 still need the user's answer. Optional: a larger model on a bigger machine for better rewrites.
 **Blockers:** None. Reset codes are emailed through Gmail SMTP from the project's own account, talkitoutapp.mail@gmail.com (verified 2026-11-14 with `npm run mail:test`).
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
@@ -3301,6 +3301,34 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
 - **Docs updated:** none
 - **Assumptions / decisions:** `http://localhost:8080` as the smoke test's CORS origin; the test only checks `/health` and `/ready`, so any non-empty value works. Optional follow-up, not done: add `backend/scripts/**` to `stack-ci`'s path filters so changes to `demo-flow.sh` run it automatically.
 - **Issues / blockers / known bugs:** `backend-ci` stays red until the workflow fix is committed and pushed. D23 to D26 are still open.
+- **Hard-rules check:**
+  - [x] Group-facing code uses only PublishedMessage (no RawMessage import); `lib/` not touched
+  - [x] No "show original" UI anywhere
+  - [x] Anonymity disclosure unchanged (composer not touched)
+
+### Run 107: Completed the backend-ci smoke-test fix (migration step)
+- **Date/time:** 2026-11-22 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Fix
+- **Prompt / task:** "Yes, commit and push" (the Run 106 fix), then confirm `backend-ci`.
+- **Result:** Partial. Run 106 is committed and pushed as `956bf69`, but `backend-ci` still failed. The rest of the fix is local only (not committed or pushed; waiting on the user).
+- **Summary:**
+  - **Run 106's diagnosis was incomplete.** `backend-ci` run 45017934984 on `956bf69`: `test` pass, `docker` failed with the same CORS_ORIGINS error. The crash came about 1 second after Postgres started, in the **migration** step (`node dist/migrate-cli.js`), before the API step Run 106 fixed. `migrate-cli.ts` imports `config`, and `config.ts:210` runs `loadConfig()` when the module loads, so in production the migration tool also needs `CORS_ORIGINS`.
+  - **Fix:** the smoke test's migration `docker run` now also passes `-e CORS_ORIGINS=http://localhost:8080`. All three `docker run` commands in the step were checked: Postgres (does not need it), migration and API (both set it now).
+  - **Docs:** `backend/README.md`'s "Build and run the container" commands had the same gap (neither the migration nor the API command set `CORS_ORIGINS`), so anyone following them got the same error. Both commands now include it, with a one-line note. `docker-compose.yml` was already fine: its `migrate` service shares the API's environment block, which is why `stack-ci` passes.
+  - Not changed: making the migration tool skip the CORS check would avoid this, but it changes backend source; the env fix matches how compose already works.
+- **Files created:** none
+- **Files modified:** `.github/workflows/backend-ci.yml` (one line), `backend/README.md`, `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `git commit` + `git push` -> `956bf69` (Run 106 fix and log)
+  - GitHub `backend-ci` on `956bf69` -> `test` pass, `docker` fail (migration step, CORS_ORIGINS)
+  - YAML parse of `backend-ci.yml` -> ok
+  - Flutter, backend and pipeline test suites -> not run (no source code changed)
+- **Docs updated:** `backend/README.md` (container commands)
+- **Assumptions / decisions:** none new. D23 to D26 are still open.
+- **Issues / blockers / known bugs:** `backend-ci` stays red until this is committed and pushed. The fix is not yet confirmed in CI.
 - **Hard-rules check:**
   - [x] Group-facing code uses only PublishedMessage (no RawMessage import); `lib/` not touched
   - [x] No "show original" UI anywhere

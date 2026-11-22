@@ -94,10 +94,12 @@ docker build -t talkitout-backend .
 docker run --rm \
   -e DATABASE_URL=postgres://user:pass@db-host:5432/talkitout \
   -e JWT_SECRET=<64+ random hex chars> \
+  -e CORS_ORIGINS=https://you.github.io \
   talkitout-backend node dist/migrate-cli.js
 # (equivalently: docker run --rm -e ... <image> npm run migrate:dist)
+# The image runs with NODE_ENV=production, so CORS_ORIGINS is required for both commands.
 docker run -d -p 3000:3000 \
-  -e DATABASE_URL=... -e JWT_SECRET=... [-e RUN_STUB_WORKER=true | -e PIPELINE_MODE=external -e PIPELINE_API_KEY=...] \
+  -e DATABASE_URL=... -e JWT_SECRET=... -e CORS_ORIGINS=... [-e RUN_STUB_WORKER=true | -e PIPELINE_MODE=external -e PIPELINE_API_KEY=...] \
   talkitout-backend
 ```
 

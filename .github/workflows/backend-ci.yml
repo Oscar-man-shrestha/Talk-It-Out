@@ -108,6 +108,7 @@ jobs:
           docker run --rm --network ci-net \
             -e DATABASE_URL=postgres://talkitout:talkitout@ci-pg:5432/talkitout \
             -e JWT_SECRET=ci-only-jwt-secret-0123456789abcdef0123456789abcdef \
+            -e CORS_ORIGINS=http://localhost:8080 \
             talkitout-backend:ci node dist/migrate-cli.js
           docker run -d --name ci-api --network ci-net -p 3000:3000 \
             -e DATABASE_URL=postgres://talkitout:talkitout@ci-pg:5432/talkitout \

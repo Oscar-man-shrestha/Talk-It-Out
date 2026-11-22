@@ -12,11 +12,11 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-11-19 (IST)
-**Current phase:** Complete; all four test suites green again and both failing CI jobs fixed locally (Run 105, not yet pushed). Verified end to end in Run 101: Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Last updated:** 2026-11-22 (IST)
+**Current phase:** Complete; all four test suites green. Run 105's fixes are pushed and `stack-ci` is green; `backend-ci`'s Docker smoke test is fixed locally (Run 106, not yet committed or pushed). Verified end to end in Run 101: Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. Screens are wired to the backend (Run 071 onward). Rewrites run on a local Qwen2.5-3B model through Ollama (Run 081). Latest gates are in Run 105: Flutter 167, backend 300, pipeline 158.
-**Next step:** Commit and push the Run 105 CI fixes so `backend-ci` and `stack-ci` go green, then review and merge `temp/project-completion-run070` (the user decides when; nothing merges into `main` without them). Open decisions D23 to D26 still need the user's answer. Optional: a larger model on a bigger machine for better rewrites.
+**Next step:** Commit and push the Run 106 smoke-test fix so `backend-ci` goes green, then review and merge `temp/project-completion-run070` (the user decides when; nothing merges into `main` without them). Open decisions D23 to D26 still need the user's answer. Optional: a larger model on a bigger machine for better rewrites.
 **Blockers:** None. Reset codes are emailed through Gmail SMTP from the project's own account, talkitoutapp.mail@gmail.com (verified 2026-11-14 with `npm run mail:test`).
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
@@ -3272,6 +3272,35 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
 - **Docs updated:** none (API.md already describes invitations, API 69)
 - **Assumptions / decisions:** none new. D23 to D26 are still open.
 - **Issues / blockers / known bugs:** the fixes are not on GitHub until committed and pushed, so CI stays red until then. Rewrite quality is still limited by the 3B model (Run 104).
+- **Hard-rules check:**
+  - [x] Group-facing code uses only PublishedMessage (no RawMessage import); `lib/` not touched
+  - [x] No "show original" UI anywhere
+  - [x] Anonymity disclosure unchanged (composer not touched)
+
+### Run 106: Pushed the Run 105 CI fixes; fixed the backend-ci smoke test
+- **Date/time:** 2026-11-22 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Fix
+- **Prompt / task:** "Yes, push it" (push the Run 105 CI fix commit `98a9a3f`).
+- **Result:** Partial. `98a9a3f` is pushed and `stack-ci` is green. The `backend-ci` fix below is local only (not committed or pushed; waiting on the user).
+- **Summary:**
+  - **Pushed** `98a9a3f` ("Fix backend-ci and stack-ci; log Run 105") to `temp/project-completion-run070`.
+  - **`backend-ci` (run 45017318456):** the `test` job now passes, so Run 105's production-config test fix works. The `docker` job failed in "Smoke test against a throwaway Postgres": the image sets `NODE_ENV=production`, and the step started the API without `CORS_ORIGINS`, so `validateOrigins` (added in Run 102) stopped the server. This job had been red since `6ba9360` (2026-11-16). Fix: the smoke test's `docker run` for the API now passes `-e CORS_ORIGINS=http://localhost:8080`. Checked locally by calling `loadConfig` with the step's old settings (refused with the same CORS_ORIGINS error) and the new ones (starts). CORS_ORIGINS is the only new production requirement for this step; mail stays disabled by default and the CI JWT secret already passes.
+  - **`stack-ci`:** it did not run on the push, because `backend/scripts/**` is not in its path filters. Started it by hand (`workflow_dispatch`, run 45017579854): **success**, so Run 105's `demo-flow.sh` invitation fix works in CI.
+  - **This Mac:** the data disk was nearly full again (about 200 MB free; swap at 3.2 of 3.3 GB). With the user's OK the agent cleared the uv, pip and Homebrew caches and unused `~/.npm/_npx` folders (two in use by running tools were kept). About 976 MB was free afterwards. A restart should free more by clearing swap.
+- **Files created:** none
+- **Files modified:** `.github/workflows/backend-ci.yml` (one line), `LOGS.md`
+- **Files deleted:** none in the repo
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `git push origin temp/project-completion-run070` -> `daeeeb1..98a9a3f`
+  - GitHub `backend-ci` on `98a9a3f` -> `test` pass, `docker` fail (CORS_ORIGINS; fixed locally, not yet re-run in CI)
+  - GitHub `stack-ci` on `98a9a3f` (manual dispatch) -> success
+  - `loadConfig` check with `tsx` (old vs new smoke-test env) -> refused vs starts
+  - `dart format`, `flutter analyze`, `flutter test`, backend and pipeline tests -> not run this run (no Dart, backend source or pipeline code changed; only a CI workflow line)
+- **Docs updated:** none
+- **Assumptions / decisions:** `http://localhost:8080` as the smoke test's CORS origin; the test only checks `/health` and `/ready`, so any non-empty value works. Optional follow-up, not done: add `backend/scripts/**` to `stack-ci`'s path filters so changes to `demo-flow.sh` run it automatically.
+- **Issues / blockers / known bugs:** `backend-ci` stays red until the workflow fix is committed and pushed. D23 to D26 are still open.
 - **Hard-rules check:**
   - [x] Group-facing code uses only PublishedMessage (no RawMessage import); `lib/` not touched
   - [x] No "show original" UI anywhere

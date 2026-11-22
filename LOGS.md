@@ -13,10 +13,10 @@ Rules for this file:
 ## Status Snapshot
 
 **Last updated:** 2026-11-22 (IST)
-**Current phase:** Complete; all four test suites green. Run 105's fixes are pushed and `stack-ci` is green; `backend-ci`'s Docker smoke test: Run 106's fix (pushed as `956bf69`) covered only the API start; Run 107 adds the migration step, locally, not yet committed or pushed. Verified end to end in Run 101: Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
+**Current phase:** Complete; all four test suites green. Run 105's fixes are pushed and `stack-ci` is green; `backend-ci` is green again as of `b6758f8` (Run 107; confirmed in Run 108), including the Docker smoke test. Verified end to end in Run 101: Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. Screens are wired to the backend (Run 071 onward). Rewrites run on a local Qwen2.5-3B model through Ollama (Run 081). Latest gates are in Run 105: Flutter 167, backend 300, pipeline 158.
-**Next step:** Commit and push the Run 107 smoke-test fix so `backend-ci` goes green, then review and merge `temp/project-completion-run070` (the user decides when; nothing merges into `main` without them). Open decisions D23 to D26 still need the user's answer. Optional: a larger model on a bigger machine for better rewrites.
+**Next step:** Review and merge `temp/project-completion-run070` into `main`; CI is green (Run 108), and the user decides when (nothing merges into `main` without them). Open decisions D23 to D26 still need the user's answer. Optional: a larger model on a bigger machine for better rewrites.
 **Blockers:** None. Reset codes are emailed through Gmail SMTP from the project's own account, talkitoutapp.mail@gmail.com (verified 2026-11-14 with `npm run mail:test`).
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
@@ -3329,6 +3329,32 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
 - **Docs updated:** `backend/README.md` (container commands)
 - **Assumptions / decisions:** none new. D23 to D26 are still open.
 - **Issues / blockers / known bugs:** `backend-ci` stays red until this is committed and pushed. The fix is not yet confirmed in CI.
+- **Hard-rules check:**
+  - [x] Group-facing code uses only PublishedMessage (no RawMessage import); `lib/` not touched
+  - [x] No "show original" UI anywhere
+  - [x] Anonymity disclosure unchanged (composer not touched)
+
+### Run 108: Confirmed backend-ci green
+- **Date/time:** 2026-11-22 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Verify
+- **Prompt / task:** "Yes, commit and push" (the Run 107 fix), then confirm `backend-ci`.
+- **Result:** Completed. This log update itself is not committed or pushed.
+- **Summary:**
+  - Committed and pushed Run 107 as `b6758f8`.
+  - GitHub `backend-ci` run 45020936631 on `b6758f8`: `test` pass, `docker` pass. The smoke test's server answered `/health` with `{"status":"ok"}` and `/ready` with `{"status":"ready"}`. Checked in the log, because a failing `curl` inside the step's `echo "$(...)"` would not fail the step.
+  - CI on the branch: `backend-ci` green (`b6758f8`), `stack-ci` green (manual run on `98a9a3f`; it did not re-run, since `b6758f8` touches none of its paths), `flutter-ci` and `demo-pages` green on `daeeeb1` (nothing in their paths changed since).
+- **Files created:** none
+- **Files modified:** `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `git push` -> `956bf69..b6758f8`
+  - GitHub `backend-ci` on `b6758f8` -> success (both jobs)
+  - Test suites -> not run locally (no source code changed)
+- **Docs updated:** none
+- **Assumptions / decisions:** none new. D23 to D26 are still open.
+- **Issues / blockers / known bugs:** none new. Optional: add `backend/scripts/**` to `stack-ci`'s path filters.
 - **Hard-rules check:**
   - [x] Group-facing code uses only PublishedMessage (no RawMessage import); `lib/` not touched
   - [x] No "show original" UI anywhere

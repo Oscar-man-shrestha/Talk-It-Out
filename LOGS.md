@@ -16,7 +16,7 @@ Rules for this file:
 **Current phase:** Complete; all four test suites green. Run 105's fixes are pushed and `stack-ci` is green; `backend-ci` is green again as of `b6758f8` (Run 107; confirmed in Run 108), including the Docker smoke test. Verified end to end in Run 101: Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. Screens are wired to the backend (Run 071 onward). Rewrites run on a local Qwen2.5-3B model through Ollama (Run 081). Latest gates are in Run 105: Flutter 167, backend 300, pipeline 158.
-**Next step:** Review and merge `temp/project-completion-run070` into `main`; CI is green (Run 108), and the user decides when (nothing merges into `main` without them). Open decisions D23 to D26 still need the user's answer. Optional: a larger model on a bigger machine for better rewrites.
+**Next step:** Review and merge PR #3 (`temp/project-completion-run070` into `main`, opened in Run 109); the user decides when (nothing merges into `main` without them). Open decisions D23 to D26 still need the user's answer. Optional: a larger model on a bigger machine for better rewrites.
 **Blockers:** None. Reset codes are emailed through Gmail SMTP from the project's own account, talkitoutapp.mail@gmail.com (verified 2026-11-14 with `npm run mail:test`).
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
@@ -3355,6 +3355,33 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
 - **Docs updated:** none
 - **Assumptions / decisions:** none new. D23 to D26 are still open.
 - **Issues / blockers / known bugs:** none new. Optional: add `backend/scripts/**` to `stack-ci`'s path filters.
+- **Hard-rules check:**
+  - [x] Group-facing code uses only PublishedMessage (no RawMessage import); `lib/` not touched
+  - [x] No "show original" UI anywhere
+  - [x] Anonymity disclosure unchanged (composer not touched)
+
+### Run 109: stack-ci trigger, PR to main
+- **Date/time:** 2026-11-22 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Release
+- **Prompt / task:** "whatever you suggest do it" (after the agent suggested merging the branch and deciding D23 to D26).
+- **Result:** Completed, with the merge and the decisions left to the user (see below).
+- **Summary:**
+  - **`stack-ci` trigger:** added `backend/scripts/**` to its push paths, so changes to `demo-flow.sh` run it automatically (Run 106 found they did not). Committed with the Run 108 log as `db77596` and pushed.
+  - **PR #3** (https://github.com/Oscar-man-shrestha/Talk-It-Out/pull/3) opened from `temp/project-completion-run070` into `main`: 83 commits, 342 files. Checked first: `main` has nothing the branch lacks (0 behind), is not protected, and merging deploys nothing (`deploy-web` is manual; `demo-pages` runs only for the branch). The PR runs `backend-ci`, `flutter-ci` and `pipeline-ci`; `stack-ci` and `demo-pages` do not run on PRs. Auto-fix is on for the PR in the Claude app.
+  - **Not merged:** `main` is shared (its last change was a teammate's PR #2), and the branch is large, so the agent opened a PR for review instead of merging. The merge is the user's call.
+  - **D23 to D26 not decided:** these are product decisions this file reserves for the user (AGENTS.md section 0); a general "do whatever you suggest" was not taken as deciding them. They stay Open.
+- **Files created:** none
+- **Files modified:** `.github/workflows/stack-ci.yml` (one line), `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `git push` -> `b6758f8..db77596`
+  - `gh pr create` -> PR #3
+  - Test suites -> not run locally (no source code changed); CI on the PR is running
+- **Docs updated:** none
+- **Assumptions / decisions:** a PR rather than a direct merge (reason above).
+- **Issues / blockers / known bugs:** none new.
 - **Hard-rules check:**
   - [x] Group-facing code uses only PublishedMessage (no RawMessage import); `lib/` not touched
   - [x] No "show original" UI anywhere

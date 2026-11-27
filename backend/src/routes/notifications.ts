@@ -19,9 +19,11 @@ export function createNotificationsRouter(
       `SELECT n.id, n.type, n.ref_id,
               date_trunc('milliseconds', n.created_at) AS created_at,
               n.read_at,
-              g.id AS group_id, g.agenda AS group_agenda
+              g.id AS group_id, g.agenda AS group_agenda,
+              p.id AS post_id, COALESCE(p.title, left(p.content, 120)) AS post_title
        FROM notifications n
-       JOIN groups g ON g.id = n.group_id
+       LEFT JOIN groups g ON g.id = n.group_id
+       LEFT JOIN posts p ON p.id = n.post_id
        WHERE n.recipient_id = $1
          AND ($2::timestamptz IS NULL
               OR (date_trunc('milliseconds', n.created_at), n.id) < ($2::timestamptz, $3::uuid))
@@ -37,7 +39,9 @@ export function createNotificationsRouter(
         id: row.id,
         type: row.type,
         ref_id: row.ref_id,
-        group: { id: row.group_id, agenda: row.group_agenda },
+        // Group notifications carry a group; feed ones carry a question.
+        group: row.group_id ? { id: row.group_id, agenda: row.group_agenda } : null,
+        post: row.post_id ? { id: row.post_id, title: row.post_title } : null,
         created_at: row.created_at.toISOString(),
         read_at: row.read_at ? row.read_at.toISOString() : null,
       }),

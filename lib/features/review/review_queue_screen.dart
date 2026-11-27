@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
+import 'package:talk_it_out/core/models/enums.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/core/ui/labels.dart';
 import 'package:talk_it_out/core/ui/screen_async.dart';
@@ -10,16 +11,19 @@ import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/review/data/raw_message.dart';
 import 'package:talk_it_out/features/review/review_providers.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
+import 'package:talk_it_out/features/review/moderation_notes.dart';
 
 // Stitch Monochrome Precision tokens
-const _kPrimary = Color(0xFF000000);
-const _kSurface = Color(0xFFFFFFFF);
-const _kSurfaceMuted = Color(0xFFF4F4F5);
-const _kSurfaceSubtle = Color(0xFFFAFAFA);
-const _kBorderSubtle = Color(0xFFE4E4E7);
-const _kTextPrimary = Color(0xFF09090B);
-const _kTextSecondary = Color(0xFF71717A);
-const _kTextTertiary = Color(0xFFA1A1AA);
+const _kPrimary = Brand.accent;
+const _kSurface = Brand.card;
+const _kSurfaceMuted = Brand.muted;
+const _kSurfaceSubtle = Brand.canvas;
+const _kBorderSubtle = Brand.border;
+const _kTextPrimary = Brand.ink;
+const _kTextSecondary = Brand.inkSoft;
+const _kTextTertiary = Brand.inkFaint;
 
 class ReviewQueueScreen extends ConsumerStatefulWidget {
   const ReviewQueueScreen({required this.groupId, super.key});
@@ -67,7 +71,11 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.tune, size: 18, color: _kTextPrimary),
+                          Icon(
+                            PhosphorIconsRegular.slidersHorizontal,
+                            size: 18,
+                            color: _kTextPrimary,
+                          ),
                           SizedBox(width: 8),
                           Text(
                             'Review Queue Filters',
@@ -81,7 +89,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                       ),
                       IconButton(
                         icon: const Icon(
-                          Icons.close,
+                          PhosphorIconsRegular.x,
                           size: 20,
                           color: _kTextSecondary,
                         ),
@@ -96,7 +104,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'Minimum Relevance Score',
+                        'Mark messages under this relevance',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -116,7 +124,6 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                         child: Text(
                           '> ${tempThreshold.toInt()}%',
                           style: const TextStyle(
-                            fontFamily: 'monospace',
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: _kTextPrimary,
@@ -140,7 +147,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
 
                   // Anonymity Type Filter
                   const Text(
-                    'Identity Shielding Filter',
+                    'Sender',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -152,7 +159,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                     children: [
                       for (final entry in [
                         (0, 'All'),
-                        (1, 'Shielded Only'),
+                        (1, 'Anonymous Only'),
                         (2, 'Attributed Only'),
                       ])
                         Expanded(
@@ -200,7 +207,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
 
                   // Priority Sorting
                   const Text(
-                    'Queue Priority Ordering',
+                    'Order',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -224,22 +231,26 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                           color: _kTextPrimary,
                         ),
                         icon: const Icon(
-                          Icons.expand_more,
+                          PhosphorIconsRegular.caretDown,
                           size: 18,
                           color: _kTextSecondary,
                         ),
                         items: const [
                           DropdownMenuItem(
                             value: 'Normal FIFO',
-                            child: Text('Normal FIFO (Chronological)'),
+                            child: Text('Oldest first'),
                           ),
                           DropdownMenuItem(
-                            value: 'High Tension First',
-                            child: Text('High Tension / Escalations First'),
+                            value: 'Newest first',
+                            child: Text('Newest first'),
                           ),
                           DropdownMenuItem(
-                            value: 'Consensus Blockers First',
-                            child: Text('Consensus Blockers First'),
+                            value: 'Most relevant first',
+                            child: Text('Most relevant first'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Ready first',
+                            child: Text('Rewrite ready first'),
                           ),
                         ],
                         onChanged: (val) {
@@ -333,7 +344,72 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
     final groupAsync = ref.watch(groupDetailProvider(widget.groupId));
     final groupAgenda =
         groupAsync.value?.agenda ?? 'AI Ethics & Workplace Policy';
-    final items = queue.value ?? const <RawMessage>[];
+    final pending = queue.value ?? const <RawMessage>[];
+    final ready = pending.where((m) => m.rewrittenText != null).length;
+    // Only queued or running jobs are "rewriting"; a failed one is not.
+    final rewriting = pending
+        .where(
+          (m) =>
+              m.rewrittenText == null &&
+              (m.pipelineStatus == PipelineStatus.queued ||
+                  m.pipelineStatus == PipelineStatus.processing),
+        )
+        .length;
+    final unavailable = pending
+        .where((m) => m.rewrittenText == null && m.rewriteUnavailable)
+        .length;
+    final counts = ref.watch(reviewCountsProvider(widget.groupId)).value;
+    final historyStatus = _activeTab == 1
+        ? MessageStatus.accepted
+        : MessageStatus.rejected;
+    final history = _activeTab == 0
+        ? null
+        : ref.watch(
+            reviewHistoryProvider((
+              groupId: widget.groupId,
+              status: historyStatus,
+            )),
+          );
+    final hasHistory = counts != null && counts.accepted + counts.rejected > 0;
+    // Relevance is advisory and never hides a message: the mark only labels,
+    // the order only sorts. Only the identity filter narrows the list.
+    final source = _activeTab == 0
+        ? pending
+        : history?.value ?? const <RawMessage>[];
+    final items = source.where((m) {
+      if (_anonymityFilter == 1) return m.isAnonymous;
+      if (_anonymityFilter == 2) return !m.isAnonymous;
+      return true;
+    }).toList();
+    int byAge(RawMessage a, RawMessage b) => a.createdAt.compareTo(b.createdAt);
+    switch (_priorityMode) {
+      case 'Newest first':
+        items.sort((a, b) => byAge(b, a));
+      case 'Most relevant first':
+        items.sort((a, b) {
+          final byScore = (b.relevanceScore ?? -1).compareTo(
+            a.relevanceScore ?? -1,
+          );
+          return byScore != 0 ? byScore : byAge(a, b);
+        });
+      case 'Ready first':
+        int ready(RawMessage m) =>
+            m.pipelineStatus == PipelineStatus.done ? 0 : 1;
+        items.sort((a, b) {
+          final byReady = ready(a).compareTo(ready(b));
+          return byReady != 0 ? byReady : byAge(a, b);
+        });
+      default:
+        items.sort(byAge);
+    }
+    // Decided messages always read most recent decision first.
+    if (_activeTab != 0) {
+      items.sort(
+        (a, b) =>
+            (b.decidedAt ?? b.createdAt).compareTo(a.decidedAt ?? a.createdAt),
+      );
+    }
+    final mark = _relevanceThreshold.round();
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isDesktop = screenWidth >= 900;
     final isMobile = screenWidth < 600;
@@ -345,8 +421,8 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
         preferredSize: const Size.fromHeight(56),
         child: Container(
           decoration: const BoxDecoration(
-            color: _kSurface,
-            border: Border(bottom: BorderSide(color: _kBorderSubtle)),
+            color: Color(0xFF0A0A0A),
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
           ),
           child: SafeArea(
             bottom: false,
@@ -358,9 +434,9 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                 children: [
                   IconButton(
                     icon: const Icon(
-                      Icons.arrow_back_ios_new,
+                      PhosphorIconsRegular.caretLeft,
                       size: 18,
-                      color: _kTextPrimary,
+                      color: Colors.white,
                     ),
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
@@ -375,26 +451,27 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.8,
-                          color: _kTextSecondary,
+                          color: Colors.white70,
                         ),
                       ),
                       Text(
-                        'Talk It Out • Review Queue',
+                        'Review queue',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           letterSpacing: -0.2,
-                          color: _kTextPrimary,
+                          color: Colors.white,
                         ),
                       ),
                     ],
                   ),
+                  const Spacer(),
                   PopupMenuButton<String>(
                     tooltip: 'Queue options',
                     icon: const Icon(
-                      Icons.more_vert,
+                      PhosphorIconsRegular.dotsThreeVertical,
                       size: 20,
-                      color: _kTextSecondary,
+                      color: Colors.white70,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -406,9 +483,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            val == 'export'
-                                ? 'Exporting cryptographic ledger audit log...'
-                                : 'Zero-knowledge buffer health: 100% synchronized',
+                            '${pending.length} pending • $ready rewrites ready',
                           ),
                           duration: const Duration(seconds: 2),
                           behavior: SnackBarBehavior.floating,
@@ -416,27 +491,6 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                       );
                     },
                     itemBuilder: (ctx) => const [
-                      PopupMenuItem(
-                        value: 'export',
-                        height: 36,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.download,
-                              size: 15,
-                              color: _kTextSecondary,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Export Review Ledger',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: _kTextPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                       PopupMenuItem(
                         value: 'health',
                         height: 36,
@@ -449,7 +503,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                             ),
                             SizedBox(width: 8),
                             Text(
-                              'Buffer Health Diagnostics',
+                              'Queue status',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: _kTextPrimary,
@@ -467,7 +521,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
         ),
       ),
       body: AsyncBody(
-        status: asyncStatus(queue, isEmpty: items.isEmpty),
+        status: asyncStatus(queue, isEmpty: pending.isEmpty && !hasHistory),
         errorMessage: errorText(queue.error),
         onRetry: () => ref.invalidate(reviewQueueProvider(widget.groupId)),
         empty: _EmptyReviewState(hPad: hPad),
@@ -495,7 +549,6 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                           groupAgenda.toUpperCase(),
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontFamily: 'monospace',
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.6,
@@ -524,7 +577,6 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                         'LIVE',
                         style: TextStyle(
                           fontSize: 10,
-                          fontFamily: 'monospace',
                           fontWeight: FontWeight.w700,
                           color: _kTextPrimary,
                         ),
@@ -547,64 +599,81 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            '${items.length} awaiting moderation',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 1.5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _kPrimary,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'ACTIVE',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontFamily: 'monospace',
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                '${pending.length} awaiting moderation',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: _kTextPrimary,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 3),
-                      const Row(
-                        children: [
-                          Text(
-                            'Active buffer sync',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _kTextSecondary,
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 1.5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _kPrimary,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'ACTIVE',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
-                          ),
-                          SizedBox(width: 4),
-                          Text('•', style: TextStyle(color: _kTextTertiary)),
-                          SizedBox(width: 4),
-                          Text(
-                            'Est. wait time: ~4 mins',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _kTextSecondary,
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                ready == 1
+                                    ? '1 rewrite ready'
+                                    : '$ready rewrites ready',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: _kTextSecondary,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: const Text(
+                                '•',
+                                style: TextStyle(color: _kTextTertiary),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                unavailable == 0
+                                    ? '$rewriting rewriting'
+                                    : '$rewriting rewriting • '
+                                          '$unavailable not available',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: _kTextSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                   InkWell(
                     onTap: _openFilterModal,
@@ -630,7 +699,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.tune,
+                            PhosphorIconsRegular.slidersHorizontal,
                             size: 16,
                             color:
                                 _relevanceThreshold != 70.0 ||
@@ -679,21 +748,21 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                 children: [
                   _FilterPill(
                     label: 'Pending',
-                    count: '${items.length}',
+                    count: '${counts?.pending ?? pending.length}',
                     selected: _activeTab == 0,
                     onTap: () => setState(() => _activeTab = 0),
                   ),
                   const SizedBox(width: 8),
                   _FilterPill(
                     label: 'Approved',
-                    count: '24',
+                    count: counts == null ? '–' : '${counts.accepted}',
                     selected: _activeTab == 1,
                     onTap: () => setState(() => _activeTab = 1),
                   ),
                   const SizedBox(width: 8),
                   _FilterPill(
                     label: 'Rejected',
-                    count: '2',
+                    count: counts == null ? '–' : '${counts.rejected}',
                     selected: _activeTab == 2,
                     onTap: () => setState(() => _activeTab = 2),
                   ),
@@ -703,19 +772,85 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
             const SizedBox(height: 14),
 
             // 4. Queue Cards List
+            if (history != null && history.isLoading && !history.hasValue)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              )
+            else if (history != null && history.hasError && !history.hasValue)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: TextButton(
+                    onPressed: () => ref.invalidate(
+                      reviewHistoryProvider((
+                        groupId: widget.groupId,
+                        status: historyStatus,
+                      )),
+                    ),
+                    child: Text('${errorText(history.error)} Tap to retry.'),
+                  ),
+                ),
+              )
+            else if (items.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Text(
+                    _activeTab == 0
+                        ? AppStrings.reviewEmpty
+                        : _activeTab == 1
+                        ? AppStrings.reviewNoneApproved
+                        : AppStrings.reviewNoneRejected,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: _kTextSecondary,
+                    ),
+                  ),
+                ),
+              ),
             for (final message in items) ...[
               _QueueCard(
                 message: message,
                 groupId: widget.groupId,
+                belowMark:
+                    message.relevanceScore != null &&
+                        message.relevanceScore! * 100 < mark
+                    ? mark
+                    : null,
                 onReject: () async {
                   try {
                     await ref.read(reviewRepositoryProvider).reject(message.id);
                     ref.invalidate(reviewQueueProvider(widget.groupId));
+                    ref.invalidate(reviewCountsProvider(widget.groupId));
+                    ref.invalidate(reviewHistoryProvider);
                   } on RepositoryException catch (e) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context)
                           .showSnackBar(SnackBar(content: Text(e.message)));
                     }
+                  }
+                },
+                onRerun: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    await ref
+                        .read(reviewRepositoryProvider)
+                        .requestRewrite(message.id);
+                    ref.invalidate(reviewQueueProvider(widget.groupId));
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text(AppStrings.rewriteRequested),
+                      ),
+                    );
+                  } on RepositoryException catch (e) {
+                    messenger.showSnackBar(SnackBar(content: Text(e.message)));
                   }
                 },
               ),
@@ -730,7 +865,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                 Icon(Icons.swipe, size: 16, color: _kTextTertiary),
                 SizedBox(width: 6),
                 Text(
-                  'Tip: Swipe card right to approve instantly',
+                  'Tip: Open a message to compare it with its rewrite',
                   style: TextStyle(fontSize: 11, color: _kTextTertiary),
                 ),
               ],
@@ -791,7 +926,6 @@ class _FilterPill extends StatelessWidget {
                 count,
                 style: TextStyle(
                   fontSize: 10,
-                  fontFamily: 'monospace',
                   fontWeight: FontWeight.w700,
                   color: selected ? Colors.white : _kTextSecondary,
                 ),
@@ -809,21 +943,38 @@ class _QueueCard extends StatelessWidget {
     required this.message,
     required this.groupId,
     required this.onReject,
+    required this.onRerun,
+    this.belowMark,
   });
+
+  /// The controller's relevance mark when this message scores under it.
+  /// Only a label: the message stays in the queue either way.
+  final int? belowMark;
 
   final RawMessage message;
   final String groupId;
   final VoidCallback onReject;
+  final VoidCallback onRerun;
+
+  bool get _rewriting =>
+      message.pipelineStatus == PipelineStatus.queued ||
+      message.pipelineStatus == PipelineStatus.processing;
 
   @override
   Widget build(BuildContext context) {
     final isAnon = message.isAnonymous;
-    final senderTitle = isAnon
-        ? 'Anonymous #${message.senderId.length > 3 ? message.senderId.substring(0, 3).toUpperCase() : "8B9"}'
-        : message.senderName;
-    final relevance = message.relevanceScore != null
-        ? '${(message.relevanceScore! * 100).round()}% Relevance'
-        : '94% Relevance';
+    // Controllers see who sent every message, including anonymous ones.
+    final senderTitle = message.senderName;
+    final relevance = message.relevanceScore == null
+        ? 'Relevance pending'
+        : belowMark != null
+        ? '${(message.relevanceScore! * 100).round()}% · under $belowMark%'
+        : '${(message.relevanceScore! * 100).round()}% Relevance';
+    final label = message.relevanceLabel;
+    final tag = label == null
+        ? (isAnon ? 'SENT AS ANONYMOUS' : 'SENT WITH NAME')
+        : relevanceText(label).toUpperCase();
+    final intent = message.intentPreservationScore;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -836,10 +987,14 @@ class _QueueCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Metadata Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
                     width: 24,
@@ -867,21 +1022,24 @@ class _QueueCard extends StatelessWidget {
                           ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    senderTitle,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: _kTextPrimary,
+                  Flexible(
+                    child: Text(
+                      senderTitle,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: _kTextPrimary,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    formatWhen(message.createdAt),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontFamily: 'monospace',
-                      color: _kTextTertiary,
+                  Flexible(
+                    child: Text(
+                      formatWhen(message.createdAt),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: _kTextTertiary,
+                      ),
                     ),
                   ),
                 ],
@@ -897,7 +1055,6 @@ class _QueueCard extends StatelessWidget {
                   relevance,
                   style: const TextStyle(
                     fontSize: 10,
-                    fontFamily: 'monospace',
                     fontWeight: FontWeight.w600,
                     color: _kTextPrimary,
                   ),
@@ -915,13 +1072,13 @@ class _QueueCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
               border: Border.all(color: _kBorderSubtle),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.gavel, size: 12, color: _kTextPrimary),
-                SizedBox(width: 4),
+                const Icon(Icons.gavel, size: 12, color: _kTextPrimary),
+                const SizedBox(width: 4),
                 Text(
-                  'POLICY FEEDBACK',
+                  tag,
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w700,
@@ -933,6 +1090,25 @@ class _QueueCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
+
+          if (message.attachmentId != null) ...[
+            Row(
+              key: ValueKey('queue-image-${message.id}'),
+              children: const [
+                Icon(
+                  PhosphorIconsRegular.image,
+                  size: 14,
+                  color: _kTextSecondary,
+                ),
+                SizedBox(width: 4),
+                Text(
+                  'Photo attached',
+                  style: TextStyle(fontSize: 11, color: _kTextSecondary),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
 
           // Raw Input Block
           Container(
@@ -950,10 +1126,9 @@ class _QueueCard extends StatelessWidget {
                     Icon(Icons.format_quote, size: 13, color: _kTextTertiary),
                     SizedBox(width: 3),
                     Text(
-                      'RAW INPUT',
+                      'ORIGINAL',
                       style: TextStyle(
                         fontSize: 9,
-                        fontFamily: 'monospace',
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.6,
                         color: _kTextTertiary,
@@ -987,19 +1162,23 @@ class _QueueCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 6,
                     children: [
-                      Row(
+                      const Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.auto_fix_high,
+                            PhosphorIconsRegular.magicWand,
                             size: 13,
                             color: _kTextSecondary,
                           ),
                           SizedBox(width: 4),
                           Text(
-                            'NEUTRAL SYNTHESIS',
+                            'AI REWRITE',
                             style: TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.w700,
@@ -1010,10 +1189,11 @@ class _QueueCard extends StatelessWidget {
                         ],
                       ),
                       Text(
-                        'Model: CleanSynthetics-v4',
-                        style: TextStyle(
+                        intent == null
+                            ? ''
+                            : 'Meaning kept ${(intent * 100).round()}%',
+                        style: const TextStyle(
                           fontSize: 9,
-                          fontFamily: 'monospace',
                           color: _kTextTertiary,
                         ),
                       ),
@@ -1034,85 +1214,174 @@ class _QueueCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
           ],
+          if (message.moderationFlags.isNotEmpty) ...[
+            ModerationFlagChips(message: message),
+            const SizedBox(height: 10),
+          ],
+          if (message.rewrittenText == null && message.rewriteUnavailable) ...[
+            RewriteReasonNote(message: message),
+            const SizedBox(height: 10),
+          ],
 
-          // Action Row (Reject / Rerun / Review & Decide)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  InkWell(
-                    onTap: onReject,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: _kSurface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: _kBorderSubtle),
-                      ),
-                      child: const Icon(
-                        Icons.close,
-                        size: 18,
-                        color: _kTextSecondary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  InkWell(
-                    onTap: () {},
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: _kSurface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: _kBorderSubtle),
-                      ),
-                      child: const Icon(
-                        Icons.cached,
-                        size: 18,
-                        color: _kTextSecondary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              FilledButton(
-                onPressed: () =>
-                    context.push('/groups/$groupId/review/${message.id}'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _kPrimary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Row(
+          // Decided messages: the outcome instead of the actions.
+          if (message.status != MessageStatus.pending)
+            _DecidedRow(message: message, groupId: groupId)
+          else
+            // Action Row (Reject / Rerun / Review & Decide)
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'Review & Decide',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                    InkWell(
+                      onTap: onReject,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: _kSurface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: _kBorderSubtle),
+                        ),
+                        child: const Icon(
+                          PhosphorIconsRegular.x,
+                          size: 18,
+                          color: _kTextSecondary,
+                        ),
                       ),
                     ),
-                    SizedBox(width: 5),
-                    Icon(Icons.arrow_forward, size: 14),
+                    const SizedBox(width: 6),
+                    InkWell(
+                      key: ValueKey('rerun-${message.id}'),
+                      onTap: _rewriting ? null : onRerun,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: _kSurface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: _kBorderSubtle),
+                        ),
+                        child: const Icon(
+                          Icons.cached,
+                          size: 18,
+                          color: _kTextSecondary,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
+                FilledButton(
+                  onPressed: () =>
+                      context.push('/groups/$groupId/review/${message.id}'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _kPrimary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Review & Decide',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(width: 5),
+                      Icon(PhosphorIconsRegular.arrowRight, size: 14),
+                    ],
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
+    );
+  }
+}
+
+class _DecidedRow extends StatelessWidget {
+  const _DecidedRow({required this.message, required this.groupId});
+
+  final RawMessage message;
+  final String groupId;
+
+  @override
+  Widget build(BuildContext context) {
+    final accepted = message.status == MessageStatus.accepted;
+    final when = message.decidedAt;
+    return Row(
+      key: ValueKey('decided-${message.id}'),
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Flexible(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: accepted ? _kPrimary : _kSurface,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: accepted ? _kPrimary : _kBorderSubtle),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  accepted
+                      ? PhosphorIconsRegular.check
+                      : PhosphorIconsRegular.x,
+                  size: 13,
+                  color: accepted ? Colors.white : _kTextSecondary,
+                ),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    '${accepted ? 'APPROVED' : 'REJECTED'}'
+                    '${when == null ? '' : ' · ${formatWhen(when)}'}',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4,
+                      color: accepted ? Colors.white : _kTextPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        OutlinedButton(
+          onPressed: () =>
+              context.push('/groups/$groupId/review/${message.id}'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: _kTextPrimary,
+            side: const BorderSide(color: _kBorderSubtle),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          child: const Text(
+            'View',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
     );
   }
 }

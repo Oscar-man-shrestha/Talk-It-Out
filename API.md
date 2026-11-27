@@ -377,3 +377,367 @@ Response `200`: `{ "count": 2 }`
 3. No endpoint returns another contributor's original text to a non-controller.
 4. Endpoint 11 returns only the caller's own messages, status only.
 5. Rejection notifications never include a reason.
+
+---
+
+## 10. Backend additions (migrations 005–007)
+
+These endpoints are covered by backend tests. Since Run 071 the app calls endpoints 27–31 through `ApiProfileRepository`, 33 through `ApiGroupRepository.getReactions`/`toggleReaction`, and 34 through `ApiNotificationRepository.markAllRead`. Since Run 073 the app also uses endpoint 35: it requests a refresh token after sign-in, keeps it in secure storage, exchanges it once on a `401` (a single shared exchange, because reuse revokes the family) and replays the request; sign-out revokes it. Endpoints 1–26 above are unchanged; in particular, login/register still return exactly `{ token, user }`. Same conventions as section 1: snake_case JSON, `{ "error": { "code", "message" } }` envelope, everything except `GET /media/:mediaId` needs `Authorization: Bearer`.
+
+### 27. GET `/users/:userId/profile` (also `/users/me/profile`)
+Response `200`:
+```json
+{
+  "user": {
+    "id": "u1", "name": "Priya", "username": "priya",
+    "email": "priya@example.com",
+    "headline": "", "bio": "", "location": "", "website": "",
+    "github_handle": "", "twitter_handle": "", "linkedin_url": "",
+    "skills": [], "avatar_url": null, "cover_url": null
+  },
+  "experiences": [],
+  "educations": []
+}
+```
+`email` is only present on your own profile. A user who never edited a profile gets empty strings and lists. `404` for an unknown id.
+
+### 28. PUT `/users/me/profile`
+Body: any subset of `name`, `headline`, `bio`, `location`, `website`, `github_handle`, `twitter_handle`, `linkedin_url`, `skills` (array, max 50, de-duplicated case-insensitively). Unknown fields return `422`. Changing `name` also changes the name shown by `/me` and in published messages. Response `200`: the same shape as endpoint 27.
+
+### 29. Experience: POST `/users/me/experiences`, PUT and DELETE `/users/me/experiences/:id`
+Body: `title`, `company` (required), `location`, `start_date` (`YYYY-MM-DD`, required), `end_date` (nullable), `is_current`, `description`. A current role must have no `end_date`, and `end_date` must not be before `start_date` (`422` otherwise). POST returns `201` with the entry, PUT returns `200` (full replacement), DELETE returns `204`. Someone else's entry returns `404`. Max 50 entries.
+
+### 30. Education: POST `/users/me/educations`, PUT and DELETE `/users/me/educations/:id`
+Body: `school` (required), `degree`, `field_of_study`, `start_year`, `end_year` (integers or null; end not before start). Same status codes as endpoint 29.
+
+### 31. POST `/users/me/avatar` and POST `/users/me/cover`
+`multipart/form-data` with one field `file`. PNG, JPEG, or WebP, max 2 MB. The type is detected from the file bytes, not the header. Response `201`: `{ "url": "http://<host>[/api/v1]/media/<id>" }`. Only the latest image of each kind is kept. Errors: `413 file_too_large`, `415 unsupported_media_type`, `422` for a missing or wrong field. `DELETE /users/me/avatar` (or `/cover`) clears it with `204`.
+
+### 32. GET `/media/:mediaId`
+Public, no auth, so `<img>` tags work. Serves the stored bytes with their detected type, `Cross-Origin-Resource-Policy: cross-origin`, and a one-day immutable cache. Images live in Postgres for v1 (no object-store credentials yet).
+
+### 33. GET and POST `/groups/:groupId/messages/:messageId/reactions`
+POST body: `{ "emoji": "👍" }`, one of 👍 ❤️ 🔥 💡 👏 🎯. It toggles the caller's reaction. Both GET and POST return `200`:
+```json
+{ "message_id": "pm1", "reactions": { "👍": 2, "❤️": 1 }, "my_reactions": ["👍"] }
+```
+Members only (`403` otherwise). Responses carry counts only, never who reacted, so reacting reveals nothing about an anonymous author. Deleting a published message deletes its reactions. Endpoint 9's response shape is unchanged.
+
+### 34. POST `/notifications/read-all`
+Marks all of the caller's unread notifications as read. Response `200`: `{ "marked_count": 3 }`.
+
+### 35. Refresh tokens
+- `POST /auth/refresh-tokens` (Bearer) returns `201` `{ "refresh_token", "expires_at" }` (30-day lifetime).
+- `POST /auth/refresh` with `{ "refresh_token" }` (no Bearer) returns `200` `{ "token", "refresh_token", "expires_at" }`. Every use rotates the token. Reusing an already-rotated token revokes that whole token family and returns `401`. It shares the login rate limit.
+- `DELETE /auth/refresh-tokens` (Bearer) revokes all of the caller's refresh tokens with `204`.
+
+Only SHA-256 hashes of refresh tokens are stored. Access tokens stay stateless, exactly as before.
+
+### 36. POST `/groups/:groupId/leave` (controller hand-over, D4)
+Unchanged for contributors (`204`). Since Run 073 a **controller** may leave too: the member who joined the group earliest (ties broken by user id) becomes the controller in the same transaction and takes over the review queue; the response is `204`. A controller who is the only member gets `409` `{ "error": { "code": "last_member", "message": "You are the only member, so there is nobody to take over this group." } }`. The old `409 controller_must_transfer` response no longer exists.
+
+**Notifications (D10, decided):** no push service. The app re-checks the unread count when it returns to the foreground and every 30 seconds while it stays there, and reloads the list when the count changes.
+
+### 37. DELETE `/users/me` (delete account)
+Body: `{ "password": "..." }` (required again, so a stolen access token alone cannot erase an account). Response `204`. A wrong password returns `403 wrong_password`, deliberately not `401`, so clients do not treat a typo as an expired session. Everything happens in one transaction:
+- every group the user controls is handed to its earliest-joined member (same rule as endpoint 36); a group with no other member is removed with its content;
+- the user's published group messages stay, so other members' history is intact, but they are re-marked anonymous (`display_sender: null`, shown as "Anonymous user");
+- the user's original drafts, with their jobs and review notifications, their feed posts (with comments and likes on them), their own comments, likes and notifications are deleted;
+- profile, images, reactions and refresh tokens go with the user row.
+
+The old access token stops working immediately (`401`), because the auth check looks the user up on every request.
+
+### 38. Password reset by emailed code
+The app's "Forgot?" link opens a two-step screen (email, then code + new password) that calls these endpoints. In mock mode the code is always `123456`.
+- `POST /auth/password-reset` with `{ "email" }` returns `202` `{ "status": "sent_if_registered" }` for **every** valid email, registered or not, and sends the mail without waiting for it, so neither the answer nor its timing reveals which emails have accounts. A registered email gets a 6-digit code that expires in 15 minutes; a new request voids older codes. Returns `503 email_not_configured` when `MAIL_TRANSPORT` is unset or `disabled`.
+- `POST /auth/password-reset/confirm` with `{ "email", "code", "new_password" }` returns `204` and sets the password (8–128 characters). It also ends every session of that user (endpoint 39): existing access and refresh tokens stop working. A wrong, used or expired code returns `400 invalid_code` ("That code is not valid or has expired."); after 5 wrong attempts the code stops working.
+- Both share the login rate limit. Only an HMAC of each code is stored (`password_resets`).
+
+**Keep active session (login screen):** when the switch is on (the default), the app asks for a refresh token after sign-in (endpoint 35), so the session survives the access token's expiry. When it is off, no refresh token is requested and the user signs in again once the access token expires.
+
+### 39. Account security: change password and sign out everywhere
+Every access token now carries the user's `token_version` (claim `tv`; tokens from before migration 009 count as `0`). Bumping the version ends every session at once: all access tokens get `401` and all refresh tokens are revoked.
+- `POST /auth/change-password` (Bearer) with `{ "current_password", "new_password" }` returns `200` `{ "token" }`: a fresh access token, so this device stays signed in while every other session ends. A wrong current password is `403 wrong_password` (not `401`); a short or unchanged password is `422`; an account created with Google that has no password yet is `409 no_password`. Shares the login rate limit.
+- `POST /auth/logout-all` (Bearer) returns `204` and ends every session, including this one.
+- A password reset (endpoint 38) also ends every session.
+
+In the app, Profile → Account has **Change password** and **Sign out of all devices** next to Log out and Delete account.
+
+### 40. POST `/auth/google` (Sign in with Google)
+Body: `{ "id_token": "<Google ID token>" }`. Response `200` is exactly the login response (`{ "token", "user" }`), so refresh tokens, Keep active session and everything else work the same.
+- The token is checked against Google's published keys: RS256 signature, audience in `GOOGLE_CLIENT_ID`, issuer `accounts.google.com`, not expired, and `email_verified` true. Anything else is `401`.
+- A known Google account signs in. A new email creates an account with **no password**. An email that already has a password account is linked: the old password is removed and every session ends, because registration never verified emails. A different Google account for an already linked email is `409 google_account_mismatch`.
+- Accounts without a password get `401` on password sign-in (same answer as a wrong password) and `409 no_password` on change password and delete account; "Forgot?" sets a password.
+- `503 google_not_configured` when `GOOGLE_CLIENT_ID` is unset. Shares the login rate limit.
+- Setup steps: [`docs/SETUP_GOOGLE_AND_EMAIL.md`](docs/SETUP_GOOGLE_AND_EMAIL.md).
+- Email delivery is configured in `backend/.env`: `MAIL_TRANSPORT=smtp` plus `SMTP_URL` works with any email provider; `MAIL_TRANSPORT=log` prints the code to the server console for local development and is refused when `NODE_ENV=production`.
+
+### 41. Live updates (`/events`, Server-Sent Events)
+Screens update without reloading: a published message, a new review item, a decision on your draft, a reaction, a notification, a membership change or a feed change shows up within about a second.
+
+1. `POST /events/ticket` (Bearer) → `200 { "ticket": "...", "expires_in": 60 }`. The ticket is signed with a key derived from `JWT_SECRET`: it is **not** an access token, and an access token is not a ticket. It carries the user's `token_version`.
+2. `GET /events?ticket=<ticket>` → `text/event-stream`. It starts with `retry: 3000` and `event: ready`, then sends events and a `: ping` comment every 25 s. A bad or expired ticket, or one from before "sign out everywhere", is `401`. Max 5 open streams per user (the oldest is closed).
+
+Events carry **ids only** (never text, never who sent an anonymous message); the app refetches through the normal endpoints, which enforce every privacy rule:
+
+| `event:` | `data` | Sent to |
+|---|---|---|
+| `chat` | `{ "group_id" }` | members of the group: a message was published, anonymized or deleted |
+| `reaction` | `{ "group_id", "message_id" }` | members of the group |
+| `review` | `{ "group_id" }` | **only that group's controller**: a draft was submitted, rewritten or decided |
+| `mine` | `{ "group_id" }` | **only the draft's author**: their own draft changed status |
+| `members` | `{ "group_id" }` | members of the group |
+| `groups` | `{}` | users whose groups list changed (added, removed, hand-over, pending count) |
+| `notifications` | `{}` | the recipient |
+| `feed` | `{ "post_id" }` | everyone connected |
+| `resync` | `{}` | everyone, if the server's database listener reconnected: refetch everything |
+
+Signing out everywhere (endpoint 39) closes the user's streams. How it works: database triggers (migration 011) `NOTIFY` id-only signals after each commit, so every write path (API, rewrite worker, stub) is covered and data is always visible by the time the event arrives; each API instance `LISTEN`s on its own connection, so several instances need no Redis or sticky sessions. The app reconnects with backoff (1–30 s, fresh ticket each time), refetches everything after a gap, and keeps the 30 s unread-count poll as a fallback.
+
+### 42. Feed questions: `title` and `topic`
+`POST /posts` also accepts an optional `title` (1–150 characters, trimmed) and an optional `topic`, one of `workplace_policy`, `engineering`, `leadership`, `compensation`, `safety`, `culture`. Every post response (endpoints 16–18) now includes `"title"` and `"topic"`, `null` for posts made without them. Invalid values are `422`. A group created from a post (endpoint 23) uses the post's title as its agenda when there is one. The feed content check analyzes the title together with the body. Authors are always shown; there is still no anonymity in the feed.
+
+
+### 43. POST `/messages/:messageId/rewrite` (ask for a new AI rewrite)
+**Controller only.** Use it when a pending message's rewrite is poor or failed. The current rewrite and its scores are cleared, `pipeline_status` goes back to `queued`, and a new job is queued. Like every job, it holds only the message id. Response `202 {"id","status":"pending","pipeline_status":"queued"}`. Accept returns `409 no_rewrite` until the new rewrite arrives, and a live `review` event tells the queue when it does. Errors: `403` if the caller is not the group's controller, `404` for an unknown message, `409 already_decided` if the message was already accepted or rejected, and `409 rewrite_in_progress` if a rewrite is already queued or running.
+
+### 44. Rewrite tone (`rewrite_tone` on your profile)
+`GET /users/me/profile` returns `user.rewrite_tone`: `professional` (default), `direct`, `socratic` or `empathetic`. Set it with `PUT /users/me/profile {"rewrite_tone": "direct"}`; any other value is `422`. It is private: other people's view of your profile never includes it. The AI uses it when rewriting your **named** group messages. Anonymous messages always use `professional`, so a distinctive style can never point to who wrote one. The profile screen's "Default Tone Target" row cycles through the tones and saves them.
+
+### 45. Review history: `GET /groups/:groupId/review-queue?status=` and `GET /groups/:groupId/review-counts`
+Controller only (`403` otherwise). `status` is `pending` (default, oldest first), `accepted` or `rejected` (most recent decision first, same cursor paging). Any other value is `400`. Every raw message now also has `decided_at` (ISO time, `null` while pending). `review-counts` returns `{"pending": n, "accepted": n, "rejected": n}`, counting only messages from current members, like the lists. The review queue's Pending / Approved / Rejected tabs use both. A decided message opens read-only: no accept, reject or new rewrite.
+
+### 46. Comment reports and removal
+- `POST /posts/:postId/comments/:commentId/report` → `204`. Idempotent. Reporting your own comment is `400 own_comment`. `DELETE` on the same path withdraws your report (`204`).
+- A report never hides anything. Comments now carry `reported_by_me` (bool) and `report_count`. `report_count` is a number only for the question's author and `null` for everyone else.
+- `DELETE /posts/:postId/comments/:commentId` → `204`. Allowed for the comment's author or the question's author; anyone else gets `403`.
+
+### 47. `DELETE /posts/:postId` (delete your own question)
+Author only (`403` otherwise, `404` if it is gone). Removes the question with its likes, comments, reports and pending analysis jobs. A group started from it keeps running; its `source_post_id` becomes `null`.
+
+### 48. `POST /auth/password-reset/verify` (code step of password reset)
+`{email, code}` → `200 {"reset_token": "<64 hex>"}` for a correct, live code. A wrong code is `400 invalid_code`, and its message says how many tries are left. `POST /auth/password-reset/confirm` then takes `{email, reset_token, new_password}` (`{email, code, new_password}` still works). `POST /auth/password-reset` now answers `404 no_account` for an unknown email, `429 too_soon` within a minute of the last code, `502 email_failed` when the mail cannot be sent, and `202 {"status":"sent","expires_in_minutes":15}`.
+
+### 49. Chat images (`/groups/:groupId/attachments`)
+- `POST /groups/:groupId/attachments` (any group member, multipart field `file`, PNG/JPEG/WebP, at most 5 MB) → `201 {"id", "content_type", "byte_size"}`.
+  - Hidden details are removed before storing: EXIF/XMP (GPS, camera, serial, time), comments, and PNG/WebP text chunks. Only a JPEG's orientation is kept.
+  - Not a real image: `415`.
+- Send it with a message by adding `"attachment_id"` to `POST /groups/:groupId/messages` or `/messages/controller`. A caption is still required: the AI rewrites the text, never the image. An image can go on one message only, and only its uploader can attach it (`400 invalid_attachment`).
+- Raw messages (review) and published messages now include `attachment_id` (null when there is none).
+- `GET /groups/:groupId/attachments/:id` serves the bytes with `Cache-Control: private`:
+  - to its uploader;
+  - to the controller while the message is in review;
+  - to every member once it is published;
+  - anyone else gets `404`.
+- The image is deleted when its message is rejected or deleted. The uploader is never returned.
+- **What stripping cannot hide:** what the photo itself shows. The app warns anonymous senders, and the controller checks the image before approving.
+
+### 50. Chat: replies, withdraw, rewrite preview, history, search, pins, polls
+Published messages now also carry:
+- `reply_to`: `{id, text, display_sender}` or null. It shows only what the group already sees; the sender is null when the quoted message was anonymous.
+- `pinned`: boolean.
+- `poll`: `{id, options: [{text, votes}], total_votes, my_vote}` or null.
+
+| Feature | Endpoint | Who | Behaviour |
+|---|---|---|---|
+| Reply | `reply_to_id` on `POST /groups/:id/messages` (and `/messages/controller`) | Members | Must point at a published message in the same group (`400 invalid_reply`). |
+| Withdraw | `POST /messages/:id/withdraw` | The author only | While the message is pending. It is deleted with its job, image and the controller's "waiting" notification. Already decided: `409`. |
+| Rewrite preview | `POST /groups/:id/messages/preview {text, is_anonymous}` | Contributors | `202 {id}`. `GET .../preview/:id` → `{pipeline_status, rewritten_text}` (author only). `POST .../preview/:id/send {is_anonymous, attachment_id?, reply_to_id?}` → the same response as a normal send. `DELETE .../preview/:id` discards it. |
+| History | `GET /groups/:id/messages?before=` | Members | `before=` empty gives the latest page, still oldest first. Response is `{items, prev_cursor}`; pass `prev_cursor` back as `before` for older pages. Without `before`, the v1 oldest-first contract is unchanged. |
+| Search | `GET /groups/:id/messages/search?q=` | Members | 2–100 characters, case-insensitive, newest first, at most 50 results. |
+| Pin | `POST` / `DELETE /groups/:id/messages/:mid/pin` | Controller | |
+| Polls | `POST /groups/:id/polls {question, options[2..6]}` | Controller | Creates a published message with a poll. |
+| Vote | `POST /groups/:id/polls/:pollId/vote {option_index}` (`DELETE` removes your vote) | Members | Votes are counted; who voted is never returned. |
+
+**Previews and the controller.** A preview goes through the normal worker path. Until it is sent it never shows in the review queue, counts, notifications or review detail, and it cannot be accepted. Unsent previews are deleted after an hour. If the anonymity choice changes on send, the message is rewritten again with the right tone.
+
+**Not built on purpose.** "My messages" stays status only (D11). Editing after sending would show the sender their text again, so a message is withdrawn and written again instead.
+
+### 51. Reactions with any emoji
+`POST /groups/:id/messages/:mid/reactions {emoji}` accepts any single emoji:
+- a pictograph, with a skin tone, a variation selector or a ZWJ sequence;
+- a flag;
+- a keycap.
+
+Plain text or several emoji in one reaction give `422`. One person can add at most 10 different reactions to a message (`400 too_many_reactions`). Responses list emoji in the order they were first used. They are still counts only, plus your own reactions, and never say who reacted (migration 018 drops the old six-emoji check).
+
+### 52. People search and suggestions
+- `GET /users/search?q=&group_id=&limit=` (q 1–60 chars, limit ≤ 25, default 12).
+  - **Matching:** names are matched by prefix, with typos (edit distance, including swapped letters) and by sound (a phonetic key). Chosen @handles are matched by prefix. An email-derived username that was never chosen matches only exactly.
+  - **Ranking:** people who share groups with you come first among equal matches.
+  - **Items:** `{id, name, handle|null, headline, avatar_url, shared_groups, in_group, match}`, where `match` is one of `exact | prefix | similar | sounds_like`.
+  - **`similar_only`:** true when nothing matched exactly or by prefix.
+  - **`group_id`:** you must be a member of that group (otherwise `404`); `in_group` marks people already in it.
+  - Results never include an email or a private username.
+- `GET /users/suggested?group_id=&limit=`: people from your groups and authors of questions you liked or answered. People already in `group_id` are left out. Each item carries a `reason` ("In 2 of your groups").
+- `POST /groups/:id/members` now also accepts `{user_id}` instead of `{username}`. With neither, the response is `422`.
+
+### 53. @handles
+- `GET /users/me/handle` returns `{handle|null, suggestions[]}`, with suggestions made from your name.
+- `GET /users/handle-available?handle=` returns `{handle, available, problem|null, suggestions[]}`.
+- `PUT /users/me/handle {handle}`:
+  - Rules: 3–30 characters of `a-z 0-9 . _`; no leading, trailing or double dot; reserved words refused (`422`).
+  - Taken: `409 handle_taken` with `suggestions`.
+- Profiles now return `handle`. On someone else's profile, `username` is `null` until that person has chosen a handle.
+
+### 54. Interests
+- `GET /users/me/interests` returns `{interests[], chosen, available[{id,label,icon,blurb}]}` (30 interests). `icon` is an icon name (for example `code`, `payments`) that the app draws as a vector icon; interests carry no emoji (changed 2026-11-16).
+- `PUT /users/me/interests {interests[]}` replaces the list. An empty list is allowed: it records that the picker was skipped.
+
+### 55. For You feed
+- `GET /posts?mode=for_you&limit=&cursor=` returns the usual post items plus `reason {kind, text, interest?}` and `interests[]` (the post's top topics).
+  - **`kind`:** `interest | learned | similar | network | popular | new | explore`.
+  - **Score:** interests (picked, plus learned from likes, answers, saves and opens with a 30-day fade), TF-IDF similarity to what you engaged with, engagement with time decay, a bonus for people in your groups, and freshness.
+  - **Filters:** posts you marked "Not interested" are hidden. Re-ranking keeps one topic from appearing three times in a row and one author from appearing twice in a row. Every fifth slot holds a post from outside your interests.
+  - **Candidates:** the last 120 days, up to 400 posts.
+  - Without `mode`, `GET /posts` is unchanged.
+- `POST /posts/:id/signals {kind: open|save|not_interested, on?: bool}` returns `204`; `on: false` undoes it. The app sends `open` and `not_interested` only. Bookmarks stay on the device, as before.
+
+### 56. Feed search and topic ideas
+- `GET /posts/search?q=` returns `{items, did_you_mean|null}`. Ranking is BM25 over titles (counted twice) and bodies, with stemming, typo tolerance and prefix matching on the last word.
+- `POST /posts/classify {title?, content}` returns `{topic|null, interests[{id,label,icon,score}]}`. `topic` is one of the six question topics.
+
+### 57. Personalisation switch
+- `GET /users/me/feed-settings` returns `{personalized}`. `PUT /users/me/feed-settings {personalized: bool}` returns the same shape.
+- `GET /users/me/interests` also returns `personalized`.
+- **When off:**
+  - For You ignores picked interests, learned interests, activity and group connections, and ranks by popularity and freshness only (reasons `popular` or `new`).
+  - `open` and `save` signals are accepted but not stored.
+  - "Not interested" still hides a post, because it is an explicit choice.
+- Default is on (migration 020).
+
+### 58. Similar questions
+- `POST /posts/similar {title?, content}` returns `{items[{id, title, comment_count, score}]}`: up to 3 existing questions like the draft.
+- **Method:** the draft's 12 rarest words are matched against each question with BM25 and stemming. Each score is divided by the best possible score, and only questions at 0.3 or above are returned.
+- A title longer than 120 characters is cut short; a question without a title shows its text instead.
+
+### 59. Blocking and profiles of other people
+- `POST /users/:id/block` returns `204`. It is idempotent; blocking yourself returns `422`. `DELETE /users/:id/block` returns `204`. `GET /users/me/blocked` returns `{items[{id,name,handle,avatar_url}]}`.
+- **What a block does:** both people are hidden from each other in `/users/search`, `/users/suggested`, `GET /posts` (all modes), `/posts/search`, `/posts/similar`, comments and `GET /posts/:id` (`404`). Commenting returns `404`. Adding the other person to a group returns `403 blocked` ("You cannot add this person."). Groups both people are already in are unchanged (decision D24).
+- **`GET /users/:id/profile`** for someone else now includes `shared_groups` and `blocked_by_me`.
+  - If they blocked you: `404`.
+  - If you blocked them: only `user {id, name, handle, avatar_url}` plus `blocked_by_me: true`.
+- `GET /users/:id/posts` returns `{items}`: up to 30 of their questions you may see. Blocked either way: `404`.
+
+### 60. Reporting a question
+- `POST /posts/:id/report {reason}` returns `204`.
+  - `reason` is one of `spam | harassment | hate | self_harm | misinformation | other`.
+  - Reporting your own question returns `422`. Reporting again replaces the reason.
+- `DELETE /posts/:id/report` returns `204`.
+- **Effect:** the reporter no longer sees the question in lists. At 5 distinct reports it is hidden from everyone except its author (decision D23). The author is never told who reported.
+
+### 61. Group invite links
+- **Controller only** (members get `403`, non-members `404`):
+  - `POST /groups/:id/invites {expires_in_days?: 1|7|30|null, max_uses?: 1..1000|null}` returns `201 {code, url, app_url, created_at, expires_at, max_uses, uses}`. The default expiry is 7 days; `null` means the link never expires.
+    - `url` is `APP_WEB_URL/#/join/<code>`; `app_url` is `talkitout://app/join/<code>`.
+    - At most 20 links can be active per group (`409 too_many_invites`).
+  - `GET /groups/:id/invites` returns `{items}`: the links that still work.
+  - `DELETE /groups/:id/invites/:code` returns `204` and turns the link off.
+- **Any signed-in user:**
+  - `GET /invites/:code` returns `{code, group {id, agenda, member_count}, invited_by, already_member, expires_at}`.
+  - `POST /invites/:code/accept` joins as a contributor and returns `201 {group_id, joined: true}`. If you are already a member it returns `200 {joined: false}` and does not count a use.
+- **Invalid links:** an expired, used-up or turned-off link, or one created by someone who blocked you or whom you blocked, returns `404 invite_invalid`.
+- Codes are 10 characters from `a-z2-9`, without look-alike characters.
+
+### 62. Legal pages
+- `GET /legal/privacy`, `/legal/terms` and `/legal/delete-account` return public HTML pages, with no sign-in. They are the links for the Google Play listing and its Data safety form.
+- The source is `backend/legal/*.md`, identical to `assets/legal/*.md`, which the app shows. Tests on both sides check that the two copies match.
+
+### 63. Catch up (conversation summary)
+- `GET /groups/:id/summary?limit=` (members only; `limit` 5–200, default 60 latest published messages) returns `{message_count, highlights[], open_questions[], key_topics[], themes[{id,label,icon}], from, to}`.
+- **Method:** extractive TextRank. Sentences are scored by PageRank over TF-IDF cosine similarity, and up to 3 non-question highlights are shown in the order they were said. Up to 2 open questions are listed. Key topics are the terms with the most weight, and themes come from the interest classifier.
+- **Privacy:** only published (approved) text is used. No names, sender ids or anonymity flags are returned.
+
+### 64. Liked by
+- `GET /posts/:id/likes?limit=` (1–100, default 50) returns `{items[{id, name, handle|null, avatar_url, is_me}], total}`.
+- **Order:** you first, then the newest likes. People who blocked you, or whom you blocked, are left out of `items` but still counted in `total`.
+- **Errors:** an unknown question, or one whose author you blocked or who blocked you, returns `404`.
+- **Why it is allowed:** the public feed is never anonymous. Reactions in group chats stay counts only, so they cannot reveal an anonymous member.
+
+### 65. Answers: votes, best answer, edits
+- `POST /posts/:id/comments/:cid/vote` and `DELETE …/vote` return `{vote_count, voted_by_me}`.
+  - Voting is idempotent.
+  - Voting on your own answer returns `422`.
+  - Blocked either way returns `404`.
+- `PUT /posts/:id/best {comment_id|null}` (the question's author only, else `403`) returns `{best_comment_id}`.
+  - The comment must belong to the question (`404`).
+  - The answer's author gets an `answer_best` notification.
+- `PATCH /posts/:id {title?, topic?, content?}` (author only; an empty body is `422`) returns the updated post. `PATCH /posts/:id/comments/:cid {content}` (the comment's author only) returns the updated comment.
+  - Both set `edited_at` and send the text for analysis again.
+- **New fields:**
+  - posts gain `best_comment_id`, `edited_at` and `following`;
+  - comments gain `vote_count`, `voted_by_me`, `is_best` and `edited_at`.
+
+### 66. Following questions and feed notifications
+- `POST /posts/:id/follow` returns `{following: true}`; `DELETE /posts/:id/follow` returns `{following: false}`.
+- **Who follows:** authors follow their own questions automatically (existing questions too, migration 023), and answering a question follows it.
+- **New answers:** a new answer notifies every follower (`question_answered`). The person answering, and anyone in a block with them, is left out.
+- **Notification shape:** `GET /notifications` items have `group` (null for feed notifications) and `post {id, title}` (null for group ones).
+  - Types: `message_pending_review`, `message_rejected`, `mentioned`, `question_answered`, `answer_best`.
+
+### 67. Group info, mute and pin
+- `PATCH /groups/:id {description?, rules?}` (controller only; 500 and 1000 characters at most).
+- `PUT /groups/:id/settings {muted?, pinned?}` returns `{muted, pinned}`. These are per member: they change only your view.
+- Group objects gain `description`, `rules`, `member_count`, `muted` and `pinned`.
+- **In the app:**
+  - pinned groups sort first;
+  - muted groups stay out of the Groups badge.
+
+### 68. @mentions in groups
+- When a message is published (an accepted rewrite or a controller announcement), its **published text** is searched for `@Full Name`, `@handle`, or `@FirstName` when only one member has that first name.
+- Each mentioned member (except the author) gets a `mentioned` notification for that group. It never names the sender, so an anonymous message stays anonymous.
+
+### 69. Group invitations (asking before adding)
+- `POST /groups/:id/members {user_id|username}` (controller) no longer adds anyone. It creates an invitation and returns `202 {invitation_id, user_id, name, status: "invited"}`.
+  - The person gets a `group_invitation` notification.
+  - **Errors:** `409 already_member`, `409 already_invited` (one open invitation per person per group), `403 blocked`.
+- **For the invited person:**
+  - `GET /invitations` returns `{items[{id, group {id, agenda, member_count}, invited_by, created_at}]}`.
+  - `POST /invitations/:id/accept` returns `{group_id, joined: true}` and joins as a contributor.
+  - `POST /invitations/:id/decline` returns `204`.
+  - Only the invited person can answer; otherwise the response is `404`. A block made in the meantime stops the join (`403`).
+  - Answering removes the invitation's notification.
+- **For the controller:** `GET /groups/:id/invitations` lists unanswered invitations (`{items[{id, user {id, name}, created_at}]}`). `DELETE /groups/:id/invitations/:invitationId` cancels one.
+- **Unchanged:** invite links (section 61). Opening a link and pressing Join is already the person's own choice.
+- **Live updates (migration 025):** sending, accepting, declining or cancelling an invitation sends the invited person a `groups` event and the group's connected members a `members` event (group id only), so the Invited list and the Groups screen refresh without a reload.
+
+
+### 70. Feed filters on `GET /posts`
+- `GET /posts?topic=&filter=&limit=&cursor=` (Latest). Both filters are optional and applied by the server, so every page is complete for the filter; the cursor keeps working within it.
+- `topic`: one of the section 42 topics. Posts without a topic match by the same keywords the app uses (for example "nlp" for `engineering`). An unknown topic is `422 validation`.
+- `filter`: `unanswered` (no comments), `answered` (one or more), `discussed` (two or more). Anything else is `422 validation`.
+- "Saved" stays on the device and is filtered by the app. Sorting by likes or comments still sorts the questions loaded so far.
+
+### 71. Premium and Group Insights
+Two offers (docs/PREMIUM_PLAN.md): **Free**, everything the app does today, and **Premium**, ₹99 a month, which adds new features. Anonymity, the AI rewrite and moderation are never paid features, and Premium marks never appear on anonymous messages or in group chats.
+- `GET /billing/entitlements` (signed in) returns `{premium, status, provider, expires_at, will_renew}`. `status` is `active`, `grace` (a renewal failed, access kept while the store retries), `cancelled` (will not renew; access until `expires_at`), `expired`, or `null` (never subscribed). `provider` is `manual`, `revenuecat` or `razorpay`. The server is the only judge of Premium.
+- `POST /billing/sync` (signed in): after a store purchase, asks RevenueCat for the user's current state (when `REVENUECAT_SECRET_KEY` is set) and returns the same shape.
+- `POST /billing/webhooks/revenuecat`: RevenueCat events, authenticated by the `Authorization` value set in the RevenueCat dashboard (`REVENUECAT_WEBHOOK_SECRET`; empty: `503 billing_unconfigured`; wrong: `401`). The RevenueCat app user id is the backend user id. Each event id is applied once (`{applied:false, reason:"duplicate"}` on retries); unknown users, other entitlements and unrelated types are ignored. Purchases, renewals and uncancellations turn Premium on; cancellation keeps it until the end date; billing issues give a grace period; expiry ends it.
+- `GET /groups/:groupId/insights?tz_offset_minutes=330` (the group's controller, with Premium; members `403`; without Premium `402 premium_required`; unknown group `404`) returns `{window_days: 14, member_count, breakdowns_available, messages, daily[{date, count}], pending, accepted, rejected, review_median_minutes, participants, anonymous_messages, busiest_hours[{hour, count}], top_words[{word, count}]}`. Published text and counts only. `participants`, `anonymous_messages` and `busiest_hours` are `null` unless the group has at least 5 members; `review_median_minutes` covers only the caller's own decisions.
+- Local testing: `npm run premium -- grant|revoke|status <email> [days]`.
+
+### 72. Why a message was not rephrased, and moderation flags
+- Review items (`GET /groups/:id/review-queue`, `GET /groups/:id/review-queue/:messageId`, controller only) carry `rewrite_error_code` (null once a rewrite exists) and `moderation_flags` (array, advisory).
+- `rewrite_error_code` values and their meaning: `unsupported_language` (only English is rephrased), `input_too_long`, `intent_not_preserved` (the AI could not keep the meaning), `abuse_only` (nothing but abusive language: nothing to rephrase; ends at once), `abusive_language_kept` (every attempt still contained abusive wording), `hate_speech_kept` (every attempt still referred to the group the original attacked), `model_refused` (the AI declined), `model_timeout` / `model_unavailable` / `model_bad_response` / `model_empty_output` (the AI service failed), `output_too_long` / `blank_output` / `prompt_scaffold_leak` (the rewrite failed safety checks), `worker_crash` / `worker_error`.
+- `moderation_flags`: `hate_speech`, `threat`, `abusive_language`, `profanity`, `self_harm`, about the ORIGINAL message. Advisory only: flags never reject, hide or delay a message.
+- The sender's own preview (`GET /groups/:id/messages/preview/:previewId`) also returns `rewrite_error_code`, so the composer can say why there is no rewrite. "My messages" stays status-only (no reason), and rejections still carry no reason.
+
+### 73. More notification events
+`GET /notifications` items can also have these types (each with no reason slot and no sender name):
+- `message_published`: to the sender only, when the controller publishes their message (named or anonymous; only the author gets it, so it reveals nothing). `group` is set.
+- `member_joined`: to the group's controller when someone accepts an invitation or joins with a link. `group` is set; the members list shows who.
+- `question_liked`: to a question's author when someone else likes it. One unread notification per question at a time (more likes, or like/unlike, do not add more until it is read). `post` is set.
+
+### 74. Premium badge on feed authors
+- Post and comment `author` objects (in `GET /posts`, `GET /posts/:id`, comments, and the create responses) now carry `premium` (boolean): true while the author has an active, grace or cancelled-but-unexpired subscription.
+- Only the public feed shows it. Group chats, published messages, review items and anything anonymous never carry it.
+- The app treats a missing `premium` as false.
+
+### 75. Razorpay on the web
+Phones keep App Store / Google Play billing (API.md 71). The website pays with Razorpay (UPI, cards, net banking, wallets). The server is still the only judge of Premium; card and UPI details never reach Talk It Out.
+- `GET /billing/razorpay` (auth) → `{enabled, key_id}`. `enabled` is false until the server has `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and `RAZORPAY_PLAN_ID`; `key_id` is Razorpay's public key for Checkout.
+- `POST /billing/razorpay/subscription` (auth) → `201 {key_id, subscription_id, name, email}`: starts a ₹99 monthly subscription (the user id goes in Razorpay `notes`). `409 already_premium` when Premium is already on; `503 billing_unconfigured` when off; `502 payment_provider_*` when Razorpay fails.
+- `POST /billing/razorpay/verify` (auth) `{razorpay_payment_id, razorpay_subscription_id, razorpay_signature}` → the entitlements object. The signature must be HMAC-SHA256 of `payment_id|subscription_id` with the key secret, and the subscription (fetched from Razorpay) must belong to the caller; otherwise `400 payment_not_verified` and nothing changes.
+- `POST /billing/razorpay/cancel` (auth) → entitlements: stops renewal at the end of the paid month (`status: cancelled`, `will_renew: false`). `404` without a web subscription.
+- `POST /billing/webhooks/razorpay` (Razorpay → server): `X-Razorpay-Signature` is HMAC-SHA256 of the raw body with `RAZORPAY_WEBHOOK_SECRET` (else `401`; `503` when unset). Each `X-Razorpay-Event-Id` is applied once. Subscription states: `active` → active, `pending` → grace, `cancelled` → cancelled until the period ends, `halted` / `completed` / `expired` → expired; `current_end` is the access end date.
+- Entitlements `provider` can now be `razorpay`. Migration `029_razorpay.sql` adds `subscriptions.external_id` (Razorpay's subscription id).

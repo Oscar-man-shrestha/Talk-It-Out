@@ -45,6 +45,16 @@ class MockNotificationRepository implements NotificationRepository {
   }
 
   @override
+  Future<void> markAllRead() {
+    return runMock(_controls, () {
+      final now = DateTime.now().toUtc();
+      for (var i = 0; i < _items.length; i++) {
+        if (_items[i].isUnread) _items[i] = _items[i].copyWith(readAt: now);
+      }
+    });
+  }
+
+  @override
   Future<UnreadCount> unreadCount() {
     return runMock(_controls, () {
       final count = _items.where((item) => item.isUnread).length;

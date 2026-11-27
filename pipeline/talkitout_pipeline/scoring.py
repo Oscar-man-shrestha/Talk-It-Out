@@ -11,12 +11,18 @@ intent_preservation_score
     1.0, minus penalties: 0.25 if the rewrite is under 40% of the
     original's UTF-16 length (possible content loss), 0.2 per digit
     sequence present in the original but absent from the rewrite
-    (capped at 0.4). Clamped to [0, 1], rounded to 2 decimals.
+    (capped at 0.4). A whole number from 0 to 20 also counts as present
+    when the rewrite spells it out ("3" -> "three"); small models often
+    do, and the number is not lost. Clamped to [0, 1], rounded to 2 decimals.
 
 relevance_score
-    The fraction of the group agenda's word stems that appear in the
-    rewrite (bag-of-words overlap). Label: >= 0.50 relevant,
-    >= 0.15 borderline, else off_topic. Uncalibrated by design.
+    The fraction of the group agenda's content-word stems that appear in
+    the rewrite (bag-of-words overlap). Filler words ("the", "and",
+    "making", ...) are ignored, and words are reduced to a crude stem so
+    "improvements" matches "improve" and "dashboards" matches
+    "dashboard". Label: >= 0.50 relevant, >= 0.15 borderline, else
+    off_topic. Uncalibrated by design: a message that is on topic but
+    shares no words with the agenda still scores 0 (advisory only).
 """
 
 from __future__ import annotations
@@ -44,19 +50,65 @@ def digit_sequences(text: str) -> set[str]:
     return set(_DIGITS_RE.findall(text))
 
 
+_NUMBER_WORDS = (
+    "zero one two three four five six seven eight nine ten eleven twelve "
+    "thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty"
+).split()
+
+
+def missing_numbers(original: str, rewrite: str) -> set[str]:
+    """Digit sequences of the original that the rewrite lost.
+
+    A number 0-20 written out as a word in the rewrite still counts as
+    kept. Leading zeros, larger numbers, ordinals and dates must stay
+    exactly as digits.
+    """
+    lost = digit_sequences(original) - digit_sequences(rewrite)
+    words = set(_WORD_RE.findall(rewrite.lower()))
+    return {
+        d
+        for d in lost
+        if not (d == str(int(d)) and int(d) <= 20 and _NUMBER_WORDS[int(d)] in words)
+    }
+
+
 def intent_preservation_score(original: str, rewrite: str) -> float:
     score = 1.0
     if utf16_length(rewrite) < 0.4 * utf16_length(original):
         score -= 0.25
-    lost = digit_sequences(original) - digit_sequences(rewrite)
+    lost = missing_numbers(original, rewrite)
     score -= min(0.4, 0.2 * len(lost))
     return round(max(0.0, min(1.0, score)), 2)
 
 
+_STOPWORDS = frozenset(
+    "a an and are as at be by for from in into is it its of on or our the "
+    "their this to we with about all any new more make making made get".split()
+)
+_SUFFIXES = ("ments", "ment", "ations", "ation", "ings", "ing", "ions", "ion",
+             "ers", "er", "ies", "ed", "ly", "s")
+
+
+def stem(word: str) -> str:
+    """Crude suffix stripping; deterministic, no dependency."""
+    w = word.lower().strip("'")
+    for suffix in _SUFFIXES:
+        if w.endswith(suffix) and len(w) - len(suffix) >= 3 and not w.endswith("ss"):
+            w = w[: -len(suffix)] + ("y" if suffix == "ies" else "")
+            break
+    if len(w) >= 5 and w.endswith("e"):
+        w = w[:-1]
+    return w
+
+
+def _content_stems(text: str) -> set[str]:
+    return {stem(w) for w in _WORD_RE.findall(text.lower()) if w not in _STOPWORDS}
+
+
 def relevance(original: str, agenda: str) -> tuple[float, str]:
     """Returns (score, label). Advisory only — see module docstring."""
-    agenda_words = set(_WORD_RE.findall(agenda.lower()))
-    rewrite_words = set(_WORD_RE.findall(original.lower()))
+    agenda_words = _content_stems(agenda)
+    rewrite_words = _content_stems(original)
     if not agenda_words:
         # An empty agenda carries no signal; do not guess off_topic.
         return 0.5, "borderline"

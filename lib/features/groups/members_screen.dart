@@ -2,13 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:talk_it_out/app/repository_providers.dart';
+import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/models/enums.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/core/ui/labels.dart';
 import 'package:talk_it_out/core/ui/screen_async.dart';
 import 'package:talk_it_out/core/ui/stitch_chrome.dart';
+import 'package:talk_it_out/core/utils/relative_time.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
+import 'package:talk_it_out/features/discovery/add_members_sheet.dart';
+import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
+import 'package:talk_it_out/features/groups/data/group_invitation.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/features/invites/invite_sheet.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 class MembersScreen extends ConsumerWidget {
   const MembersScreen({required this.groupId, super.key});
@@ -24,9 +32,9 @@ class MembersScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Kick $name?'),
+        title: Text('Remove $name?'),
         content: Text(
-          'Are you sure you want to kick $name from this group? They will lose access to the ongoing deliberation.',
+          '$name will leave this group and stop seeing its messages. You can invite them again later.',
         ),
         actions: [
           TextButton(
@@ -36,34 +44,43 @@ class MembersScreen extends ConsumerWidget {
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Kick Member'),
+            child: const Text('Remove'),
           ),
         ],
       ),
     );
 
     if (confirmed == true && context.mounted) {
-      await ref.read(groupRepositoryProvider).removeMember(groupId, userId);
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        await ref.read(groupRepositoryProvider).removeMember(groupId, userId);
+      } on RepositoryException catch (error) {
+        messenger.showSnackBar(SnackBar(content: Text(error.message)));
+        return;
+      }
       ref.invalidate(membersProvider(groupId));
       ref.invalidate(groupDetailProvider(groupId));
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$name was kicked from the group.'),
-            backgroundColor: const Color(0xFF09090B),
-          ),
-        );
-      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('$name was removed from the group.'),
+          backgroundColor: Brand.ink,
+        ),
+      );
     }
   }
 
   Future<void> _leaveGroup(BuildContext context, WidgetRef ref) async {
+    final isController =
+        ref.read(groupDetailProvider(groupId)).value?.myRole ==
+        GroupRole.controller;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Leave Group?'),
-        content: const Text(
-          'Are you sure you want to leave this deliberation? You will no longer receive updates or be able to submit messages.',
+        title: const Text('Leave this group?'),
+        content: Text(
+          isController
+              ? 'You will stop seeing its messages and cannot send new ones. The member who joined earliest becomes the controller.'
+              : 'You will stop seeing its messages and cannot send new ones.',
         ),
         actions: [
           TextButton(
@@ -80,186 +97,26 @@ class MembersScreen extends ConsumerWidget {
     );
 
     if (confirmed == true && context.mounted) {
-      await ref.read(groupRepositoryProvider).leaveGroup(groupId);
+      try {
+        await ref.read(groupRepositoryProvider).leaveGroup(groupId);
+      } on RepositoryException catch (error) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(error.message)));
+        }
+        return;
+      }
       ref.invalidate(groupsProvider);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('You left the group.'),
-            backgroundColor: Color(0xFF09090B),
+            backgroundColor: Brand.ink,
           ),
         );
         context.go('/groups');
       }
     }
-  }
-
-  Future<void> _showAddMemberModal(BuildContext context, WidgetRef ref) async {
-    final usernameCtrl = TextEditingController();
-    var selectedRole = GroupRole.contributor;
-    String? error;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (modalCtx, setModalState) => Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(modalCtx).viewInsets.bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Invite Member to Deliberation',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF09090B),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () => Navigator.of(modalCtx).pop(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Request a user to join this agenda room by entering their username or handle.',
-                style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: usernameCtrl,
-                autofocus: true,
-                decoration: InputDecoration(
-                  prefixText: '@',
-                  hintText: 'username (e.g. alex_dev, sophia_ai)',
-                  filled: true,
-                  fillColor: const Color(0xFFFAFAFA),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
-                  ),
-                  errorText: error,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Quick Suggestions:',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF71717A),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final handle in [
-                    'alex_m',
-                    'kavita_r',
-                    'david_k',
-                    'sophia_ai',
-                    'marcus_nlp',
-                  ])
-                    ActionChip(
-                      label: Text(
-                        '@$handle',
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                      backgroundColor: const Color(0xFFF4F4F5),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      onPressed: () {
-                        setModalState(() {
-                          usernameCtrl.text = handle;
-                          error = null;
-                        });
-                      },
-                    ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF09090B),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: () async {
-                    final raw = usernameCtrl.text.trim();
-                    if (raw.isEmpty) {
-                      setModalState(() => error = 'Please enter a username');
-                      return;
-                    }
-                    Navigator.of(modalCtx).pop();
-                    try {
-                      await ref
-                          .read(groupRepositoryProvider)
-                          .addMember(
-                            groupId,
-                            username: raw,
-                            role: selectedRole,
-                          );
-                      ref.invalidate(membersProvider(groupId));
-                      ref.invalidate(groupDetailProvider(groupId));
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Invitation sent to @$raw. Added to group.',
-                            ),
-                            backgroundColor: const Color(0xFF09090B),
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Failed to invite member: $e'),
-                            backgroundColor: Colors.red.shade800,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  child: const Text(
-                    'Send Invitation & Add',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   @override
@@ -288,11 +145,7 @@ class MembersScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(32),
             child: Text(
               AppStrings.membersTitle,
-              style: TextStyle(
-                color: isDark
-                    ? const Color(0xFF71717A)
-                    : const Color(0xFF71717A),
-              ),
+              style: TextStyle(color: isDark ? Brand.inkSoft : Brand.inkSoft),
             ),
           ),
         ),
@@ -302,23 +155,15 @@ class MembersScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0xFF18181B)
-                    : const Color(0xFFF4F4F5),
+                color: isDark ? const Color(0xFF18181B) : Brand.muted,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: isDark
-                      ? const Color(0x24FFFFFF)
-                      : const Color(0xFFE4E4E7),
+                  color: isDark ? const Color(0x24FFFFFF) : Brand.border,
                 ),
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.groups_rounded,
-                    color: Color(0xFF09090B),
-                    size: 20,
-                  ),
+                  const Icon(Icons.groups_rounded, color: Brand.ink, size: 20),
                   const SizedBox(width: 10),
                   Text(
                     '${items.length} ${items.length == 1 ? "Member" : "Members"}',
@@ -332,11 +177,11 @@ class MembersScreen extends ConsumerWidget {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF09090B),
+                        color: Brand.ink,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: const Text(
-                        'MODERATOR CONTROLS ACTIVE',
+                        'YOU ARE THE CONTROLLER',
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w700,
@@ -353,11 +198,11 @@ class MembersScreen extends ConsumerWidget {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () => _showAddMemberModal(context, ref),
-                  icon: const Icon(Icons.person_add_alt_1, size: 16),
-                  label: const Text('Invite Member by Username'),
+                  onPressed: () => showAddMembersSheet(context, groupId),
+                  icon: const Icon(PhosphorIconsRegular.userPlus, size: 16),
+                  label: const Text('Invite members'),
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF09090B),
+                    backgroundColor: Brand.ink,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
@@ -366,6 +211,28 @@ class MembersScreen extends ConsumerWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  key: const ValueKey('members-invite-link'),
+                  onPressed: () => showInviteSheet(
+                    context,
+                    groupId: groupId,
+                    agenda: group.value?.agenda ?? '',
+                  ),
+                  icon: const Icon(PhosphorIconsRegular.link, size: 16),
+                  label: const Text('Invite with a link or QR code'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Brand.ink,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+              _PendingInvitations(groupId: groupId),
             ],
             const SizedBox(height: 14),
             for (final member in items) ...[
@@ -386,27 +253,31 @@ class MembersScreen extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: member.role == GroupRole.controller
-                            ? const Color(0xFF09090B)
-                            : Colors.white,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFF09090B)),
-                      ),
-                      child: Center(
-                        child: Text(
-                          member.name.isNotEmpty
-                              ? member.name[0].toUpperCase()
-                              : '?',
-                          style: TextStyle(
-                            color: member.role == GroupRole.controller
-                                ? Colors.white
-                                : const Color(0xFF09090B),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
+                    GestureDetector(
+                      key: ValueKey('member-${member.userId}'),
+                      onTap: () => openPerson(context, ref, member.userId),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: member.role == GroupRole.controller
+                              ? Brand.ink
+                              : Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Brand.ink),
+                        ),
+                        child: Center(
+                          child: Text(
+                            member.name.isNotEmpty
+                                ? member.name[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                              color: member.role == GroupRole.controller
+                                  ? Colors.white
+                                  : Brand.ink,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                            ),
                           ),
                         ),
                       ),
@@ -416,19 +287,23 @@ class MembersScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            member.name,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
+                          GestureDetector(
+                            onTap: () =>
+                                openPerson(context, ref, member.userId),
+                            child: Text(
+                              member.name,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                           if (member.role == GroupRole.controller)
                             const Text(
-                              'Group Creator & Review Controller',
+                              'Reviews every message before it is shared',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF71717A),
+                                color: Brand.inkSoft,
                               ),
                             ),
                         ],
@@ -441,8 +316,8 @@ class MembersScreen extends ConsumerWidget {
                       ),
                       decoration: BoxDecoration(
                         color: member.role == GroupRole.controller
-                            ? const Color(0xFF09090B)
-                            : const Color(0xFFF4F4F5),
+                            ? Brand.ink
+                            : Brand.muted,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -452,7 +327,7 @@ class MembersScreen extends ConsumerWidget {
                           fontWeight: FontWeight.w600,
                           color: member.role == GroupRole.controller
                               ? Colors.white
-                              : const Color(0xFF09090B),
+                              : Brand.ink,
                         ),
                       ),
                     ),
@@ -460,7 +335,7 @@ class MembersScreen extends ConsumerWidget {
                         member.role != GroupRole.controller) ...[
                       const SizedBox(width: 8),
                       IconButton(
-                        tooltip: 'Kick ${member.name}',
+                        tooltip: 'Remove ${member.name}',
                         icon: const Icon(
                           Icons.person_remove_outlined,
                           color: Colors.redAccent,
@@ -491,7 +366,7 @@ class MembersScreen extends ConsumerWidget {
               child: Row(
                 children: [
                   Icon(
-                    Icons.warning_amber_rounded,
+                    PhosphorIconsRegular.warning,
                     color: Colors.red.shade700,
                     size: 22,
                   ),
@@ -501,7 +376,7 @@ class MembersScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Deliberation Participation',
+                          'Leave this group',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -510,7 +385,7 @@ class MembersScreen extends ConsumerWidget {
                         ),
                         SizedBox(height: 2),
                         Text(
-                          'Leaving will forfeit your access to agenda updates and room discussions.',
+                          'You will stop seeing its messages. You can rejoin only if invited again.',
                           style: TextStyle(
                             fontSize: 11.5,
                             color: Color(0xFF7F1D1D),
@@ -541,6 +416,121 @@ class MembersScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Invited, not answered yet (`API.md` 69). The controller can cancel.
+class _PendingInvitations extends ConsumerWidget {
+  const _PendingInvitations({required this.groupId});
+
+  final String groupId;
+
+  Future<void> _cancel(
+    BuildContext context,
+    WidgetRef ref,
+    PendingInvitation inv,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Cancel the invitation to ${inv.name}?'),
+        content: const Text(
+          'They will no longer be able to accept it. You can invite them again later.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Keep'),
+          ),
+          FilledButton(
+            key: const ValueKey('confirm-cancel-invitation'),
+            style: FilledButton.styleFrom(backgroundColor: Brand.ink),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Cancel invitation'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(groupRepositoryProvider).cancelInvitation(groupId, inv.id);
+      ref.invalidate(groupInvitationsProvider(groupId));
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: Brand.ink,
+          content: Text('Invitation to ${inv.name} cancelled.'),
+        ),
+      );
+    } on RepositoryException catch (e) {
+      ref.invalidate(groupInvitationsProvider(groupId));
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pending =
+        ref.watch(groupInvitationsProvider(groupId)).value ?? const [];
+    if (pending.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      key: const ValueKey('pending-invitations'),
+      padding: const EdgeInsets.only(top: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Invited (${pending.length})',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: Brand.ink,
+            ),
+          ),
+          const SizedBox(height: 2),
+          const Text(
+            'They join after they accept.',
+            style: TextStyle(fontSize: 12, color: Brand.inkSoft),
+          ),
+          const SizedBox(height: 6),
+          for (final inv in pending)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: Brand.accentSoft,
+                    child: Text(
+                      inv.name.isEmpty ? '?' : inv.name[0].toUpperCase(),
+                      style: const TextStyle(
+                        color: Brand.accentInk,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      inv.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Text(
+                    'Invited ${relativeTime(inv.createdAt)}',
+                    style: const TextStyle(fontSize: 12, color: Brand.inkSoft),
+                  ),
+                  TextButton(
+                    key: ValueKey('cancel-invitation-${inv.id}'),
+                    onPressed: () => _cancel(context, ref, inv),
+                    child: const Text('Cancel'),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

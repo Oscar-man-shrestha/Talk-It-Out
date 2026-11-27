@@ -52,3 +52,37 @@ class BuildWorkerWiringTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WarmUpTest(unittest.TestCase):
+    def _config(self):
+        from talkitout_pipeline.config import load_config
+        return load_config({
+            "PIPELINE_BACKEND_BASE_URL": "http://backend",
+            "PIPELINE_API_KEY": "k",
+            "MODEL_ENDPOINT": "http://model/v1/chat/completions",
+            "MODEL_ID": "m",
+            "MODEL_EXTRA_BODY": '{"keep_alive": "2h"}',
+        })
+
+    def test_warm_up_sends_a_tiny_request_with_keep_alive(self):
+        from talkitout_pipeline.__main__ import warm_up_model
+        seen = {}
+
+        def poster(endpoint, headers, payload, timeout):
+            seen.update(payload)
+            return 200, '{"choices":[{"message":{"content":"ok"}}]}'
+
+        self.assertTrue(warm_up_model(self._config(), poster=poster))
+        self.assertEqual(seen["max_tokens"], 1)
+        self.assertEqual(seen["keep_alive"], "2h")
+        self.assertEqual(seen["messages"], [{"role": "user", "content": "ok"}])
+
+    def test_warm_up_never_raises(self):
+        from talkitout_pipeline.__main__ import warm_up_model
+
+        def down(endpoint, headers, payload, timeout):
+            raise OSError("connection refused")
+
+        self.assertFalse(warm_up_model(self._config(), poster=down))
+

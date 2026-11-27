@@ -14,22 +14,39 @@ class ApiFeedRepository implements FeedRepository {
   final Dio _dio;
 
   @override
-  Future<PageResult<Post>> listPosts({int? limit, String? cursor}) {
+  Future<PageResult<Post>> listPosts({
+    int? limit,
+    String? cursor,
+    String? topic,
+    String? filter,
+  }) {
     return guardApi(() async {
       final response = await _dio.get(
         Endpoints.posts,
-        queryParameters: pageQuery(limit: limit, cursor: cursor),
+        queryParameters: {
+          ...pageQuery(limit: limit, cursor: cursor),
+          'topic': ?topic,
+          'filter': ?filter,
+        },
       );
       return decodePage(response.data, Post.fromJson);
     });
   }
 
   @override
-  Future<Post> createPost({required String content}) {
+  Future<Post> createPost({
+    required String content,
+    String? title,
+    String? topic,
+  }) {
     return guardApi(() async {
       final response = await _dio.post(
         Endpoints.posts,
-        data: {'content': content},
+        data: {
+          'content': content,
+          if (title != null && title.trim().isNotEmpty) 'title': title.trim(),
+          'topic': ?topic,
+        },
       );
       return Post.fromJson(asJsonMap(response.data));
     });
@@ -93,6 +110,105 @@ class ApiFeedRepository implements FeedRepository {
     return guardApi(() async {
       final response = await _dio.post(Endpoints.postGroup(postId));
       return Group.fromJson(asJsonMap(response.data));
+    });
+  }
+
+  @override
+  Future<void> deletePost(String postId) {
+    return guardApi(() async {
+      await _dio.delete(Endpoints.post(postId));
+    });
+  }
+
+  @override
+  Future<void> deleteComment(String postId, String commentId) {
+    return guardApi(() async {
+      await _dio.delete(Endpoints.comment(postId, commentId));
+    });
+  }
+
+  @override
+  Future<void> reportComment(
+    String postId,
+    String commentId, {
+    bool report = true,
+  }) {
+    return guardApi(() async {
+      final path = Endpoints.commentReport(postId, commentId);
+      if (report) {
+        await _dio.post(path);
+      } else {
+        await _dio.delete(path);
+      }
+    });
+  }
+
+  @override
+  Future<bool> setFollowing(String postId, {required bool following}) {
+    return guardApi(() async {
+      final path = Endpoints.postFollow(postId);
+      final response = following
+          ? await _dio.post(path)
+          : await _dio.delete(path);
+      return asJsonMap(response.data)['following'] == true;
+    });
+  }
+
+  @override
+  Future<CommentVote> voteComment(
+    String postId,
+    String commentId, {
+    required bool up,
+  }) {
+    return guardApi(() async {
+      final path = Endpoints.commentVote(postId, commentId);
+      final response = up ? await _dio.post(path) : await _dio.delete(path);
+      final json = asJsonMap(response.data);
+      return CommentVote(
+        count: (json['vote_count'] as num?)?.toInt() ?? 0,
+        votedByMe: json['voted_by_me'] == true,
+      );
+    });
+  }
+
+  @override
+  Future<void> setBestAnswer(String postId, String? commentId) {
+    return guardApi(() async {
+      await _dio.put(
+        Endpoints.postBest(postId),
+        data: {'comment_id': commentId},
+      );
+    });
+  }
+
+  @override
+  Future<Post> editPost(
+    String postId, {
+    String? title,
+    String? topic,
+    String? content,
+  }) {
+    return guardApi(() async {
+      final response = await _dio.patch(
+        Endpoints.post(postId),
+        data: {'title': ?title, 'topic': ?topic, 'content': ?content},
+      );
+      return Post.fromJson(asJsonMap(response.data));
+    });
+  }
+
+  @override
+  Future<Comment> editComment(
+    String postId,
+    String commentId, {
+    required String content,
+  }) {
+    return guardApi(() async {
+      final response = await _dio.patch(
+        Endpoints.comment(postId, commentId),
+        data: {'content': content},
+      );
+      return Comment.fromJson(asJsonMap(response.data));
     });
   }
 }

@@ -65,6 +65,18 @@ class FalseRejectionRegressionTests(unittest.TestCase):
         self.assertFalse(looks_like_english("Por favor envíame el informe antes del viernes"))
         self.assertFalse(looks_like_english("このレポートを確認してください"))
 
+    def test_informal_heated_english_passes(self):
+        # Run 085: this was refused as "unsupported_language" before.
+        self.assertTrue(
+            looks_like_english("honestly the loading spinner takes 30 seconds, it's unusable")
+        )
+        self.assertTrue(looks_like_english("nobody's replying, it's broken again"))
+        self.assertTrue(looks_like_english("we're stuck, can't deploy anything"))
+
+    def test_endings_do_not_let_foreign_text_through(self):
+        self.assertFalse(looks_like_english("quiero saber cuando vamos a empezar"))
+        self.assertFalse(looks_like_english("nous devons parler rapidement du projet demain"))
+
     def test_very_short_ambiguous_gets_benefit_of_doubt(self):
         # Documented policy: fewer than three words cannot be classified
         # reliably, so they pass. A single foreign word may slip through;

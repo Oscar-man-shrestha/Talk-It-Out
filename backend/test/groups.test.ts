@@ -27,9 +27,14 @@ describe('groups', () => {
       'agenda',
       'controller_id',
       'created_at',
+      'description',
       'id',
+      'member_count',
+      'muted',
       'my_role',
       'pending_count',
+      'pinned',
+      'rules',
       'source_post_id',
     ]);
     expect(res.body.agenda).toBe('Making NLP notes');
@@ -130,10 +135,11 @@ describe('groups', () => {
       controller.token,
       { username: contributorUsername.toUpperCase(), role: 'contributor' },
     );
-    expect(res.status).toBe(201);
-    expect(Object.keys(res.body).sort()).toEqual(['name', 'role', 'user_id']);
+    // Adding invites (API.md 69): the person is told and joins by accepting.
+    expect(res.status).toBe(202);
+    expect(Object.keys(res.body).sort()).toEqual(['invitation_id', 'name', 'status', 'user_id']);
     expect(res.body.user_id).toBe(contributor.id);
-    expect(res.body.role).toBe('contributor');
+    expect(res.body.status).toBe('invited');
   });
 
   it('adding a member with role controller returns 422', async () => {

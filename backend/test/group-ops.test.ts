@@ -8,8 +8,7 @@ import {
   resetDb,
   seedGroup,
   testApp,
-  testPool,
-} from './helpers';
+  testPool, acceptInvites } from './helpers';
 
 beforeAll(ensureSchema);
 beforeEach(resetDb);
@@ -27,10 +26,14 @@ describe('controller direct messages', () => {
     );
     expect(res.status).toBe(201);
     expect(Object.keys(res.body).sort()).toEqual([
+      'attachment_id',
       'display_sender',
       'group_id',
       'id',
+      'pinned',
+      'poll',
       'published_at',
+      'reply_to',
       'text',
     ]);
     expect(res.body.display_sender).toEqual({ id: controller.id, name: 'Cara Controller' });
@@ -240,6 +243,7 @@ describe('removing members', () => {
       username: contributorUsername,
       role: 'contributor',
     });
+    await acceptInvites(app, contributor.token);
 
     expect(
       (await api.del(app, `/groups/${groupId}/members/${contributor.id}`, controller.token))
@@ -263,10 +267,40 @@ describe('leaving groups', () => {
     const groups = await api.get(app, '/groups', contributor.token);
     expect(groups.body.items).toHaveLength(0);
 
+    // The controller is now the only member: nobody can take over.
     const asController = await api.post(app, `/groups/${groupId}/leave`, controller.token);
     expect(asController.status).toBe(409);
-    expect(asController.body.error.message).toBe(
-      'Controllers must transfer ownership before leaving.',
+    expect(asController.body.error.code).toBe('last_member');
+    expect((await api.get(app, `/groups/${groupId}`, controller.token)).body.my_role).toBe(
+      'controller',
+    );
+  });
+
+  it('a leaving controller hands the group to the longest-standing member (D4)', async () => {
+    const app = testApp();
+    const { controller, contributor, groupId } = await seedGroup(app);
+    const later = await registerUser(app, 'Later Member', 'later-member@example.com');
+    await api.post(app, `/groups/${groupId}/members`, controller.token, {
+      username: 'later-member',
+    });
+    await acceptInvites(app, later.token);
+
+    const leave = await api.post(app, `/groups/${groupId}/leave`, controller.token);
+    expect(leave.status).toBe(204);
+    expect((await api.get(app, `/groups/${groupId}`, controller.token)).status).toBe(403);
+
+    // The earliest remaining member, not the latest, is the new controller.
+    const asNew = await api.get(app, `/groups/${groupId}`, contributor.token);
+    expect(asNew.body.my_role).toBe('controller');
+    expect(asNew.body.controller_id).toBe(contributor.id);
+    expect((await api.get(app, `/groups/${groupId}`, later.token)).body.my_role).toBe(
+      'contributor',
+    );
+    expect(
+      (await api.get(app, `/groups/${groupId}/review-queue`, contributor.token)).status,
+    ).toBe(200);
+    expect((await api.get(app, `/groups/${groupId}/review-queue`, later.token)).status).toBe(
+      403,
     );
   });
 
@@ -286,6 +320,7 @@ describe('leaving groups', () => {
       username: contributorUsername,
       role: 'contributor',
     });
+    await acceptInvites(app, contributor.token);
     await api.post(app, `/groups/${groupId}/leave`, contributor.token);
     expect((await api.get(app, `/groups/${other.groupId}`, contributor.token)).status).toBe(200);
     void controller;

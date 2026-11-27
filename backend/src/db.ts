@@ -8,7 +8,7 @@ export interface PoolOptions {
 }
 
 export function createPool(connectionString: string, options: PoolOptions = {}): Pool {
-  return new Pool({
+  const pool = new Pool({
     connectionString,
     max: options.max ?? 10,
     idleTimeoutMillis: options.idleTimeoutMillis ?? 30000,
@@ -16,6 +16,14 @@ export function createPool(connectionString: string, options: PoolOptions = {}):
     // Per-connection guard against runaway statements.
     statement_timeout: options.statementTimeoutMillis ?? 15000,
   });
+  // An idle client can die when the database restarts or drops the
+  // connection. Without a listener, node-postgres re-emits that as an
+  // unhandled 'error' event and the whole API process crashes. The pool
+  // already discards the broken client; new queries get a fresh one.
+  pool.on('error', (err) => {
+    console.error('[db] idle client error; the pool will reconnect:', err.message);
+  });
+  return pool;
 }
 
 /** Runs fn inside a transaction, rolling back on any error. */

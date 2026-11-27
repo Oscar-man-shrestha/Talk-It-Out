@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from typing import Callable
 
 from .config import Config
@@ -46,12 +47,19 @@ class Worker:
         config: Config,
         sleep: Sleep,
         stop_event: threading.Event | None = None,
+        keep_warm: Callable[[], object] | None = None,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._client = client
         self._service = service
         self._config = config
         self._sleep = sleep
         self._stop_event = stop_event or threading.Event()
+        # Pings the model (no message content) so it stays loaded while idle.
+        self._keep_warm = keep_warm
+        self._clock = clock
+        # The entry point warms the model just before run(), so start here.
+        self._last_model_use = clock()
 
     @property
     def stop_event(self) -> threading.Event:
@@ -82,17 +90,33 @@ class Worker:
             self._sleep(self._config.poll_interval_seconds)
             return "empty"
         if not jobs:
+            self._maybe_keep_warm()
             self._sleep(self._config.poll_interval_seconds)
             return "empty"
-        self._process_job(jobs[0])
+        try:
+            self._process_job(jobs[0])
+        finally:
+            self._last_model_use = self._clock()
         return "processed"
+
+    def _maybe_keep_warm(self) -> None:
+        interval = self._config.model_keep_warm_seconds
+        if self._keep_warm is None or interval <= 0:
+            return
+        if self._clock() - self._last_model_use < interval:
+            return
+        try:
+            self._keep_warm()
+        except Exception as exc:  # a failed ping only means a slower next rewrite
+            logger.warning("model keep-warm ping failed (%s)", type(exc).__name__)
+        self._last_model_use = self._clock()
 
     def _process_job(self, job: Job) -> None:
         # The claim already consumed one attempt; a crash that prevents
         # reporting is handled by the lease expiring (see module docstring).
         try:
             try:
-                outcome = self._service.rewrite(job.text, job.group_agenda)
+                outcome = self._service.rewrite(job.text, job.group_agenda, job.tone)
             except (UnsupportedLanguage, OutputValidationError, ModelError) as exc:
                 body = self._client.report_error(
                     job_id=job.job_id,
@@ -120,9 +144,11 @@ class Worker:
                 relevance_score=outcome.relevance_score,
                 relevance_label=outcome.relevance_label,
                 pipeline_version=self._config.pipeline_version,
+                moderation_flags=list(outcome.moderation_flags),
             )
-            logger.info("job %s result submitted (unchanged=%s)",
-                        job.job_id, outcome.unchanged)
+            logger.info("job %s result submitted (unchanged=%s, flags=%s)",
+                        job.job_id, outcome.unchanged,
+                        ",".join(outcome.moderation_flags) or "-")
             _log_applied(job.job_id, body)
         except (BackendTransient, BackendRejected) as exc:
             # Could not deliver the outcome; the lease expiry handles it.

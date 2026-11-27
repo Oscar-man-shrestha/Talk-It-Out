@@ -5,6 +5,7 @@ import { setupGracefulShutdown } from './shutdown';
 import { startStubWorkerLoop } from './worker/stubWorker';
 import { startFeedWorkerLoop } from './feed-analysis/worker';
 import { createFeedProvider } from './feed-analysis/provider';
+import { startRetentionLoop } from './retention';
 
 async function main() {
   const pool = createPool(config.databaseUrl, {
@@ -34,6 +35,12 @@ async function main() {
     stop.push(startFeedWorkerLoop(pool, provider));
     console.log(`Feed analysis worker running in-process (provider: ${config.feedProvider}).`);
   }
+
+  stop.push(startRetentionLoop(pool));
+
+  // Open live-update streams would keep server.close() waiting forever.
+  const realtime = app.locals.realtime as { close: () => Promise<void> } | undefined;
+  if (realtime) stop.push(() => void realtime.close());
 
   setupGracefulShutdown({ server, pools: [pool], stop });
 }

@@ -34,6 +34,10 @@ class Job:
     text: str
     group_agenda: str
     contract_version: int
+    #: Optional style hint ("professional", "direct", "socratic",
+    #: "empathetic"); anonymous messages always get "professional".
+    #: None from older backends.
+    tone: str | None = None
 
 
 def default_poster(url: str, headers: dict[str, str], payload: dict, timeout: float):
@@ -109,6 +113,7 @@ class BackendClient:
                     text=item["text"],
                     group_agenda=item["group_agenda"],
                     contract_version=item["contract_version"],
+                    tone=item.get("tone") if isinstance(item.get("tone"), str) else None,
                 )
             except (KeyError, TypeError):
                 raise BackendTransient("claim response job is missing required keys") from None
@@ -133,20 +138,22 @@ class BackendClient:
         relevance_score: float,
         relevance_label: str,
         pipeline_version: str,
+        moderation_flags: list[str] | None = None,
     ) -> dict:
-        return self._post(
-            "/internal/pipeline/result",
-            {
-                "job_id": job_id,
-                "raw_message_id": raw_message_id,
-                "outcome": "ok",
-                "rewritten_text": rewritten_text,
-                "intent_preservation_score": intent_preservation_score,
-                "relevance_score": relevance_score,
-                "relevance_label": relevance_label,
-                "pipeline_version": pipeline_version,
-            },
-        )
+        payload = {
+            "job_id": job_id,
+            "raw_message_id": raw_message_id,
+            "outcome": "ok",
+            "rewritten_text": rewritten_text,
+            "intent_preservation_score": intent_preservation_score,
+            "relevance_score": relevance_score,
+            "relevance_label": relevance_label,
+            "pipeline_version": pipeline_version,
+        }
+        # Advisory codes only (moderation.py); omitted when none apply.
+        if moderation_flags:
+            payload["moderation_flags"] = list(moderation_flags)
+        return self._post("/internal/pipeline/result", payload)
 
     def report_error(
         self, *, job_id: str, raw_message_id: str, error_code: str

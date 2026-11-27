@@ -33,6 +33,15 @@ class OutputValidationError(PipelineError):
 
     code = "output_validation_failed"
 
+    def __init__(
+        self, message: str, *, code: str | None = None, retry_hint: str | None = None
+    ) -> None:
+        super().__init__(message, code=code)
+        #: A fixed note telling the model what its rewrite got wrong, for
+        #: one corrected attempt in the same job. It never contains message
+        #: text (at most the digits a rewrite lost). None: do not retry.
+        self.retry_hint = retry_hint
+
 
 class ModelError(PipelineError):
     """The inference call failed; the reason is one of the fixed codes."""

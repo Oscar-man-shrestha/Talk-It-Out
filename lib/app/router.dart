@@ -5,9 +5,14 @@ import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/app/shell.dart';
 import 'package:talk_it_out/core/models/enums.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
+import 'package:talk_it_out/features/auth/forgot_password_screen.dart';
+import 'package:talk_it_out/features/legal/legal_screen.dart';
 import 'package:talk_it_out/features/auth/login_screen.dart';
 import 'package:talk_it_out/features/auth/register_screen.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
+import 'package:talk_it_out/features/discovery/interest_picker_screen.dart';
+import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
+import 'package:talk_it_out/features/discovery/safety_actions.dart';
 import 'package:talk_it_out/features/feed/feed_screen.dart';
 import 'package:talk_it_out/features/feed/new_post_screen.dart';
 import 'package:talk_it_out/features/feed/post_detail_screen.dart';
@@ -18,8 +23,14 @@ import 'package:talk_it_out/features/groups/members_screen.dart';
 import 'package:talk_it_out/features/groups/my_messages_screen.dart';
 import 'package:talk_it_out/features/notifications/notifications_screen.dart';
 import 'package:talk_it_out/features/profile/profile_screen.dart';
+import 'package:talk_it_out/features/premium/group_insights_screen.dart';
+import 'package:talk_it_out/features/premium/premium_screen.dart';
 import 'package:talk_it_out/features/review/review_detail_screen.dart';
 import 'package:talk_it_out/features/review/review_queue_screen.dart';
+import 'package:talk_it_out/features/invites/join_group_screen.dart';
+import 'package:talk_it_out/features/onboarding/welcome_screen.dart';
+import 'package:talk_it_out/features/groups/group_info_screen.dart';
+import 'package:talk_it_out/features/premium/premium_tools_screens.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -29,7 +40,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     navigatorKey: rootNavigatorKey,
     initialLocation: '/groups',
     refreshListenable: refresh,
-    redirect: (context, state) => _redirect(ref, state.uri.path),
+    redirect: (context, state) => _redirect(ref, state.uri),
     routes: [
       GoRoute(
         path: '/loading',
@@ -42,8 +53,59 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
+        path: '/premium',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const PremiumScreen(),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/starred',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const StarredScreen(),
+      ),
+      GoRoute(
+        path: '/chat-theme',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const ChatThemeScreen(),
+      ),
+      GoRoute(
+        path: '/legal/:page',
+        builder: (context, state) => LegalScreen(
+          // A new page when the address changes, not the old text.
+          key: ValueKey(state.pathParameters['page']),
+          page: state.pathParameters['page']!,
+        ),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/people/:userId',
+        builder: (context, state) =>
+            PersonProfileScreen(userId: state.pathParameters['userId']!),
+      ),
+      GoRoute(
+        path: '/welcome',
+        builder: (context, state) => const WelcomeScreen(),
+      ),
+      GoRoute(
+        path: '/join/:code',
+        builder: (context, state) => JoinGroupScreen(
+          key: ValueKey(state.pathParameters['code']),
+          code: state.pathParameters['code']!.toLowerCase(),
+        ),
+      ),
+      GoRoute(
+        path: '/blocked',
+        builder: (context, state) => const BlockedPeopleScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -69,6 +131,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                     ),
                     routes: [
                       GoRoute(
+                        path: 'info',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) => GroupInfoScreen(
+                          groupId: state.pathParameters['groupId']!,
+                        ),
+                      ),
+                      GoRoute(
                         path: 'members',
                         parentNavigatorKey: rootNavigatorKey,
                         builder: (context, state) => MembersScreen(
@@ -79,6 +148,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                         path: 'mine',
                         parentNavigatorKey: rootNavigatorKey,
                         builder: (context, state) => MyMessagesScreen(
+                          groupId: state.pathParameters['groupId']!,
+                        ),
+                      ),
+                      GoRoute(
+                        path: 'insights',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) => GroupInsightsScreen(
                           groupId: state.pathParameters['groupId']!,
                         ),
                       ),
@@ -115,6 +191,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'new',
                     parentNavigatorKey: rootNavigatorKey,
                     builder: (context, state) => const NewPostScreen(),
+                  ),
+                  GoRoute(
+                    path: 'interests',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) => InterestPickerScreen(
+                      firstRun: state.uri.queryParameters['first'] == '1',
+                    ),
                   ),
                   GoRoute(
                     path: ':postId',
@@ -160,17 +243,53 @@ class _RouterRefresh extends ChangeNotifier {
   }
 }
 
-Future<String?> _redirect(Ref ref, String location) async {
-  final session = ref.read(sessionProvider);
-  final signingIn = location == '/login' || location == '/register';
-  if (session.isLoading) {
-    return location == '/loading' ? null : '/loading';
-  }
-  final signedIn = session.asData?.value != null;
-  if (!signedIn) return signingIn ? null : '/login';
-  if (signingIn || location == '/loading') return '/groups';
+const _authPaths = {'/login', '/register', '/forgot-password'};
 
-  final review = RegExp(r'^/groups/([^/]+)/review(?:/|$)').firstMatch(location);
+/// Where to go after loading or signing in: an in-app path from `?from=`,
+/// never an auth page and never another site.
+String? _returnTo(String? from) {
+  if (from == null || !from.startsWith('/') || from.startsWith('//')) {
+    return null;
+  }
+  final path = Uri.tryParse(from)?.path;
+  if (path == null || path == '/loading' || _authPaths.contains(path)) {
+    return null;
+  }
+  return from;
+}
+
+Future<String?> _redirect(Ref ref, Uri uri) async {
+  final location = uri.path;
+  final session = ref.read(sessionProvider);
+  final signingIn = _authPaths.contains(location);
+  // Keep the page someone opened (a reload or a shared link) so they land
+  // on it after loading or signing in, instead of always on Groups.
+  final pending = location == '/loading' || signingIn
+      ? _returnTo(uri.queryParameters['from'])
+      : _returnTo(uri.toString());
+  String via(String target) => pending == null || pending == '/groups'
+      ? target
+      : Uri(path: target, queryParameters: {'from': pending}).toString();
+  if (session.isLoading && !location.startsWith('/legal/')) {
+    return location == '/loading' ? null : via('/loading');
+  }
+  // Legal pages are readable by everyone, signed in or not.
+  if (location.startsWith('/legal/')) return null;
+  final signedIn = session.asData?.value != null;
+  if (!signedIn) {
+    if (signingIn) return null;
+    return via('/login');
+  }
+  if (signingIn || location == '/loading') {
+    // An invite link or shared page wins; otherwise new accounts get the
+    // welcome tour.
+    return pending ??
+        (ref.read(justRegisteredProvider) ? '/welcome' : '/groups');
+  }
+
+  // Controller-only: review and Group Insights (AGENTS.md hard rule 6).
+  final review = RegExp(r'^/groups/([^/]+)/(?:review|insights)(?:/|$)')
+      .firstMatch(location);
   if (review == null) return null;
   final groupId = review.group(1)!;
   try {

@@ -1,249 +1,269 @@
-# Talk It Out 🛡️
-### Asynchronous Safe Deliberation & Psychological Safety Platform
+<p align="center">
+  <img src="docs/store/icon-512.png" width="96" alt="Talk It Out icon">
+</p>
 
-[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
-[![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart&logoColor=white)](https://dart.dev)
-[![State Management](https://img.shields.io/badge/State-Riverpod%202.x-00E5FF)](https://riverpod.dev)
-[![Navigation](https://img.shields.io/badge/Router-GoRouter%2014.x-blue)](https://pub.dev/packages/go_router)
-[![Security](https://img.shields.io/badge/Privacy-Zero--Knowledge%20Enclave-black)](file:///Users/oscar/Desktop/talk_it_out/ARCHITECTURE.md#2-mathematical--cryptographic-anonymity-enclave)
-[![License](https://img.shields.io/badge/License-MIT-green)](file:///Users/oscar/Desktop/talk_it_out/LICENSE)
-[![Platform](https://img.shields.io/badge/Platforms-Web%20%7C%20iOS%20%7C%20Android%20%7C%20macOS-informational)]()
+<h1 align="center">Talk It Out</h1>
 
-> **Talk It Out** is an asynchronous deliberation platform engineered to eliminate fear of retaliation, hierarchical intimidation, and toxic debate in modern organizations. Through **per-message mathematical anonymity** and **AI non-adversarial tone synthesis**, teams surface ground-truth feedback and build high-trust consensus.
+<p align="center">
+  <strong>Say what matters at work, safely.</strong><br>
+  Anonymous when it needs to be, rewritten calmly by AI, and reviewed before anyone sees it.
+</p>
 
----
-
-## 📌 Table of Contents
-
-- [The Core Problem & Solution](#-the-core-problem--solution)
-- [Key Architectural Innovations](#-key-architectural-innovations)
-- [Complete Feature Showcase](#-complete-feature-showcase)
-- [Documentation Suite](#-documentation-suite)
-- [Getting Started](#-getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation & Code Generation](#installation--code-generation)
-  - [Running in Mock Mode (Default)](#running-in-mock-mode-default)
-  - [Connecting to a Live Backend](#connecting-to-a-live-backend)
-- [Quality Gates & Automated Tests](#-quality-gates--automated-tests)
-- [Project Architecture & Directory Structure](#-project-architecture--directory-structure)
-- [Non-Negotiable Privacy Hard Rules](#-non-negotiable-privacy-hard-rules)
-- [Technology Stack](#-technology-stack)
-- [License](#-license)
+<p align="center">
+  <a href="https://github.com/Oscar-man-shrestha/Talk-It-Out/actions/workflows/flutter-ci.yml"><img src="https://github.com/Oscar-man-shrestha/Talk-It-Out/actions/workflows/flutter-ci.yml/badge.svg" alt="flutter-ci"></a>
+  <a href="https://github.com/Oscar-man-shrestha/Talk-It-Out/actions/workflows/backend-ci.yml"><img src="https://github.com/Oscar-man-shrestha/Talk-It-Out/actions/workflows/backend-ci.yml/badge.svg" alt="backend-ci"></a>
+  <a href="https://github.com/Oscar-man-shrestha/Talk-It-Out/actions/workflows/pipeline-ci.yml"><img src="https://github.com/Oscar-man-shrestha/Talk-It-Out/actions/workflows/pipeline-ci.yml/badge.svg" alt="pipeline-ci"></a>
+  <a href="https://github.com/Oscar-man-shrestha/Talk-It-Out/actions/workflows/stack-ci.yml"><img src="https://github.com/Oscar-man-shrestha/Talk-It-Out/actions/workflows/stack-ci.yml/badge.svg" alt="stack-ci"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-black" alt="MIT license"></a>
+</p>
 
 ---
 
-## 💡 The Core Problem & Solution
+Talk It Out is a mobile and web app for honest conversation at work. It combines two things under one account:
 
-In conventional collaboration tools (Slack, Teams, Discord, email), candid dissenting opinions are routinely withheld because individual contributors fear career retribution, peer judgment, or political friction. When stressed teammates do speak up, messages are often written in defensive or accusatory language, leading to flame wars and organizational polarization.
+- **Groups**, where a team raises difficult topics safely. Members can write anonymously, an AI rewrites every message in a calm tone, and the group's controller reviews each message before anyone else sees it.
+- **A community feed**, where anyone can ask workplace questions (pay, managers, burnout, careers) and get answers. The feed is ranked for each person and is never anonymous.
 
-```mermaid
-flowchart LR
-    A[Contributor Candid Draft] -->|Per-Message Anonymity| B(Zero-Knowledge Enclave)
-    B -->|Async BullMQ Queue| C[NLP Tone Synthesis Engine]
-    C -->|Constructive Proposal| D{Controller Review Queue}
-    D -->|Reject Raw| E[Neutral Notification<br/>No Reason Probing]
-    D -->|Publish Rewrite| F[(Live Group Chat)]
-    F -->|Decoupled Author| G[Peers see 'Anonymous user']
+The app is built with Flutter (Android and web), a Node.js and PostgreSQL backend, and a self-hosted language model. It is complete enough to deploy today; see [Deploying for free](#deploying-for-free).
+
+**Read the full product and technical guide: [docs/Talk-It-Out-Guide.pdf](docs/Talk-It-Out-Guide.pdf)** (16 pages, for new users and teammates).
+
+## Contents
+
+- [Why it exists](#why-it-exists)
+- [Features](#features)
+- [How a group message works](#how-a-group-message-works)
+- [Privacy guarantees](#privacy-guarantees)
+- [Language technology](#language-technology)
+- [Architecture](#architecture)
+- [Technology](#technology)
+- [Getting started](#getting-started)
+- [Testing](#testing)
+- [Deploying for free](#deploying-for-free)
+- [Project layout](#project-layout)
+- [Documentation](#documentation)
+- [Status and roadmap](#status-and-roadmap)
+- [Contributing, security and license](#contributing-security-and-license)
+
+## Why it exists
+
+People hold back at work. Feedback about a manager, a broken process, pay or burnout feels risky to say with your name, while fully anonymous tools invite abuse and heated wording starts arguments. Talk It Out gives teams a middle ground: anonymity where it helps, calm wording, and a human who checks every message before it is shared.
+
+## Features
+
+**Groups and chat**
+- Create a group around an agenda; the creator becomes its **controller**. Add members with typo-tolerant people search, or share an **invite link or QR code** that can expire or have a use limit.
+- Send messages with your name or **anonymously**. Preview the AI wording before sending, and get a gentle tone hint while typing.
+- Replies (also by swiping a message), photos (stripped of location and camera data), reactions, pins, polls, search, @mentions, a "New messages" divider and saved drafts.
+- **Catch up:** an automatic, name-free summary of a busy conversation.
+- **Group info:** a description and rules from the controller, plus your own mute and pin.
+
+**Controller review**
+- The original message next to the AI rewrite, with a word-level difference and advisory scores (meaning kept, relevance).
+- Accept publishes the rewrite; reject publishes nothing and gives no reason. Ask the AI for a new rewrite at any time.
+- An Approved and Rejected history.
+
+**Community feed**
+- Ask a question with a title, topic and details. Topic suggestions and "Already asked?" similar questions appear while you type.
+- **For You** ranks questions from 30 interests, picked and learned, and every question says why it is shown. **Latest** has filters, sorting and endless scrolling.
+- Search that understands typos and word families.
+- Answers with upvotes, a **best answer** chosen by the asker, following questions, edits marked as edited, likes with "Liked by", and sharing.
+
+**People and safety**
+- Profiles with @handles, skills, experience and shared groups.
+- Block people, report questions and comments, and turn personalisation off.
+- Delete your account in the app.
+
+**Getting started in the app**
+- A short welcome tour for new accounts, helpful empty screens, "Continue as" accounts on the sign-in screen, and Sign in with Google.
+- Privacy policy, terms and account deletion pages, in the app and on the web.
+
+## How a group message works
+
+```
+ 1. Write          2. Queue              3. Rewrite              4. Review               5. Publish
+ member types,  →  stored as pending  →  worker asks the     →   controller sees    →   approved rewrite only;
+ may tick          with a rewrite job    model, checks and       original + rewrite,     anonymous messages
+ Anonymous                               scores the result       accepts or rejects      store no author
 ```
 
-| Conventional Tools (Slack / Teams) | Talk It Out Platform |
+If the controller rejects a message, nothing is published and the sender gets a plain notification without a reason. The group only ever reads published, approved text.
+
+## Privacy guarantees
+
+Anonymity is enforced by the data model, not just hidden in the interface.
+
+- **Two tables.** `raw_messages` holds the original wording and the real sender, and only the group's controller can read it. `published_messages` holds approved text; for an anonymous message the author is stored as empty, and a database constraint enforces this.
+- **The controller can always see the sender.** The app says so next to the Anonymous checkbox every time. Talk It Out never claims more anonymity than it gives.
+- **No "show original" control exists anywhere**, and the app's group screens use a model without original-text or real-sender fields. A test fails the build if review code is used elsewhere.
+- **Message text and sender identity are never logged**, cached or sent to analytics. Mentions and summaries never name senders, and group reactions show counts only.
+- Feed activity used for ranking is deleted after 180 days. Account deletion keeps published group messages but makes them anonymous.
+
+## Language technology
+
+Only the message rewrite uses a large language model. Everything else is fast, explainable classic NLP that runs on the server or on the phone, so text is never sent to a third-party AI company.
+
+| Feature | Technique |
 |---|---|
-| **Permanent Identity Attachment:** Submissions carry names; psychological safety is low. | **Per-Message Anonymity:** Contributors can shield identity with one tap. Public messages store `author_id = NULL`. |
-| **Toxic or Accusatory Phrasing:** Heated messages derail retrospectives. | **AI Tone Synthesis:** NLP models reframe statements into constructive, solution-oriented proposals preserving 100% of technical substance. |
-| **Moderator Burnout:** Facilitators manually referee and rephrase heated comments. | **Assisted Review Queue:** AI computes objective toxicity scores, agenda relevance, and visual diff proposals for instant Controller approval. |
-| **Dominant Voices Monopolize:** Loudest meeting participants drown out quiet peers. | **Asynchronous Queue:** All proposals enter the review queue with equal priority and cryptographic protection. |
-| **Submission "Black Hole":** Rejection reasons spark resentment or feedback probing. | **Author Ledger ("My Messages"):** Real-time status pills (`pending`, `accepted`, `rejected`) with neutral notification delivery. |
+| Message rewrite | Qwen2.5-3B-Instruct, self-hosted through Ollama. Prompt-injection defence, deterministic output validation, scores for meaning kept and relevance. |
+| People search | Accent folding, Damerau-Levenshtein and Jaro-Winkler distance, phonetic keys, Postgres trigram indexes. |
+| Topics and interests | A lexicon classifier over 30 interests, with stemming. |
+| For You | Interests, TF-IDF similarity, engagement with time decay, a network bonus and freshness, then diversity and exploration. Each result has a reason. |
+| Search and "Already asked?" | BM25 with stemming, typo and prefix expansion, and "did you mean". |
+| Catch up | Extractive TextRank (PageRank over TF-IDF sentence similarity). |
+| Tone hint | On-device patterns for insults, blame, absolutes and shouting. Nothing is sent anywhere. |
 
----
+## Architecture
 
-## 🔬 Key Architectural Innovations
+```
+  Flutter app (Android, web)
+        │  HTTPS (REST + Server-Sent Events)
+        ▼
+  Express API (Node.js, TypeScript) ──────── Google Sign-In, Gmail SMTP
+        │  SQL                        ▲
+        ▼                             │ internal HTTP (claim / result), key-protected
+  PostgreSQL 16                 Rewrite worker (Python) ──── Ollama (Qwen2.5-3B)
+  tables, NOTIFY triggers,
+  jobs outbox
+```
 
-### 1. Dual-Table Zero-Knowledge Identity Decoupling
-Unlike traditional platforms that store `user_id` on every chat message and simply toggle a frontend UI visibility flag, Talk It Out physically isolates identities at the relational database level:
-- **`raw_messages` table:** Stores the contributor's true author ID, raw draft text, and AI evaluation metrics. Accessible **strictly** by room Controllers.
-- **`published_messages` table:** Public chat table queried by peers. When marked anonymous, `author_id` is set to **`NULL`** enforced by database check constraints:
-  ```sql
-  CONSTRAINT chk_anonymity_author_null CHECK (
-      (is_anonymous = TRUE AND author_id IS NULL) OR
-      (is_anonymous = FALSE)
-  )
-  ```
-- **Result:** No SQL leak, network sniffing, or API over-fetching vulnerability can ever compromise an anonymous contributor.
+- **Live updates:** Postgres triggers send `NOTIFY` events, each API instance `LISTEN`s and pushes Server-Sent Events, and the app refreshes only what changed. This works across several API instances without Redis.
+- **Jobs:** a jobs table works as an outbox with leases, retries and back-off. The rewrite worker claims one job at a time over a versioned internal contract, never touches the database, and never receives sender identity.
+- **The app** has a Mock and an API implementation for every data source, switched at build time. The whole app runs offline as a demo.
 
-### 2. Two-Stage NLP Moderation & Constructive Tone Pipeline
-Raw submissions undergo an asynchronous evaluation before reaching the Controller:
-- **Stage 1 (Advisory Scoring):** Perspective/transformer toxicity classification (0.0 to 1.0) and vector cosine similarity against the group's agenda (relevance score 0.0 to 1.0).
-- **Stage 2 (Non-Adversarial Tone Synthesis):** An LLM rephrases accusatory or passive-aggressive language into objective, actionable proposals while strictly retaining 100% of underlying technical arguments, bugs, and risks.
+## Technology
 
-### 3. Controller Parity & Moderation Governance
-Controllers are empowered room leaders. They possess:
-- A protected Review Queue with AI proposals and objective metrics.
-- A unified WhatsApp-style composer to post official announcements directly to the room.
-- Authority to moderate participants (invite by `@username`, kick non-cooperative members, delete inappropriate published messages).
-
----
-
-## 🚀 Complete Feature Showcase
-
-| Feature | Description | Screen / Component |
-|---|---|---|
-| **🔐 Authentication & Session Lifecycle** | Secure login, registration, and hardware-backed JWT storage (`flutter_secure_storage`). | [LoginScreen](file:///Users/oscar/Desktop/talk_it_out/lib/features/auth/login_screen.dart), [RegisterScreen](file:///Users/oscar/Desktop/talk_it_out/lib/features/auth/register_screen.dart) |
-| **👥 Deliberation Groups** | Agenda-anchored deliberation rooms. Group creators automatically assigned `Controller`. | [GroupsScreen](file:///Users/oscar/Desktop/talk_it_out/lib/features/groups/groups_screen.dart), [CreateGroupScreen](file:///Users/oscar/Desktop/talk_it_out/lib/features/groups/create_group_screen.dart) |
-| **💬 Modern Bubble Group Chat** | WhatsApp/Instagram-style chat bubbles with distinct left/right alignment, timestamps, and role badges. | [GroupChatScreen](file:///Users/oscar/Desktop/talk_it_out/lib/features/groups/group_chat_screen.dart) |
-| **👻 Per-Message Anonymity Ingress** | Dedicated anonymity checkbox sitting immediately above Send with clear cryptographic disclosure. | [GroupChatScreen (Composer)](file:///Users/oscar/Desktop/talk_it_out/lib/features/groups/group_chat_screen.dart) |
-| **📢 Controller Direct Messaging Parity** | Controllers possess an identical clean composer to post official guidance without review delays. | [GroupChatScreen (Controller Bar)](file:///Users/oscar/Desktop/talk_it_out/lib/features/groups/group_chat_screen.dart) |
-| **🤖 AI Moderation & Review Queue** | Side-by-side inspection of raw drafts, AI neutral rewrites, toxicity meters, and agenda relevance. | [ReviewQueueScreen](file:///Users/oscar/Desktop/talk_it_out/lib/features/review/review_queue_screen.dart) |
-| **⚡ One-Tap Publish & Safe Reject** | Approve AI rewrites to live chat or reject drafts with neutral notifications and zero probe feedback. | [ReviewQueueScreen](file:///Users/oscar/Desktop/talk_it_out/lib/features/review/review_queue_screen.dart) |
-| **📋 Contributor Status Ledger** | "My Messages" view showing personal submission status (`pending`, `accepted`, `rejected`). | [MyMessagesScreen](file:///Users/oscar/Desktop/talk_it_out/lib/features/groups/my_messages_screen.dart) |
-| **❤️ Floating Emoji Reactions** | Long-press or tap reaction bar (👍, ❤️, 🔥, 💡, 👏, 🎯) with live count aggregations. | [GroupChatScreen](file:///Users/oscar/Desktop/talk_it_out/lib/features/groups/group_chat_screen.dart) |
-| **↩️ Threaded Quote-Reply System** | Swipe or click to attach a quoted message snippet above the composer. | [GroupChatScreen](file:///Users/oscar/Desktop/talk_it_out/lib/features/groups/group_chat_screen.dart) |
-| **🗑️ Controller Message Deletion** | Moderators can redact or delete inappropriate published messages. | [GroupChatScreen](file:///Users/oscar/Desktop/talk_it_out/lib/features/groups/group_chat_screen.dart) |
-| **🛡️ Member Moderation** | Invite colleagues by `@username`, kick disruptive users, or leave groups voluntarily. | [MembersScreen](file:///Users/oscar/Desktop/talk_it_out/lib/features/groups/members_screen.dart) |
-| **👤 Rich Professional Profile** | Public identity card, dynamic skills chip editor, social links (Website, GitHub, Twitter, LinkedIn). | [ProfileScreen](file:///Users/oscar/Desktop/talk_it_out/lib/features/profile/profile_screen.dart) |
-| **💼 Career History & Education CRUD** | Add, edit, and delete work experiences and academic credentials. | [ProfileScreen](file:///Users/oscar/Desktop/talk_it_out/lib/features/profile/profile_screen.dart) |
-| **📸 Native Media File Upload** | OS-level image file picker (`pickImageFile()`) for custom avatars and cover banners + curated presets. | [ProfileScreen](file:///Users/oscar/Desktop/talk_it_out/lib/features/profile/profile_screen.dart) |
-| **🌐 Public Community Feed** | Open discussions with likes and threaded comments. Non-anonymous. Escalates to deliberation groups. | [FeedScreen](file:///Users/oscar/Desktop/talk_it_out/lib/features/feed/feed_screen.dart) |
-| **🔔 Notification Center** | Real-time badge counter, read/unread filters, and one-tap "Mark all as read". | [NotificationsScreen](file:///Users/oscar/Desktop/talk_it_out/lib/features/notifications/notifications_screen.dart) |
-| **📱 Cross-Device Responsiveness** | Adaptive layout engine tuned for mobile (<600px), tablet (600–900px), and desktop in Monochrome style. | [StitchChrome](file:///Users/oscar/Desktop/talk_it_out/lib/core/ui/stitch_chrome.dart) |
-
----
-
-## 📚 Documentation Suite
-
-The repository contains an exhaustive, production-grade documentation package for all disciplines:
-
-| Document | Purpose & Target Audience |
+| Layer | Technology |
 |---|---|
-| **[BACKEND_DATABASE_HANDOFF_REPORT.md](file:///Users/oscar/Desktop/talk_it_out/BACKEND_DATABASE_HANDOFF_REPORT.md)** | **Master Handoff Report:** Single-source guide for backend and DB engineers detailing all 18 features, SQL schema, NLP prompt pipeline, WebSockets, and rollout steps. |
-| **[PRD.md](file:///Users/oscar/Desktop/talk_it_out/PRD.md)** | **Product Requirements Document:** Vision, user personas (Maya, Julian, Observers), role permissions matrix, feature requirements, and compliance. |
-| **[ARCHITECTURE.md](file:///Users/oscar/Desktop/talk_it_out/ARCHITECTURE.md)** | **System & Database Design:** Component topology, Zero-Knowledge isolation model, complete PostgreSQL 16 DDL, Redis/BullMQ worker queues, and security threats. |
-| **[PLAN.md](file:///Users/oscar/Desktop/talk_it_out/PLAN.md)** | **Engineering Execution Plan:** 4-sprint, 6-phase engineering roadmap with deliverables, acceptance criteria, and team ownership matrix. |
-| **[HANDOFF.md](file:///Users/oscar/Desktop/talk_it_out/HANDOFF.md)** | **Integration & API Contract:** Full REST API tables, exact request/response JSON schemas, error codes, and live-mode testing guide. |
-| **[API.md](file:///Users/oscar/Desktop/talk_it_out/API.md)** | **REST API Reference:** Quick reference for all HTTP endpoints, parameter schemas, and mock seed data. |
-| **[DATA.md](file:///Users/oscar/Desktop/talk_it_out/DATA.md)** | **Data Architecture & DTOs:** Frontend models, serialization contracts, and mock persona dictionaries. |
-| **[LOGS.md](file:///Users/oscar/Desktop/talk_it_out/LOGS.md)** | **Living Project Changelog:** Chronological run entries, quality gate results, and architectural decisions. |
+| App | Flutter 3.47 (Dart), Riverpod 3, go_router, Dio, freezed |
+| API | Node.js 20+, Express 5, TypeScript, Zod, node-postgres, Argon2 |
+| Database | PostgreSQL 16 with pg_trgm |
+| AI worker | Python 3 (standard library only), any OpenAI-compatible model server |
+| Model | Qwen2.5-3B-Instruct through Ollama |
+| Delivery | Docker Compose, GitHub Actions (four CI workflows), Render blueprint, GitHub Pages |
 
----
+## Getting started
 
-## 🛠️ Getting Started
+### Demo mode (no server needed)
 
-### Prerequisites
-- **Flutter SDK:** Version `3.22.x` or higher (stable channel). Check with `flutter doctor`.
-- **Dart SDK:** Version `3.4.x` or higher.
-- **Web Browser or Simulator:** Google Chrome, macOS desktop, iOS Simulator, or Android Emulator.
-
-### Installation & Code Generation
 ```bash
-# 1. Clone the repository
-git clone https://github.com/Oscar-man-shrestha/Talk-It-Out.git
-cd Talk-It-Out
-
-# 2. Install dependencies
 flutter pub get
-
-# 3. Generate Freezed models & JSON serializers
-dart run build_runner build --delete-conflicting-outputs
+flutter run -d chrome --dart-define=USE_MOCK=true
 ```
 
-### Running in Mock Mode (Default)
-The app runs completely self-contained in memory without needing a backend server:
+On the sign-in screen choose **Use the demo account**. The sample user, Priya, is a member of one group and the controller of another, so you can try both sides.
+
+### Full stack on your computer
+
+Requirements: Flutter 3.47, Node.js 20+, PostgreSQL 16, Python 3.10+, and Ollama for real rewrites.
 
 ```bash
-flutter run -d web-server --web-hostname=127.0.0.1 --web-port=52000 --dart-define=USE_MOCK=true
+# 1. API
+cd backend
+cp .env.example .env           # set DATABASE_URL, JWT_SECRET and PIPELINE_API_KEY
+                               # (openssl rand -hex 32), and PIPELINE_MODE=external
+npm install
+npm run migrate
+npm run dev                    # http://localhost:3000
+
+# 2. Rewrite worker (separate terminal)
+ollama pull qwen2.5:3b
+cd pipeline
+cp .env.example .env           # same PIPELINE_API_KEY as backend/.env
+python3 -m talkitout_pipeline
+
+# 3. App (separate terminal)
+flutter run -d chrome --dart-define=USE_MOCK=false --dart-define=API_BASE_URL=http://localhost:3000
 ```
 
-Then open `http://127.0.0.1:52000/#/login` in your browser.
+Without the worker, set `PIPELINE_MODE=stub` in `backend/.env` to get clearly labelled placeholder rewrites instead. Optional starter content: `npm run seed:questions` (in `backend`) adds 61 questions covering all 30 interests.
 
-#### Demo Credentials (Mock Mode)
-- **Email:** `priya@example.com`
-- **Password:** `secret123`
-- *Role Details:* Priya Sharma is a **Contributor** in *"Making NLP notes"* (can test anonymous message submission) and the **Controller** of *"Dashboard improvements"* (can test review queue, approving rewrites, and direct announcements).
-
-### Connecting to a Live Backend
-When your backend team deploys the API services:
+### Everything with Docker
 
 ```bash
-flutter run -d web-server --web-port=52000 \
-  --dart-define=USE_MOCK=false \
-  --dart-define=API_BASE_URL=http://localhost:3000/api/v1
+cp .env.stack.example .env     # set POSTGRES_PASSWORD and JWT_SECRET
+docker compose up -d --build   # web on :8080, API on :3000
 ```
 
----
+## Testing
 
-## 🧪 Quality Gates & Automated Tests
+| Suite | Command | Covers |
+|---|---|---|
+| App | `flutter test` | Screens and flows, privacy rules, review, feed, groups, safety, onboarding |
+| API | `cd backend && npm test` | Every route against a real Postgres, including privacy sweeps |
+| Rewrite worker | `cd pipeline && python3 -m unittest discover -s tests -t .` | Contract, prompt-injection layer, validation, scoring |
+| End to end | `node backend/scripts/live-check.mjs http://localhost:3000` | A running stack, including real rewrites |
+| Static checks | `dart format`, `flutter analyze`, `tsc`, `eslint` | Formatting, types, lint |
 
-This project enforces strict CI quality gates. Every release must satisfy:
+All four suites run on every push in GitHub Actions.
 
-```bash
-# 1. Code formatting check
-dart format --output=none --set-exit-if-changed .
+## Deploying for free
 
-# 2. Static code analysis (must have 0 issues)
-flutter analyze
+You can put Talk It Out online without paying anything, using free tiers:
 
-# 3. Automated privacy & unit test suite
-flutter test
+| Part | Free service |
+|---|---|
+| Database | Neon (Postgres, 0.5 GB) |
+| API | Render free web service (sleeps after 15 idle minutes) |
+| Web app | GitHub Pages, using the included `deploy-web` workflow |
+| AI rewrites | Ollama and the worker on your own computer. They only make outgoing requests, so no ports or tunnels are needed. |
+| Phones | "Add to Home screen" from the web app, or an APK shared directly |
+
+The repository includes a Render blueprint (`render.yaml`) and a GitHub Pages workflow (`.github/workflows/deploy-web.yml`). **Step-by-step instructions: [docs/DEPLOY.md](docs/DEPLOY.md).** For a paid single-server setup and the Google Play release, see the same guide and [docs/PLAY_STORE.md](docs/PLAY_STORE.md).
+
+## Project layout
+
+```
+lib/                 Flutter app (features: auth, groups, review, feed, discovery,
+                     invites, onboarding, notifications, profile, legal)
+test/                Flutter tests
+backend/             Express API: src/routes, src/nlp, migrations, tests
+pipeline/            Python rewrite worker and its tests
+assets/legal/        Privacy policy, terms and account deletion (shown in the app)
+docs/                Guide PDF, deployment, Play Store, startup plan, setup guides
+tool/                Icon and guide generators
+API.md               The HTTP contract (sections 1 to 68)
+LOGS.md              Project log, open decisions and test results
 ```
 
-### Key Automated Privacy Assertions
-- `test/no_raw_message_import_test.dart`: Statically asserts that group-facing screens **never import `RawMessage`**, preventing code leaks.
-- `test/privacy_ui_test.dart`: Validates that null senders render as `"Anonymous user"`, disclosures are visible next to checkboxes, review queues are route-guarded, and rejection notifications contain no reason text.
+## Documentation
 
----
+| Document | Contents |
+|---|---|
+| [docs/Talk-It-Out-Guide.pdf](docs/Talk-It-Out-Guide.pdf) | Product and technical guide: features, architecture, privacy, running |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | Free deployment step by step, and the paid single-server setup |
+| [docs/PLAY_STORE.md](docs/PLAY_STORE.md) | Google Play release: signing, listing text, Data safety answers |
+| [docs/STARTUP_PLAN.md](docs/STARTUP_PLAN.md) | Product research, NLP roadmap, metrics and launch plan |
+| [docs/SETUP_GOOGLE_AND_EMAIL.md](docs/SETUP_GOOGLE_AND_EMAIL.md) | Google Sign-In and Gmail for password-reset email |
+| [API.md](API.md) | Every endpoint with request and response shapes |
+| [backend/README.md](backend/README.md) | API setup, configuration and production checklist |
+| [pipeline/README.md](pipeline/README.md) | Rewrite worker configuration and safety rules |
+| [backend/docs/groups-pipeline-contract.md](backend/docs/groups-pipeline-contract.md) | Internal contract between the API and the worker |
+| [LOGS.md](LOGS.md) | Project history, open decisions and test results |
 
-## 📂 Project Architecture & Directory Structure
+## Status and roadmap
 
-The project follows a **Feature-First Clean Architecture** with immutable Freezed state models:
+All features above are built and tested, and continuous integration passes. The Android project is prepared for Google Play: app name, icon, internet permission, release signing and legal pages.
 
-```
-lib/
-├── app/
-│   ├── app.dart                   # Root MaterialApp & theme configuration
-│   ├── repository_providers.dart  # Dynamic Mock vs API repository switch (USE_MOCK)
-│   ├── router.dart                # GoRouter declarations & Controller route guards
-│   ├── shell.dart                 # Persistent bottom navigation shell
-│   └── theme.dart                 # Monochrome Precision light theme tokens
-├── core/
-│   ├── api/                       # Dio client, AuthInterceptor, endpoints catalog
-│   ├── errors/                    # AppFailure hierarchy & user-friendly error mappers
-│   ├── strings/                   # Centralized string constants (AppStrings)
-│   ├── ui/                        # Reusable StitchChrome, responsive layout utilities
-│   └── utils/                     # Responsive breakpoints, date formatters
-└── features/
-    ├── auth/                      # Login, registration, token persistence
-    ├── groups/                    # Groups directory, WhatsApp-style chat, composer, ledger
-    ├── review/                    # Protected Controller review queue (RawMessage enclave)
-    ├── feed/                      # Public community feed, comments, group conversion
-    ├── notifications/             # Notification center & unread badge state
-    └── profile/                   # Professional identity, skills, experiences, educations
-```
+**Next**
+- Public deployment
+- Push notifications and crash reporting (Firebase)
+- Verified app links
 
----
+**Then**
+- Meaning-based search with embeddings
+- Thread summaries for controllers
+- Smart replies
+- Nepali and Hindi
 
-## 🔒 Non-Negotiable Privacy Hard Rules
+**Later**
+- Organisation workspaces
+- Moderation tools
+- iOS
 
-1. **Group-Facing Isolation:** Group chat screens consume **only** `PublishedMessage`. If `is_anonymous = true`, `sender` is strictly `null` (rendering as `"Anonymous user"`).
-2. **Review Enclave Isolation:** `RawMessage` exists strictly inside `features/review/`. It is never imported into contributor or group code.
-3. **No "Show Original" UI:** Contributors can never view another contributor's raw text. No toggle, button, or menu exists.
-4. **Permanent Anonymity Disclosure:** The disclosure *"Anonymous messages are hidden from the group but visible to the controller."* is permanently visible before the Send action.
-5. **Probe-Proof Rejections:** Rejection notifications never include reasons or feedback to prevent adversarial trial-and-error probing.
-6. **Zero Raw Logging:** Raw message contents and anonymous author IDs are never printed, cached, or logged to analytics.
+## Contributing, security and license
 
----
-
-## 💻 Technology Stack
-
-- **Client Framework:** [Flutter](https://flutter.dev) 3.22+ (Web & Cross-Platform)
-- **Language:** [Dart](https://dart.dev) 3.4+ (Sound Null Safety)
-- **State Management:** [Riverpod](https://riverpod.dev) 2.5 (`AsyncNotifier`, auto-disposing providers)
-- **Navigation:** [GoRouter](https://pub.dev/packages/go_router) 14.x (Guarded declarative routing)
-- **Secure Storage:** [flutter_secure_storage](https://pub.dev/packages/flutter_secure_storage) (Hardware Keychain / Keystore)
-- **Networking:** [Dio](https://pub.dev/packages/dio) 5.x (Interceptors, token injection)
-- **Code Generation:** [Freezed](https://pub.dev/packages/freezed) & [json_serializable](https://pub.dev/packages/json_serializable)
-- **Visual Design:** **Monochrome Precision** (Clean black & white aesthetic with subtle borders and 48dp minimum touch targets)
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License — see the [LICENSE](file:///Users/oscar/Desktop/talk_it_out/LICENSE) file for details.
+- Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Privacy rules in `AGENTS.md` apply to every change.
+- Report security issues privately as described in [SECURITY.md](SECURITY.md).
+- Contact: talkitoutapp.mail@gmail.com
+- Released under the [MIT License](LICENSE).

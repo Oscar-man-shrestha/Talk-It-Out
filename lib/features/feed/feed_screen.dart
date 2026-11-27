@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,64 +7,58 @@ import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/core/ui/screen_async.dart';
-import 'package:talk_it_out/core/ui/stitch_chrome.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
+import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
+import 'package:talk_it_out/features/discovery/discovery_providers.dart';
 import 'package:talk_it_out/features/feed/data/post.dart';
+import 'package:talk_it_out/features/feed/data/post_topic.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
+import 'package:talk_it_out/features/feed/saved_posts.dart';
 import 'package:talk_it_out/features/profile/profile_state.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
+import 'package:talk_it_out/features/discovery/safety_actions.dart';
+import 'package:talk_it_out/features/discovery/interest_icons.dart';
+import 'package:talk_it_out/core/ui/motion.dart';
+import 'package:talk_it_out/core/ui/surfaces.dart';
+import 'package:talk_it_out/core/ui/double_tap_like.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
+import 'package:talk_it_out/core/ui/large_title_header.dart';
+import 'package:talk_it_out/app/side_nav.dart';
+import 'package:talk_it_out/core/ui/premium_badge.dart';
 
-const _border = Color(0xFFE4E4E7);
-const _ink = Color(0xFF09090B);
-const _muted = Color(0xFF71717A);
-const _faint = Color(0xFFA1A1AA);
-const _chip = Color(0xFFF4F4F5);
-const _low = Color(0xFFFAFAFA);
+const _border = Brand.border;
+const _ink = Brand.ink;
+const _muted = Brand.inkSoft;
+const _faint = Brand.inkFaint;
+const _chip = Brand.muted;
+// The liked heart, the same red as on the question page.
+const _likedRed = Color(0xFFBA1A1A);
+const _low = Brand.canvas;
 
-const _topics = <(IconData, String, List<String>?)>[
+/// "All Topics" plus the fixed feed topics (`API.md` 42).
+final _topics = <(IconData, String, PostTopic?)>[
   (Icons.apps_rounded, 'All Topics', null),
-  (
-    Icons.policy_outlined,
-    'Workplace Policy',
-    ['policy', 'workplace', 'remote'],
-  ),
-  (
-    Icons.terminal_rounded,
-    'Engineering & Tech',
-    ['engineer', 'tech', 'dashboard', 'estimate', 'nlp'],
-  ),
-  (Icons.supervisor_account_outlined, 'Leadership & Exec', ['lead', 'exec']),
-  (
-    Icons.monetization_on_outlined,
-    'Compensation & Equity',
-    ['pay', 'equity', 'compensation'],
-  ),
-  (
-    Icons.health_and_safety_outlined,
-    'Psychological Safety',
-    ['safety', 'retro', 'psych'],
-  ),
-  (
-    Icons.diversity_3_outlined,
-    'Ethics & Culture',
-    ['ethic', 'culture', 'offsite'],
-  ),
+  for (final topic in PostTopic.all) (topic.icon, topic.label, topic),
 ];
 
-const _levels = [
-  'All levels',
-  'Individual Contributor',
-  'Controller / Moderator',
-  'Staff & Principal',
-  'Executive',
-];
+/// Ordering of the visible questions.
+const _sorts = ['Newest', 'Most liked', 'Most discussed'];
 
+// Index 0 shows everything, so a first visit never hides posts that
+// already have comments.
 const _statuses = [
-  'Unanswered / Awaiting Consensus',
+  'All questions',
   'Unanswered',
   'Peer solved',
   'Active debate',
+  'Saved',
 ];
+
+/// The server filter for each entry of [_statuses] (`API.md` 70); "All
+/// questions" and "Saved" (index 4, on this device) send none.
+const _serverFilters = <String?>[null, 'unanswered', 'answered', 'discussed'];
 
 class FeedScreen extends ConsumerStatefulWidget {
   const FeedScreen({super.key});
@@ -75,51 +71,283 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   final _search = TextEditingController();
   final _boardKey = GlobalKey();
   var _topic = 0;
-  var _level = 0;
+  var _sort = 0;
   var _status = 0;
   var _weekly = true;
   String? _creatingId;
 
+  /// 0 = For you (ranked), 1 = Latest.
+  var _mode = 0;
+  Timer? _searchDebounce;
+  FeedSearchResult? _searchResult;
+  var _searching = false;
+  var _searchId = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // The server-side filter outlives this screen; start from it.
+    final filter = ref.read(feedFilterProvider);
+    final topicIndex = _topics.indexWhere((t) => t.$3?.id == filter.topic);
+    _topic = topicIndex < 0 ? 0 : topicIndex;
+    final statusIndex = _serverFilters.indexOf(filter.filter);
+    _status = statusIndex < 0 ? 0 : statusIndex;
+    // First visit: ask for interests once, like Pinterest.
+    ref.listenManual(
+      interestsProvider,
+      (previous, next) => _maybePromptInterests(),
+      fireImmediately: true,
+    );
+  }
+
+  /// Opens the interest picker for people who never saw it, but only while
+  /// the feed itself is on screen (not under "Ask" or a question).
+  void _maybePromptInterests() {
+    final value = ref.read(interestsProvider).value;
+    if (value == null || value.chosen) return;
+    if (ref.read(interestPromptShownProvider)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ref.read(interestPromptShownProvider)) return;
+      final router = GoRouter.maybeOf(context);
+      if (router == null || !(ModalRoute.of(context)?.isCurrent ?? false)) {
+        return;
+      }
+      // Only on the feed itself: never over "Ask", a question, or while a
+      // deep link is still loading.
+      final path = router.routerDelegate.currentConfiguration.uri.path;
+      if (path != '/feed') return;
+      ref.read(interestPromptShownProvider.notifier).set();
+      router.push('/feed/interests?first=1');
+    });
+  }
+
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _search.dispose();
     super.dispose();
   }
 
-  List<Post> _visible(List<Post> items) {
-    final query = _search.text.trim().toLowerCase();
-    final words = _topics[_topic].$3;
-    return [
-      for (final post in items)
-        if (_matches(post, query, words) && _statusMatches(post)) post,
-    ];
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    final q = value.trim();
+    setState(() {
+      if (q.isEmpty) {
+        _searchResult = null;
+        _searching = false;
+      }
+    });
+    if (q.isEmpty) return;
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 250),
+      () => _runSearch(q),
+    );
   }
 
-  bool _matches(Post post, String query, List<String>? words) {
-    final haystack = '${post.content} ${post.author.name}'.toLowerCase();
+  Future<void> _runSearch(String q) async {
+    final id = ++_searchId;
+    setState(() => _searching = true);
+    try {
+      final result = await ref.read(discoveryRepositoryProvider).searchPosts(q);
+      if (!mounted || id != _searchId) return;
+      setState(() {
+        _searchResult = result;
+        _searching = false;
+      });
+    } on RepositoryException {
+      if (!mounted || id != _searchId) return;
+      setState(() => _searching = false);
+    }
+  }
+
+  void _useCorrection(String text) {
+    _search.text = text;
+    _search.selection = TextSelection.collapsed(offset: text.length);
+    _onSearchChanged(text);
+  }
+
+  void _openPost(Post post) {
+    // A light signal for For You; never blocks opening the question, and
+    // never sent when personalisation is off.
+    final personalized =
+        ref.read(interestsProvider).value?.personalized ?? true;
+    if (!personalized) {
+      context.push('/feed/${post.id}');
+      return;
+    }
+    unawaited(
+      ref
+          .read(discoveryRepositoryProvider)
+          .sendSignal(post.id, 'open')
+          .catchError((_) {}),
+    );
+    context.push('/feed/${post.id}');
+  }
+
+  Future<void> _notInterested(RankedPost item) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final undo = await ref
+          .read(forYouProvider.notifier)
+          .notInterested(item.post.id);
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: Brand.ink,
+          content: const Text("Got it. You'll see fewer posts like this."),
+          action: SnackBarAction(
+            label: 'Undo',
+            textColor: Colors.white,
+            onPressed: undo,
+          ),
+        ),
+      );
+    } on RepositoryException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  void _whyThisPost(RankedPost item, InterestState? interests) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Brand.canvas,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Why you're seeing this",
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: _ink,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                item.reason?.text ?? 'New in the community',
+                style: const TextStyle(fontSize: 14, color: _ink),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'For You uses the interests you picked, the questions you like, '
+                'answer and open, and what is popular now. It never uses group '
+                'or anonymous messages.',
+                style: TextStyle(fontSize: 12.5, height: 1.4, color: _muted),
+              ),
+              if (item.interests.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final id in item.interests)
+                      if (interests?.byId(id) case final option?)
+                        _InterestChip(
+                          option: option,
+                          active: interests!.picked.contains(id),
+                        ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.visibility_off_outlined),
+                title: const Text('Not interested'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _notInterested(item);
+                },
+              ),
+              ListTile(
+                key: const ValueKey('why-report'),
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  PhosphorIconsRegular.flag,
+                  color: Colors.red.shade800,
+                ),
+                title: Text(
+                  'Report question',
+                  style: TextStyle(color: Colors.red.shade800),
+                ),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  showReportQuestionSheet(context, ref, item.post.id);
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(PhosphorIconsRegular.slidersHorizontal),
+                title: const Text('Edit your interests'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  context.push('/feed/interests');
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Post> _visible(List<Post> items) {
+    final query = _search.text.trim().toLowerCase();
+    final topic = _topics[_topic].$3;
+    final visible = [
+      for (final post in items)
+        if (_matches(post, query, topic) && _statusMatches(post)) post,
+    ];
+    switch (_sort) {
+      case 1:
+        visible.sort((a, b) => b.reactionCount.compareTo(a.reactionCount));
+      case 2:
+        visible.sort((a, b) => b.commentCount.compareTo(a.commentCount));
+      default:
+        visible.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+    return visible;
+  }
+
+  bool _matches(Post post, String query, PostTopic? topic) {
+    final haystack = '${post.title ?? ''} ${post.content} ${post.author.name}'
+        .toLowerCase();
     if (query.isNotEmpty && !haystack.contains(query)) return false;
-    if (words == null) return true;
-    return words.any(haystack.contains);
+    if (topic == null) return true;
+    // Questions carry a topic; older posts fall back to keywords.
+    if (post.topic != null) return post.topic == topic.id;
+    return topic.keywords.any(haystack.contains);
   }
 
   bool _statusMatches(Post post) {
     switch (_status) {
+      case 1:
+        return post.commentCount == 0;
       case 2:
         return post.commentCount > 0;
       case 3:
         return post.commentCount >= 2;
+      case 4:
+        return ref.read(savedPostsProvider).contains(post.id);
       default:
-        return post.commentCount == 0;
+        return true;
     }
   }
 
   List<_Voice> _leaders(List<Post> posts) {
     final byAuthor = <String, _Voice>{};
-    final cutoff = _weekly
-        ? null
-        : DateTime.now().toUtc().subtract(const Duration(days: 1));
+    // Weekly = the last 7 days, daily = the last 24 hours.
+    final cutoff = DateTime.now().toUtc().subtract(
+      _weekly ? const Duration(days: 7) : const Duration(days: 1),
+    );
     for (final post in posts) {
-      if (cutoff != null && post.createdAt.isBefore(cutoff)) continue;
+      if (post.createdAt.isBefore(cutoff)) continue;
       final voice = byAuthor.putIfAbsent(
         post.author.id,
         () => _Voice(post.author.name),
@@ -141,8 +369,17 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
         await repo.removeReaction(post.id);
       }
       ref.invalidate(feedProvider);
-    } on RepositoryException {
-      // The list stays as it was. A later refresh can retry.
+      ref.invalidate(forYouProvider);
+      ref.invalidate(postDetailProvider(post.id));
+      // Search results are a separate list: fetch them again so the new
+      // count and heart show there too.
+      final query = _search.text.trim();
+      if (_searchResult != null && query.isNotEmpty) await _runSearch(query);
+    } on RepositoryException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
     }
   }
 
@@ -173,9 +410,45 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     );
   }
 
+  /// Topic and status filters run on the server (`API.md` 70), so older
+  /// matching questions are found too. "Saved" stays on this device.
+  void _syncFilter() {
+    ref
+        .read(feedFilterProvider.notifier)
+        .set(
+          topic: _topics[_topic].$3?.id,
+          filter: _status < _serverFilters.length
+              ? _serverFilters[_status]
+              : null,
+        );
+  }
+
+  var _loadingMore = false;
+
+  Future<void> _loadMore() async {
+    final notifier = ref.read(feedProvider.notifier);
+    if (_loadingMore || !notifier.hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      await notifier.loadMore();
+    } on RepositoryException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final feed = ref.watch(feedProvider);
+    final forYou = _mode == 0 ? ref.watch(forYouProvider) : null;
+    final interests = ref.watch(interestsProvider).value;
+    if (interests != null && !interests.chosen) _maybePromptInterests();
+    final searchingText = _search.text.trim().isNotEmpty;
+    ref.watch(savedPostsProvider);
     final items = feed.value ?? const <Post>[];
     final visible = _visible(items);
     final userId = ref.watch(sessionProvider).value?.id;
@@ -190,8 +463,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
     return Scaffold(
       backgroundColor: _low,
-      appBar: StitchPageHeader(
-        title: 'Community Q&A Feed',
+      appBar: LargeTitleHeader(
+        title: AppStrings.navFeed,
+        subtitle: 'Questions from the community',
+        background: _low,
         actions: [
           Container(
             height: 32,
@@ -201,22 +476,26 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 : null,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: _chip,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: _border),
+              color: HeroInk.fill,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: HeroInk.line),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.verified_user_rounded, size: 16, color: _ink),
+                const Icon(
+                  PhosphorIconsFill.shieldCheck,
+                  size: 16,
+                  color: Colors.white,
+                ),
                 if (!compactHeader) ...[
                   const SizedBox(width: 6),
                   const Text(
-                    'Verified AI',
+                    'Public',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: _ink,
+                      color: Colors.white,
                     ),
                   ),
                 ],
@@ -224,42 +503,23 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          Material(
-            color: Colors.black,
-            shape: const CircleBorder(),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              customBorder: const CircleBorder(),
+          if (!SidebarScope.visible(context))
+            HeroAvatarButton(
               onTap: () => context.go('/profile'),
-              child: SizedBox(
-                width: 32,
-                height: 32,
-                child: userProfile.avatarUrl != null
-                    ? Image.network(
-                        userProfile.avatarUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(
-                              Icons.person,
-                              size: 17,
-                              color: Colors.white,
-                            ),
-                      )
-                    : const Icon(Icons.person, size: 17, color: Colors.white),
-              ),
+              avatarUrl: userProfile.avatarUrl,
             ),
-          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'feed-fab',
         onPressed: () => context.push('/feed/new'),
-        backgroundColor: Colors.black,
+        backgroundColor: Brand.accent,
         foregroundColor: Colors.white,
         elevation: 6,
         shape: const StadiumBorder(),
-        icon: const Icon(Icons.help_outline, size: 18),
+        icon: const Icon(PhosphorIconsRegular.question, size: 18),
         label: const Text(
-          '+ ASK QUESTION',
+          'Ask a question',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
@@ -268,9 +528,14 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
         ),
       ),
       body: AsyncBody(
-        status: asyncStatus(feed, isEmpty: items.isEmpty),
-        errorMessage: errorText(feed.error),
-        onRetry: () => ref.invalidate(feedProvider),
+        status: forYou != null && !searchingText
+            ? asyncStatus(forYou, isEmpty: false)
+            : asyncStatus(feed, isEmpty: items.isEmpty && !searchingText),
+        errorMessage: errorText((forYou ?? feed).error),
+        onRetry: () {
+          ref.invalidate(feedProvider);
+          ref.invalidate(forYouProvider);
+        },
         empty: Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
@@ -285,7 +550,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.forum_outlined,
+                    PhosphorIconsRegular.chatsCircle,
                     size: 32,
                     color: scheme.primary,
                   ),
@@ -302,7 +567,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 const SizedBox(height: 20),
                 FilledButton.icon(
                   onPressed: () => context.push('/feed/new'),
-                  icon: const Icon(Icons.add_rounded),
+                  icon: const Icon(PhosphorIconsRegular.plus),
                   label: const Text(AppStrings.newPost),
                 ),
               ],
@@ -310,107 +575,270 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           ),
         ),
         child: RefreshIndicator(
-          onRefresh: () async => ref.refresh(feedProvider.future),
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 96),
-            children: [
-              _Hero(
-                openCount: openCount,
-                onAsk: () => context.push('/feed/new'),
-                onRankings: _scrollToBoard,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _search,
-                onChanged: (_) => setState(() {}),
-                style: const TextStyle(fontSize: 13, color: _ink),
-                decoration: InputDecoration(
-                  hintText: 'Search honest dilemmas, rubrics, tags...',
-                  hintStyle: const TextStyle(fontSize: 12, color: _faint),
-                  filled: true,
-                  fillColor: Colors.white,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                  prefixIcon: const Icon(Icons.search, size: 19, color: _faint),
-                  suffixIcon: const Icon(Icons.tune, size: 18, color: _muted),
-                  border: _fieldBorder(_border),
-                  enabledBorder: _fieldBorder(_border),
-                  focusedBorder: _fieldBorder(Colors.black),
+          onRefresh: () async {
+            ref.invalidate(forYouProvider);
+            ref.invalidate(feedProvider);
+            await Future.wait([
+              ref.read(feedProvider.future),
+              if (_mode == 0) ref.read(forYouProvider.future),
+            ]);
+          },
+          child: NotificationListener<ScrollNotification>(
+            // Endless scrolling on Latest: fetch older questions before
+            // the reader reaches the end.
+            onNotification: (n) {
+              if (_mode == 1 && n.metrics.extentAfter < 800) _loadMore();
+              return false;
+            },
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 96),
+              children: [
+                _FeedTabs(
+                  mode: _mode,
+                  onChanged: (mode) => setState(() => _mode = mode),
                 ),
-              ),
-              const SizedBox(height: 10),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    for (var i = 0; i < _topics.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 6),
-                      _TopicChip(
-                        icon: _topics[i].$1,
-                        label: _topics[i].$2,
-                        active: _topic == i,
-                        onTap: () => setState(() => _topic = i),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Flexible(
-                    child: _MenuPill(
-                      value: _level,
-                      options: _levels,
-                      onChanged: (value) => setState(() => _level = value),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _search,
+                  key: const ValueKey('feed-search'),
+                  onChanged: (value) {
+                    setState(() {});
+                    _onSearchChanged(value);
+                  },
+                  style: const TextStyle(fontSize: 13, color: _ink),
+                  decoration: InputDecoration(
+                    hintText: 'Search questions (typos are fine)',
+                    hintStyle: const TextStyle(fontSize: 12, color: _faint),
+                    filled: true,
+                    fillColor: Colors.white,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                    prefixIcon: const Icon(
+                      PhosphorIconsRegular.magnifyingGlass,
+                      size: 19,
+                      color: _faint,
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: _MenuPill(
-                      value: _status,
-                      options: _statuses,
-                      onChanged: (value) => setState(() => _status = value),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _Leaderboard(
-                key: _boardKey,
-                voices: _leaders(items),
-                weekly: _weekly,
-                onWeekly: () => setState(() => _weekly = true),
-                onDaily: () => setState(() => _weekly = false),
-              ),
-              const SizedBox(height: 12),
-              if (visible.isEmpty)
-                const _CaughtUp(
-                  title: 'No questions match',
-                  body: 'Try another topic, or clear the search to see the full feed.',
-                )
-              else
-                for (final post in visible) ...[
-                  PostCard(
-                    post: post,
-                    onOpen: () => context.push('/feed/${post.id}'),
-                    onToggleLike: () => _toggleLike(post),
-                    onCreateGroup: post.author.id == userId
-                        ? () => _createGroup(post)
+                    suffixIcon: searchingText
+                        ? IconButton(
+                            tooltip: 'Clear search',
+                            icon: const Icon(
+                              PhosphorIconsRegular.x,
+                              size: 18,
+                              color: _muted,
+                            ),
+                            onPressed: () {
+                              _search.clear();
+                              _onSearchChanged('');
+                            },
+                          )
                         : null,
-                    creatingGroup: _creatingId == post.id,
+                    border: _fieldBorder(_border),
+                    enabledBorder: _fieldBorder(_border),
+                    focusedBorder: _fieldBorder(Brand.accent),
+                  ),
+                ),
+                if (searchingText) ...[
+                  const SizedBox(height: 10),
+                  if (_searching && _searchResult == null)
+                    const LinearProgressIndicator(minHeight: 2, color: _ink),
+                  if (_searchResult?.didYouMean case final suggestion?)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text.rich(
+                        TextSpan(
+                          style: const TextStyle(fontSize: 13, color: _muted),
+                          children: [
+                            const TextSpan(text: 'Showing results for '),
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.baseline,
+                              baseline: TextBaseline.alphabetic,
+                              child: GestureDetector(
+                                onTap: () => _useCorrection(suggestion),
+                                child: Text(
+                                  suggestion,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    fontStyle: FontStyle.italic,
+                                    color: _ink,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (_searchResult != null && _searchResult!.items.isEmpty)
+                    _CaughtUp(
+                      title: 'No questions match "${_search.text.trim()}"',
+                      body: 'Try other words, or ask it yourself.',
+                    ),
+                  for (final (i, post)
+                      in (_searchResult?.items ?? const <Post>[]).indexed) ...[
+                    PostCard(
+                      index: i,
+                      post: post,
+                      onOpen: () => _openPost(post),
+                      onToggleLike: () => _toggleLike(post),
+                      onCreateGroup: post.author.id == userId
+                          ? () => _createGroup(post)
+                          : null,
+                      creatingGroup: _creatingId == post.id,
+                      onAuthor: () => openPerson(context, ref, post.author.id),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ] else if (_mode == 0) ...[
+                  const SizedBox(height: 10),
+                  _InterestBar(
+                    interests: interests,
+                    onEdit: () => interests?.personalized == false
+                        ? context.go('/profile')
+                        : context.push('/feed/interests'),
                   ),
                   const SizedBox(height: 12),
+                  if ((forYou?.value ?? const <RankedPost>[]).isEmpty)
+                    const _CaughtUp(
+                      title: 'Nothing here yet',
+                      body: 'Be the first to ask a question, or check Latest.',
+                    ),
+                  for (final (i, item)
+                      in (forYou?.value ?? const <RankedPost>[]).indexed) ...[
+                    _ReasonLine(
+                      item: item,
+                      onMore: () => _whyThisPost(item, interests),
+                    ),
+                    PostCard(
+                      index: i,
+                      post: item.post,
+                      onOpen: () => _openPost(item.post),
+                      onToggleLike: () => _toggleLike(item.post),
+                      onCreateGroup: item.post.author.id == userId
+                          ? () => _createGroup(item.post)
+                          : null,
+                      creatingGroup: _creatingId == item.post.id,
+                      onAuthor: () =>
+                          openPerson(context, ref, item.post.author.id),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  if ((forYou?.value ?? const <RankedPost>[]).isNotEmpty)
+                    const _CaughtUp(
+                      title: "You're all caught up",
+                      body: 'Like or answer questions and For You gets better.',
+                    ),
+                ] else ...[
+                  const SizedBox(height: 12),
+                  _Hero(
+                    openCount: openCount,
+                    onAsk: () => context.push('/feed/new'),
+                    onRankings: _scrollToBoard,
+                  ),
+                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (var i = 0; i < _topics.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 6),
+                          _TopicChip(
+                            icon: _topics[i].$1,
+                            label: _topics[i].$2,
+                            active: _topic == i,
+                            onTap: () {
+                              setState(() => _topic = i);
+                              _syncFilter();
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: _MenuPill(
+                          value: _sort,
+                          options: _sorts,
+                          onChanged: (value) => setState(() => _sort = value),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: _MenuPill(
+                          value: _status,
+                          options: _statuses,
+                          onChanged: (value) {
+                            setState(() => _status = value);
+                            _syncFilter();
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _Leaderboard(
+                    key: _boardKey,
+                    voices: _leaders(items),
+                    weekly: _weekly,
+                    onWeekly: () => setState(() => _weekly = true),
+                    onDaily: () => setState(() => _weekly = false),
+                  ),
+                  const SizedBox(height: 12),
+                  if (visible.isEmpty)
+                    const _CaughtUp(
+                      title: 'No questions match',
+                      body: 'Try another topic, or clear the search to see the full feed.',
+                    )
+                  else
+                    for (final (i, post) in visible.indexed) ...[
+                      PostCard(
+                        index: i,
+                        post: post,
+                        onOpen: () => _openPost(post),
+                        onToggleLike: () => _toggleLike(post),
+                        onCreateGroup: post.author.id == userId
+                            ? () => _createGroup(post)
+                            : null,
+                        creatingGroup: _creatingId == post.id,
+                        onAuthor: () =>
+                            openPerson(context, ref, post.author.id),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  if (ref.read(feedProvider.notifier).hasMore)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Center(
+                        child: _loadingMore
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : OutlinedButton(
+                                key: const ValueKey('feed-load-more'),
+                                onPressed: _loadMore,
+                                child: const Text('Load more questions'),
+                              ),
+                      ),
+                    )
+                  else if (visible.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    const _CaughtUp(
+                      title: "You're caught up with community consensus!",
+                      body: 'Questions on this feed stay attributed to the person who wrote them.',
+                    ),
+                  ],
                 ],
-              if (visible.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                const _CaughtUp(
-                  title: "You're caught up with community consensus!",
-                  body: 'Questions on this feed stay attributed to the person who wrote them.',
-                ),
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -430,10 +858,13 @@ String _ago(DateTime value) {
     final days = delta.inDays;
     return days == 1 ? '1 day ago' : '$days days ago';
   }
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', //
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
   final local = value.toLocal();
-  final month = local.month.toString().padLeft(2, '0');
-  final day = local.day.toString().padLeft(2, '0');
-  return '${local.year}-$month-$day';
+  final day = '${local.day} ${months[local.month - 1]}';
+  return local.year == DateTime.now().year ? day : '$day ${local.year}';
 }
 
 OutlineInputBorder _fieldBorder(Color color) {
@@ -482,7 +913,7 @@ class _Hero extends StatelessWidget {
               const Spacer(),
               if (openCount > 0)
                 _OutlinePill(
-                  label: '+$openCount New Question',
+                  label: '$openCount unanswered',
                   leadingDot: true,
                   mono: true,
                 ),
@@ -501,7 +932,7 @@ class _Hero extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Anonymous queries synthesized by AI • Answered and validated by verified peers & workplace controllers.',
+            'Questions are posted under your name • Answered by peers and workplace controllers.',
             style: TextStyle(fontSize: 13, height: 1.45, color: _muted),
           ),
           const SizedBox(height: 12),
@@ -511,7 +942,7 @@ class _Hero extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: onAsk,
                   style: FilledButton.styleFrom(
-                    backgroundColor: Colors.black,
+                    backgroundColor: Brand.accent,
                     foregroundColor: Colors.white,
                     fixedSize: const Size.fromHeight(40),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -525,8 +956,8 @@ class _Hero extends StatelessWidget {
                       letterSpacing: 0.8,
                     ),
                   ),
-                  icon: const Icon(Icons.help_outline, size: 17),
-                  label: const Text('ASK YOUR QUESTION'),
+                  icon: const Icon(PhosphorIconsRegular.question, size: 17),
+                  label: const Text('Ask your question'),
                 ),
               ),
               const SizedBox(width: 8),
@@ -586,7 +1017,7 @@ class _OutlinePill extends StatelessWidget {
               width: 6,
               height: 6,
               decoration: const BoxDecoration(
-                color: Colors.black,
+                color: Brand.accent,
                 shape: BoxShape.circle,
               ),
             ),
@@ -622,7 +1053,7 @@ class _TopicChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: active ? Colors.black : Colors.white,
+      color: active ? Brand.accent : Colors.white,
       borderRadius: BorderRadius.circular(4),
       child: InkWell(
         onTap: onTap,
@@ -632,7 +1063,7 @@ class _TopicChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: active ? Colors.black : _border),
+            border: Border.all(color: active ? Brand.accent : _border),
           ),
           child: Row(
             children: [
@@ -680,7 +1111,11 @@ class _MenuPill extends StatelessWidget {
           value: value,
           isExpanded: true,
           isDense: true,
-          icon: const Icon(Icons.expand_more, size: 15, color: _muted),
+          icon: const Icon(
+            PhosphorIconsRegular.caretDown,
+            size: 15,
+            color: _muted,
+          ),
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
@@ -740,7 +1175,7 @@ class _Leaderboard extends StatelessWidget {
               const SizedBox(width: 6),
               const Expanded(
                 child: Text(
-                  'TOP SYNTHESIZERS & CONSENSUS LEADERS',
+                  'Most active authors',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -807,7 +1242,7 @@ class _Toggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: active ? Colors.black : Colors.transparent,
+      color: active ? Brand.accent : Colors.transparent,
       borderRadius: BorderRadius.circular(4),
       child: InkWell(
         onTap: onTap,
@@ -858,9 +1293,9 @@ class _VoiceTile extends StatelessWidget {
             height: 24,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: first ? Colors.black : const Color(0xFFE4E4E7),
+              color: first ? Brand.accent : Brand.border,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: first ? Colors.black : _border),
+              border: Border.all(color: first ? Brand.accent : _border),
             ),
             child: Text(
               letters,
@@ -887,7 +1322,7 @@ class _VoiceTile extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '⚡ ${voice.score} pts',
+                  '${voice.score} pts',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 10, color: _muted),
@@ -927,7 +1362,11 @@ class _CaughtUp extends StatelessWidget {
               color: _chip,
               borderRadius: BorderRadius.circular(4),
             ),
-            child: const Icon(Icons.auto_awesome, size: 18, color: _ink),
+            child: const Icon(
+              PhosphorIconsRegular.sparkle,
+              size: 18,
+              color: _ink,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
@@ -959,8 +1398,16 @@ class PostCard extends StatelessWidget {
     this.onCreateGroup,
     this.creatingGroup = false,
     this.showAnswer = true,
+    this.onAuthor,
+    this.index = 0,
     super.key,
   });
+
+  /// Opens the author's profile.
+  final VoidCallback? onAuthor;
+
+  /// Position in its list, for the staggered entrance.
+  final int index;
 
   final Post post;
   final VoidCallback onOpen;
@@ -981,243 +1428,273 @@ class PostCard extends StatelessWidget {
               .map((part) => part[0].toUpperCase())
               .join();
 
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onOpen,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: _border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      letters,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
+    return Reveal(
+      index: index,
+      child: PressScale(
+        scale: 0.985,
+        child: SoftShadow(
+          radius: 14,
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              onTap: onOpen,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                post.author.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: _ink,
-                                ),
+                        GestureDetector(
+                          key: ValueKey('post-author-${post.id}'),
+                          onTap: onAuthor,
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Brand.accent,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              letters,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
                               ),
                             ),
-                            if (post.nsfwFlag) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _chip,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: _border),
-                                ),
-                                child: Text(
-                                  AppStrings.flagged,
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFFBA1A1A),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: GestureDetector(
+                                      onTap: onAuthor,
+                                      child: Text(
+                                        post.author.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: _ink,
+                                        ),
+                                      ),
+                                    ),
                                   ),
+                                  if (post.author.premium) ...[
+                                    const SizedBox(width: 4),
+                                    const PremiumBadge(),
+                                  ],
+                                  if (post.nsfwFlag) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _chip,
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: _border),
+                                      ),
+                                      child: Text(
+                                        AppStrings.flagged,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFFBA1A1A),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _ago(post.createdAt),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: _muted,
                                 ),
                               ),
                             ],
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _ago(post.createdAt),
-                          style: const TextStyle(fontSize: 11, color: _muted),
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _chip,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: _border),
-                    ),
-                    child: Text(
-                      '⚡ ${post.reactionCount}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _ink,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                post.content,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  height: 1.35,
-                  color: _ink,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: _low,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: _border),
-                ),
-                child: const Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.auto_awesome, size: 15, color: _ink),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 8),
+                    if (PostTopic.byId(post.topic) case final topic?) ...[
+                      Row(
                         children: [
+                          Icon(topic.icon, size: 13, color: _muted),
+                          const SizedBox(width: 4),
                           Text(
-                            'AI SYNTHESIS & FRAMING GUARD',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.6,
-                              color: _ink,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Shown as the author wrote it.',
-                            style: TextStyle(
-                              fontSize: 11,
-                              height: 1.3,
+                            topic.label,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
                               color: _muted,
                             ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 4),
+                    ],
+                    // Double-tap the question to like it (the text
+                    // only, so buttons on the card answer at once).
+                    DoubleTapLike(
+                      liked: liked,
+                      onLike: onToggleLike,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (post.title != null) ...[
+                            Text(
+                              post.title!,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                height: 1.3,
+                                color: _ink,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                          ],
+                          Text(
+                            post.content,
+                            maxLines: post.title != null ? 4 : null,
+                            overflow: post.title != null
+                                ? TextOverflow.ellipsis
+                                : null,
+                            style: TextStyle(
+                              fontSize: post.title != null ? 13.5 : 14,
+                              fontWeight: post.title != null
+                                  ? FontWeight.w400
+                                  : FontWeight.w700,
+                              height: 1.4,
+                              color: post.title != null ? _muted : _ink,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Row(
+                      children: [
+                        Icon(
+                          PhosphorIconsRegular.quotes,
+                          size: 13,
+                          color: _faint,
+                        ),
+                        SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            'In the author\'s own words',
+                            style: TextStyle(fontSize: 11.5, color: _faint),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(
+                          PhosphorIconsRegular.chartBar,
+                          size: 14,
+                          color: _muted,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          post.commentCount == 0
+                              ? 'Awaiting first answer'
+                              : AppStrings.commentCount(post.commentCount),
+                          style: const TextStyle(fontSize: 11, color: _muted),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Container(height: 1, color: _border),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        // One like per question, in the action bar like
+                        // Reddit; answers are upvoted as "Helpful".
+                        _LikePill(
+                          key: ValueKey('card-like-${post.id}'),
+                          liked: liked,
+                          count: post.reactionCount,
+                          onTap: onToggleLike,
+                        ),
+                        const SizedBox(width: 6),
+                        _CountButton(
+                          icon: PhosphorIconsRegular.chatCircle,
+                          count: post.commentCount,
+                          onTap: onOpen,
+                        ),
+                        if (onCreateGroup != null) ...[
+                          const SizedBox(width: 6),
+                          _CountButton(
+                            icon: Icons.group_add,
+                            label: creatingGroup ? '…' : 'Group',
+                            tinted: true,
+                            onTap: creatingGroup ? () {} : onCreateGroup!,
+                          ),
+                        ],
+                        const Spacer(),
+                        if (showAnswer)
+                          Material(
+                            color: Brand.accent,
+                            borderRadius: BorderRadius.circular(4),
+                            child: InkWell(
+                              onTap: onOpen,
+                              borderRadius: BorderRadius.circular(4),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 6,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      PhosphorIconsRegular.notePencil,
+                                      size: 14,
+                                      color: Colors.white,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Answer',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.6,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.poll_outlined, size: 14, color: _muted),
-                  const SizedBox(width: 4),
-                  Text(
-                    post.commentCount == 0
-                        ? 'Awaiting first answer'
-                        : '${post.commentCount} ${AppStrings.commentsTitle}',
-                    style: const TextStyle(fontSize: 11, color: _muted),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Container(height: 1, color: _border),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  _CountButton(
-                    icon: Icons.arrow_upward_rounded,
-                    count: post.reactionCount,
-                    filled: liked,
-                    onTap: onToggleLike,
-                  ),
-                  const SizedBox(width: 6),
-                  _CountButton(
-                    icon: Icons.chat_bubble_outline,
-                    count: post.commentCount,
-                    onTap: onOpen,
-                  ),
-                  if (onCreateGroup != null) ...[
-                    const SizedBox(width: 6),
-                    _CountButton(
-                      icon: Icons.group_add,
-                      label: creatingGroup ? '…' : 'Group',
-                      tinted: true,
-                      onTap: creatingGroup ? () {} : onCreateGroup!,
-                    ),
-                  ],
-                  const Spacer(),
-                  if (showAnswer)
-                    Material(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(4),
-                      child: InkWell(
-                        onTap: onOpen,
-                        borderRadius: BorderRadius.circular(4),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 6,
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.edit_note,
-                                size: 14,
-                                color: Colors.white,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'ANSWER',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.6,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1231,7 +1708,6 @@ class _CountButton extends StatelessWidget {
     required this.onTap,
     this.count,
     this.label,
-    this.filled = false,
     this.tinted = false,
   });
 
@@ -1239,14 +1715,13 @@ class _CountButton extends StatelessWidget {
   final VoidCallback onTap;
   final int? count;
   final String? label;
-  final bool filled;
   final bool tinted;
 
   @override
   Widget build(BuildContext context) {
-    final foreground = filled ? Colors.white : (tinted ? _ink : _muted);
+    final foreground = tinted ? _ink : _muted;
     return Material(
-      color: filled ? Colors.black : (tinted ? _chip : Colors.white),
+      color: tinted ? _chip : Colors.white,
       borderRadius: BorderRadius.circular(4),
       child: InkWell(
         onTap: onTap,
@@ -1256,7 +1731,7 @@ class _CountButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: filled ? Colors.black : _border),
+            border: Border.all(color: _border),
           ),
           child: Row(
             children: [
@@ -1273,6 +1748,308 @@ class _CountButton extends StatelessWidget {
                 ),
               ],
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Instagram-style text tabs: For you | Latest.
+class _FeedTabs extends StatelessWidget {
+  const _FeedTabs({required this.mode, required this.onChanged});
+
+  final int mode;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget tab(int index, String label) {
+      final active = mode == index;
+      return Expanded(
+        child: InkWell(
+          key: ValueKey('feed-tab-$index'),
+          onTap: () => onChanged(index),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Column(
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: active ? FontWeight.w800 : FontWeight.w500,
+                    color: active ? _ink : _faint,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  height: 2.5,
+                  width: active ? 56 : 0,
+                  decoration: BoxDecoration(
+                    color: _ink,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: _border)),
+      ),
+      child: Row(children: [tab(0, 'For you'), tab(1, 'Latest')]),
+    );
+  }
+}
+
+class _InterestChip extends StatelessWidget {
+  const _InterestChip({required this.option, this.active = true});
+
+  final InterestOption option;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: active ? Colors.white : _chip,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(interestIcon(option.icon), size: 14, color: _ink),
+          const SizedBox(width: 5),
+          Text(
+            option.label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: _ink,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The interests For You is built from, with an edit button.
+class _InterestBar extends StatelessWidget {
+  const _InterestBar({required this.interests, required this.onEdit});
+
+  final InterestState? interests;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = interests;
+    if (state == null) return const SizedBox(height: 30);
+    if (!state.personalized) {
+      return Row(
+        children: [
+          const Icon(Icons.toggle_off_outlined, size: 18, color: _muted),
+          const SizedBox(width: 6),
+          const Expanded(
+            child: Text(
+              'Personalisation is off: showing what is popular and new.',
+              style: TextStyle(fontSize: 12.5, color: _muted),
+            ),
+          ),
+          TextButton(onPressed: onEdit, child: const Text('Settings')),
+        ],
+      );
+    }
+    if (state.picked.isEmpty) {
+      return Material(
+        color: Brand.accentSoft,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onEdit,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Brand.accentBorder),
+            ),
+            child: const Row(
+              children: [
+                Icon(PhosphorIconsRegular.sparkle, size: 22, color: Brand.ink),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Make For You yours',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: _ink,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Pick a few interests and we will put those questions first.',
+                        style: TextStyle(fontSize: 12.5, color: _muted),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(PhosphorIconsRegular.caretRight, color: _muted),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return SizedBox(
+      height: 32,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          for (final id in state.picked)
+            if (state.byId(id) case final option?)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: _InterestChip(option: option),
+              ),
+          ActionChip(
+            key: const ValueKey('edit-interests'),
+            avatar: const Icon(
+              PhosphorIconsRegular.slidersHorizontal,
+              size: 15,
+              color: _ink,
+            ),
+            label: const Text('Edit'),
+            onPressed: onEdit,
+            backgroundColor: Colors.white,
+            side: const BorderSide(color: _border),
+            shape: const StadiumBorder(),
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Because you follow Career growth" above a For You post, with a menu.
+class _ReasonLine extends StatelessWidget {
+  const _ReasonLine({required this.item, required this.onMore});
+
+  final RankedPost item;
+  final VoidCallback onMore;
+
+  IconData get _icon => switch (item.reason?.kind) {
+    'interest' || 'learned' => Icons.favorite_border,
+    'similar' => PhosphorIconsRegular.sparkle,
+    'network' => PhosphorIconsRegular.usersThree,
+    'popular' => Icons.local_fire_department_outlined,
+    'explore' => PhosphorIconsRegular.compass,
+    'yours' => PhosphorIconsRegular.checkCircle,
+    _ => Icons.fiber_new_outlined,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 2),
+      child: Row(
+        children: [
+          Icon(_icon, size: 14, color: _muted),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              item.reason?.text ?? 'New in the community',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12,
+                color: _muted,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          IconButton(
+            key: ValueKey('post-more-${item.post.id}'),
+            tooltip: 'More',
+            visualDensity: VisualDensity.compact,
+            iconSize: 18,
+            icon: const Icon(PhosphorIconsRegular.dotsThree, color: _muted),
+            onPressed: onMore,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The question's like control in the card's action bar: a heart and the
+/// count in one rounded pill, red once you like it.
+class _LikePill extends StatelessWidget {
+  const _LikePill({
+    required this.liked,
+    required this.count,
+    required this.onTap,
+    super.key,
+  });
+
+  final bool liked;
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: liked ? AppStrings.unlikePost : AppStrings.likePost,
+      child: Material(
+        color: liked ? const Color(0xFFFDECEE) : Colors.white,
+        shape: StadiumBorder(
+          side: BorderSide(color: liked ? const Color(0xFFF5C2C9) : _border),
+        ),
+        child: InkWell(
+          onTap: () {
+            tapFeedback();
+            onTap();
+          },
+          customBorder: const StadiumBorder(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedScale(
+                  scale: liked ? 1.15 : 1,
+                  duration: Motion.medium,
+                  curve: Curves.elasticOut,
+                  child: Icon(
+                    liked ? Icons.favorite : Icons.favorite_border,
+                    size: 17,
+                    color: liked ? _likedRed : _ink,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                AnimatedCount(
+                  count,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: liked ? _likedRed : _ink,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

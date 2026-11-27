@@ -1,0 +1,509 @@
+{
+ "outputComponents": [
+  {
+   "designSystem": {
+    "designSystem": {
+     "displayName": "Talk It Out Monochrome",
+     "styleGuidelines": "## Brand & Style\nThe brand personality is disciplined, articulate, and architecturally grounded. Designed for modern professional teams, it balances corporate utility with high-end editorial calm. The interface removes ambient distractions, unnecessary gamification, and saturated accents to elevate clear written communication and intentional dialogue.\n\nThe aesthetic merges **Minimalism** with **Modern Editorial Restraint**:\n- Deep obsidian anchors contrasting with delicate, warm alabaster surfaces.\n- Strictly no synthetic gradients, playful illustrations, or emoji-heavy UI ornamentation.\n- Structural layout integrity driven by razor-thin hairline boundaries and deliberate, spacious typographic hierarchy.\n- Thin-line visual iconography (1px to 1.25px stroke weights) communicating utility with quiet confidence.\n\n## Layout & Spacing\nThe layout leverages a disciplined fluid grid anchored inside structured containment modules.\n\n- **Desktop (1024px+):** 12-column architecture featuring a persistent channel/thread hierarchy; 24px gutters and 36px outer margin.\n- **Tablet (768px - 1023px):** 8-column layout with 20px gutters and 24px margins, transitioning auxiliary sidebars into collapsable drawers.\n- **Mobile (< 768px):** Single-column stacked canvas with 16px margins (`1rem`) and unified vertical spacing rhythm.\n- **Rhythm Rules:** All layout margins, padding blocks, and gaps resolve to increments of 4px and 8px. Component density stays open and calm; chat bubbles and post modules use ample inner padding (`space-md` to `space-lg`) to maintain editorial elegance.\n\n## Elevation & Depth\nElevation in this design system is strictly achieved through surface contrast and crisp 1px hairline boundaries\u2014never through drop shadows or blurred ambient glows.\n\n- **Level 0 (Canvas):** Tone `#FCFAF6`. Ground level containing main scroll areas and backdrop regions.\n- **Level 1 (Cards & Message Bubbles):** Crisp pure white `#FFFFFF` bounded by a 1px solid `#E7E3DC` hairline border. No drop shadow.\n- **Level 2 (Inverted Anchor / Hero Module):** Solid `#09090B` blocks anchored at top viewports or global navigation panels, featuring distinct rounded bottom corners (`24px` to `28px`).\n- **Level 3 (Overlays & Dialogs):** `#FFFFFF` surfaces with a 1px solid `#09090B` crisp contour, paired with a solid `#09090B` backdrop at 20% opacity without blur filters.\n\n## Components\n\n### Top Hero Panel\n- **Background:** Solid `#09090B` with white `#FFFFFF` text.\n- **Geometry:** Square top corners against the window frame; bottom corners rounded to `24px` (mobile) or `32px` (desktop).\n- **Contents:** Channel names, contextual team status, and search trigger. Icon buttons inside use thin 1px white strokes.\n\n### Buttons\n- **Primary:** Solid `#09090B` background, full pill silhouette (`9999px` radius), pure white text, zero border. Active state: `#27272A`.\n- **Secondary:** Pure white `#FFFFFF` background, full pill silhouette, `#09090B` text, wrapped in a 1px hairline border of `#09090B`. Active state: subtle `#F4F2EB` fill.\n- **Tertiary / Ghost:** Transparent background, `#71717A` label, shifting to `#09090B` on hover/focus.\n\n### Cards & Chat Containers\n- **Surface:** Pure white `#FFFFFF`.\n- **Border:** 1px hairline `#E7E3DC`.\n- **Radius:** `18px` to `20px`.\n- **Padding:** `1.25rem` (`20px`) on mobile; `1.5rem` (`24px`) on desktop.\n- **Divider Lines:** 1px solid `#F4F2EB` internally between replies or metadata strips.\n\n### Input Fields & Chat Composer\n- **Resting:** Pure white `#FFFFFF` background, 1px `#E7E3DC` hairline border, `14px` border radius, text in `#09090B`, placeholder in `#71717A`.\n- **Focus:** 1px solid `#09090B` border with zero outline ring.\n- **Composer Controls:** Monoline action icons (send, attach, format) rendered in `#71717A` with a 1.25px stroke weight. Primary send action leverages a compact black pill button.\n\n### Chips & Channel Filters\n- **Pill Geometry:** Height of 32px with full pill radius.\n- **Resting:** `#FFFFFF` background with 1px `#E7E3DC` border, `#71717A` label.\n- **Active / Selected:** `#09090B` background, `#FFFFFF` text, no outline.\n\n### Checkboxes & Radios\n- **Checkboxes:** 18px square with 4px corner radius. Unchecked: 1px `#E7E3DC` border. Checked: solid `#09090B` fill with a crisp white checkmark icon (1.25px stroke).\n- **Radio Buttons:** 18px circle. Checked: Solid `#09090B` rim with an inner centered 6px dot in `#09090B`.\n\n### Lists & Activity Rows\n- **Layout:** Edge-to-edge within cards or canvas columns.\n- **Dividers:** Optional 1px hairline `#E7E3DC`.\n- **Typographic Pairings:** Item headline in `#09090B` (`body-md` semibold), supporting details and timestamps in `#71717A` (`label-md`).\n- **Selection State:** Subtle tonal fill of `#F6F4EE` across the row radius.",
+     "theme": {
+      "bodyFont": "INTER",
+      "bodyFontFamily": "Inter",
+      "colorMode": "LIGHT",
+      "colorVariant": "FIDELITY",
+      "customColor": "#09090b",
+      "designMd": "---\nname: Talk It Out Monochrome\ncolors:\n  surface: '#fbf9f5'\n  surface-dim: '#dbdad6'\n  surface-bright: '#fbf9f5'\n  surface-container-lowest: '#ffffff'\n  surface-container-low: '#f5f3ef'\n  surface-container: '#efeeea'\n  surface-container-high: '#eae8e4'\n  surface-container-highest: '#e4e2de'\n  on-surface: '#1b1c1a'\n  on-surface-variant: '#47464a'\n  inverse-surface: '#30312e'\n  inverse-on-surface: '#f2f0ed'\n  outline: '#78767b'\n  outline-variant: '#c8c5ca'\n  surface-tint: '#5f5e60'\n  primary: '#000000'\n  on-primary: '#ffffff'\n  primary-container: '#1c1b1d'\n  on-primary-container: '#858386'\n  inverse-primary: '#c8c6c8'\n  secondary: '#5d5e66'\n  on-secondary: '#ffffff'\n  secondary-container: '#e3e1ec'\n  on-secondary-container: '#63646c'\n  tertiary: '#000000'\n  on-tertiary: '#ffffff'\n  tertiary-container: '#1f1a1a'\n  on-tertiary-container: '#8a8282'\n  error: '#ba1a1a'\n  on-error: '#ffffff'\n  error-container: '#ffdad6'\n  on-error-container: '#93000a'\n  primary-fixed: '#e5e1e4'\n  primary-fixed-dim: '#c8c6c8'\n  on-primary-fixed: '#1c1b1d'\n  on-primary-fixed-variant: '#474649'\n  secondary-fixed: '#e3e1ec'\n  secondary-fixed-dim: '#c6c5cf'\n  on-secondary-fixed: '#1a1b22'\n  on-secondary-fixed-variant: '#46464e'\n  tertiary-fixed: '#ebe0df'\n  tertiary-fixed-dim: '#cec4c4'\n  on-tertiary-fixed: '#1f1a1a'\n  on-tertiary-fixed-variant: '#4c4545'\n  background: '#fbf9f5'\n  on-background: '#1b1c1a'\n  surface-variant: '#e4e2de'\ntypography:\n  headline-xl:\n    fontFamily: Inter\n    fontSize: 40px\n    fontWeight: '600'\n    lineHeight: 48px\n    letterSpacing: -0.03em\n  headline-xl-mobile:\n    fontFamily: Inter\n    fontSize: 30px\n    fontWeight: '600'\n    lineHeight: 38px\n    letterSpacing: -0.025em\n  headline-lg:\n    fontFamily: Inter\n    fontSize: 32px\n    fontWeight: '600'\n    lineHeight: 40px\n    letterSpacing: -0.025em\n  headline-lg-mobile:\n    fontFamily: Inter\n    fontSize: 24px\n    fontWeight: '600'\n    lineHeight: 32px\n    letterSpacing: -0.02em\n  headline-md:\n    fontFamily: Inter\n    fontSize: 22px\n    fontWeight: '500'\n    lineHeight: 30px\n    letterSpacing: -0.015em\n  body-lg:\n    fontFamily: Inter\n    fontSize: 16px\n    fontWeight: '400'\n    lineHeight: 26px\n    letterSpacing: -0.01em\n  body-md:\n    fontFamily: Inter\n    fontSize: 14px\n    fontWeight: '400'\n    lineHeight: 22px\n    letterSpacing: -0.005em\n  body-sm:\n    fontFamily: Inter\n    fontSize: 13px\n    fontWeight: '400'\n    lineHeight: 18px\n    letterSpacing: 0em\n  label-md:\n    fontFamily: Inter\n    fontSize: 12px\n    fontWeight: '500'\n    lineHeight: 16px\n    letterSpacing: 0.02em\n  label-sm:\n    fontFamily: Inter\n    fontSize: 11px\n    fontWeight: '600'\n    lineHeight: 14px\n    letterSpacing: 0.04em\nrounded:\n  sm: 0.5rem\n  DEFAULT: 1rem\n  md: 1.5rem\n  lg: 2rem\n  xl: 3rem\n  full: 9999px\nspacing:\n  gutter: 1.25rem\n  margin: 1.5rem\n  space-xs: 0.25rem\n  space-sm: 0.5rem\n  space-md: 1rem\n  space-lg: 1.5rem\n  space-xl: 2.25rem\n---\n\n## Brand & Style\nThe brand personality is disciplined, articulate, and architecturally grounded. Designed for modern professional teams, it balances corporate utility with high-end editorial calm. The interface removes ambient distractions, unnecessary gamification, and saturated accents to elevate clear written communication and intentional dialogue.\n\nThe aesthetic merges **Minimalism** with **Modern Editorial Restraint**:\n- Deep obsidian anchors contrasting with delicate, warm alabaster surfaces.\n- Strictly no synthetic gradients, playful illustrations, or emoji-heavy UI ornamentation.\n- Structural layout integrity driven by razor-thin hairline boundaries and deliberate, spacious typographic hierarchy.\n- Thin-line visual iconography (1px to 1.25px stroke weights) communicating utility with quiet confidence.\n\n## Colors\nThe palette is strictly monochromatic and warm-neutral, avoiding stark clinical whites and avoiding cool slate tones.\n\n- **Primary Canvas (`#FCFAF6`):** A soft, natural cream base that mitigates eye fatigue across sustained usage.\n- **Surface / Card Background (`#FFFFFF`):** Pure crisp white floating cleanly over the warm cream canvas.\n- **Deep Contrast / Obsidian (`#09090B`):** The primary foreground tone for high-emphasis headlines, strong interactive states, and the distinctive hero navigation block.\n- **Secondary Neutral (`#71717A`):** Mid-tone zinc applied exclusively to secondary copy, metadata, timestamps, and resting iconography.\n- **Hairline Border (`#E7E3DC`):** A warm, low-contrast boundary line used to define card modules and subtle dividers without introducing visual density.\n- **State Feedback:** Success and alert cues remain monochromatic or deep neutral (e.g., solid `#09090B` badges with inverse typography, or subtle 1px dashed hairline boundaries) to maintain total stylistic purity.\n\n## Typography\nBuilt entirely on `Inter`, the typographic hierarchy relies on precise optical weight shifts and deliberate letter-spacing rather than disparate font combinations.\n\n- Headings use tighter negative tracking (`-0.015em` to `-0.03em`) and medium/semibold weights to evoke an architectural, editorial publication feel.\n- Body copy is set at generous line-heights (`1.6x` factor) for reading clarity in long message threads.\n- Metadata, tags, channel markers, and micro-labels use small tracking expansions (`+0.02em` to `+0.04em`) to maintain crisp legibility at small scale.\n- Emphasize content through spacing and weight contrasts rather than color shifts.\n\n## Layout & Spacing\nThe layout leverages a disciplined fluid grid anchored inside structured containment modules.\n\n- **Desktop (1024px+):** 12-column architecture featuring a persistent channel/thread hierarchy; 24px gutters and 36px outer margin.\n- **Tablet (768px - 1023px):** 8-column layout with 20px gutters and 24px margins, transitioning auxiliary sidebars into collapsable drawers.\n- **Mobile (< 768px):** Single-column stacked canvas with 16px margins (`1rem`) and unified vertical spacing rhythm.\n- **Rhythm Rules:** All layout margins, padding blocks, and gaps resolve to increments of 4px and 8px. Component density stays open and calm; chat bubbles and post modules use ample inner padding (`space-md` to `space-lg`) to maintain editorial elegance.\n\n## Elevation & Depth\nElevation in this design system is strictly achieved through surface contrast and crisp 1px hairline boundaries\u2014never through drop shadows or blurred ambient glows.\n\n- **Level 0 (Canvas):** Tone `#FCFAF6`. Ground level containing main scroll areas and backdrop regions.\n- **Level 1 (Cards & Message Bubbles):** Crisp pure white `#FFFFFF` bounded by a 1px solid `#E7E3DC` hairline border. No drop shadow.\n- **Level 2 (Inverted Anchor / Hero Module):** Solid `#09090B` blocks anchored at top viewports or global navigation panels, featuring distinct rounded bottom corners (`24px` to `28px`).\n- **Level 3 (Overlays & Dialogs):** `#FFFFFF` surfaces with a 1px solid `#09090B` crisp contour, paired with a solid `#09090B` backdrop at 20% opacity without blur filters.\n\n## Shapes\nThe shape system creates tension between sweeping pill curves and disciplined card geometries:\n\n- **Cards & Chat Panels:** Rounded with an exact radius of `18px` to `20px` (represented by system radius tokens) to soften structural grids without turning bubbly.\n- **Buttons, Badges & Chips:** Fully pill-shaped (`9999px` border-radius) creating a distinct visual contrast against rectangular card blocks.\n- **Top Hero Module:** Square top corners that fit the viewport edges flush, ending with dramatically rounded bottom corners (`24px` on mobile, `32px` on desktop).\n- **Hairlines:** All component borders are strictly uniform 1px solid lines.\n\n## Components\n\n### Top Hero Panel\n- **Background:** Solid `#09090B` with white `#FFFFFF` text.\n- **Geometry:** Square top corners against the window frame; bottom corners rounded to `24px` (mobile) or `32px` (desktop).\n- **Contents:** Channel names, contextual team status, and search trigger. Icon buttons inside use thin 1px white strokes.\n\n### Buttons\n- **Primary:** Solid `#09090B` background, full pill silhouette (`9999px` radius), pure white text, zero border. Active state: `#27272A`.\n- **Secondary:** Pure white `#FFFFFF` background, full pill silhouette, `#09090B` text, wrapped in a 1px hairline border of `#09090B`. Active state: subtle `#F4F2EB` fill.\n- **Tertiary / Ghost:** Transparent background, `#71717A` label, shifting to `#09090B` on hover/focus.\n\n### Cards & Chat Containers\n- **Surface:** Pure white `#FFFFFF`.\n- **Border:** 1px hairline `#E7E3DC`.\n- **Radius:** `18px` to `20px`.\n- **Padding:** `1.25rem` (`20px`) on mobile; `1.5rem` (`24px`) on desktop.\n- **Divider Lines:** 1px solid `#F4F2EB` internally between replies or metadata strips.\n\n### Input Fields & Chat Composer\n- **Resting:** Pure white `#FFFFFF` background, 1px `#E7E3DC` hairline border, `14px` border radius, text in `#09090B`, placeholder in `#71717A`.\n- **Focus:** 1px solid `#09090B` border with zero outline ring.\n- **Composer Controls:** Monoline action icons (send, attach, format) rendered in `#71717A` with a 1.25px stroke weight. Primary send action leverages a compact black pill button.\n\n### Chips & Channel Filters\n- **Pill Geometry:** Height of 32px with full pill radius.\n- **Resting:** `#FFFFFF` background with 1px `#E7E3DC` border, `#71717A` label.\n- **Active / Selected:** `#09090B` background, `#FFFFFF` text, no outline.\n\n### Checkboxes & Radios\n- **Checkboxes:** 18px square with 4px corner radius. Unchecked: 1px `#E7E3DC` border. Checked: solid `#09090B` fill with a crisp white checkmark icon (1.25px stroke).\n- **Radio Buttons:** 18px circle. Checked: Solid `#09090B` rim with an inner centered 6px dot in `#09090B`.\n\n### Lists & Activity Rows\n- **Layout:** Edge-to-edge within cards or canvas columns.\n- **Dividers:** Optional 1px hairline `#E7E3DC`.\n- **Typographic Pairings:** Item headline in `#09090B` (`body-md` semibold), supporting details and timestamps in `#71717A` (`label-md`).\n- **Selection State:** Subtle tonal fill of `#F6F4EE` across the row radius.",
+      "font": "INTER",
+      "headlineFont": "INTER",
+      "headlineFontFamily": "Inter",
+      "labelFont": "INTER",
+      "labelFontFamily": "Inter",
+      "namedColors": {
+       "background": "#fbf9f5",
+       "error": "#ba1a1a",
+       "error_container": "#ffdad6",
+       "inverse_on_surface": "#f2f0ed",
+       "inverse_primary": "#c8c6c8",
+       "inverse_surface": "#30312e",
+       "on_background": "#1b1c1a",
+       "on_error": "#ffffff",
+       "on_error_container": "#93000a",
+       "on_primary": "#ffffff",
+       "on_primary_container": "#858386",
+       "on_primary_fixed": "#1c1b1d",
+       "on_primary_fixed_variant": "#474649",
+       "on_secondary": "#ffffff",
+       "on_secondary_container": "#63646c",
+       "on_secondary_fixed": "#1a1b22",
+       "on_secondary_fixed_variant": "#46464e",
+       "on_surface": "#1b1c1a",
+       "on_surface_variant": "#47464a",
+       "on_tertiary": "#ffffff",
+       "on_tertiary_container": "#8a8282",
+       "on_tertiary_fixed": "#1f1a1a",
+       "on_tertiary_fixed_variant": "#4c4545",
+       "outline": "#78767b",
+       "outline_variant": "#c8c5ca",
+       "primary": "#000000",
+       "primary_container": "#1c1b1d",
+       "primary_fixed": "#e5e1e4",
+       "primary_fixed_dim": "#c8c6c8",
+       "secondary": "#5d5e66",
+       "secondary_container": "#e3e1ec",
+       "secondary_fixed": "#e3e1ec",
+       "secondary_fixed_dim": "#c6c5cf",
+       "surface": "#fbf9f5",
+       "surface_bright": "#fbf9f5",
+       "surface_container": "#efeeea",
+       "surface_container_high": "#eae8e4",
+       "surface_container_highest": "#e4e2de",
+       "surface_container_low": "#f5f3ef",
+       "surface_container_lowest": "#ffffff",
+       "surface_dim": "#dbdad6",
+       "surface_tint": "#5f5e60",
+       "surface_variant": "#e4e2de",
+       "tertiary": "#000000",
+       "tertiary_container": "#1f1a1a",
+       "tertiary_fixed": "#ebe0df",
+       "tertiary_fixed_dim": "#cec4c4"
+      },
+      "overrideNeutralColor": "#fcfaf6",
+      "overridePrimaryColor": "#09090b",
+      "overrideSecondaryColor": "#71717a",
+      "roundness": "ROUND_FULL",
+      "spacing": {
+       "gutter": "1.25rem",
+       "margin": "1.5rem",
+       "space-lg": "1.5rem",
+       "space-md": "1rem",
+       "space-sm": "0.5rem",
+       "space-xl": "2.25rem",
+       "space-xs": "0.25rem"
+      },
+      "spacingScale": 2,
+      "typography": {
+       "body-lg": {
+        "fontFamily": "Inter",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "letterSpacing": "-0.01em",
+        "lineHeight": "26px"
+       },
+       "body-md": {
+        "fontFamily": "Inter",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "letterSpacing": "-0.005em",
+        "lineHeight": "22px"
+       },
+       "body-sm": {
+        "fontFamily": "Inter",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "letterSpacing": "0em",
+        "lineHeight": "18px"
+       },
+       "headline-lg": {
+        "fontFamily": "Inter",
+        "fontSize": "32px",
+        "fontWeight": "600",
+        "letterSpacing": "-0.025em",
+        "lineHeight": "40px"
+       },
+       "headline-lg-mobile": {
+        "fontFamily": "Inter",
+        "fontSize": "24px",
+        "fontWeight": "600",
+        "letterSpacing": "-0.02em",
+        "lineHeight": "32px"
+       },
+       "headline-md": {
+        "fontFamily": "Inter",
+        "fontSize": "22px",
+        "fontWeight": "500",
+        "letterSpacing": "-0.015em",
+        "lineHeight": "30px"
+       },
+       "headline-xl": {
+        "fontFamily": "Inter",
+        "fontSize": "40px",
+        "fontWeight": "600",
+        "letterSpacing": "-0.03em",
+        "lineHeight": "48px"
+       },
+       "headline-xl-mobile": {
+        "fontFamily": "Inter",
+        "fontSize": "30px",
+        "fontWeight": "600",
+        "letterSpacing": "-0.025em",
+        "lineHeight": "38px"
+       },
+       "label-md": {
+        "fontFamily": "Inter",
+        "fontSize": "12px",
+        "fontWeight": "500",
+        "letterSpacing": "0.02em",
+        "lineHeight": "16px"
+       },
+       "label-sm": {
+        "fontFamily": "Inter",
+        "fontSize": "11px",
+        "fontWeight": "600",
+        "letterSpacing": "0.04em",
+        "lineHeight": "14px"
+       }
+      }
+     }
+    },
+    "name": "assets/7f12a838cd1f491ea764078ffb5f6229",
+    "version": "1"
+   }
+  },
+  {
+   "design": {
+    "screens": [
+     {
+      "designSystem": {
+       "designSystem": {
+        "displayName": "Talk It Out Monochrome",
+        "styleGuidelines": "## Brand & Style\nThe brand personality is disciplined, articulate, and architecturally grounded. Designed for modern professional teams, it balances corporate utility with high-end editorial calm. The interface removes ambient distractions, unnecessary gamification, and saturated accents to elevate clear written communication and intentional dialogue.\n\nThe aesthetic merges **Minimalism** with **Modern Editorial Restraint**:\n- Deep obsidian anchors contrasting with delicate, warm alabaster surfaces.\n- Strictly no synthetic gradients, playful illustrations, or emoji-heavy UI ornamentation.\n- Structural layout integrity driven by razor-thin hairline boundaries and deliberate, spacious typographic hierarchy.\n- Thin-line visual iconography (1px to 1.25px stroke weights) communicating utility with quiet confidence.\n\n## Layout & Spacing\nThe layout leverages a disciplined fluid grid anchored inside structured containment modules.\n\n- **Desktop (1024px+):** 12-column architecture featuring a persistent channel/thread hierarchy; 24px gutters and 36px outer margin.\n- **Tablet (768px - 1023px):** 8-column layout with 20px gutters and 24px margins, transitioning auxiliary sidebars into collapsable drawers.\n- **Mobile (< 768px):** Single-column stacked canvas with 16px margins (`1rem`) and unified vertical spacing rhythm.\n- **Rhythm Rules:** All layout margins, padding blocks, and gaps resolve to increments of 4px and 8px. Component density stays open and calm; chat bubbles and post modules use ample inner padding (`space-md` to `space-lg`) to maintain editorial elegance.\n\n## Elevation & Depth\nElevation in this design system is strictly achieved through surface contrast and crisp 1px hairline boundaries\u2014never through drop shadows or blurred ambient glows.\n\n- **Level 0 (Canvas):** Tone `#FCFAF6`. Ground level containing main scroll areas and backdrop regions.\n- **Level 1 (Cards & Message Bubbles):** Crisp pure white `#FFFFFF` bounded by a 1px solid `#E7E3DC` hairline border. No drop shadow.\n- **Level 2 (Inverted Anchor / Hero Module):** Solid `#09090B` blocks anchored at top viewports or global navigation panels, featuring distinct rounded bottom corners (`24px` to `28px`).\n- **Level 3 (Overlays & Dialogs):** `#FFFFFF` surfaces with a 1px solid `#09090B` crisp contour, paired with a solid `#09090B` backdrop at 20% opacity without blur filters.\n\n## Components\n\n### Top Hero Panel\n- **Background:** Solid `#09090B` with white `#FFFFFF` text.\n- **Geometry:** Square top corners against the window frame; bottom corners rounded to `24px` (mobile) or `32px` (desktop).\n- **Contents:** Channel names, contextual team status, and search trigger. Icon buttons inside use thin 1px white strokes.\n\n### Buttons\n- **Primary:** Solid `#09090B` background, full pill silhouette (`9999px` radius), pure white text, zero border. Active state: `#27272A`.\n- **Secondary:** Pure white `#FFFFFF` background, full pill silhouette, `#09090B` text, wrapped in a 1px hairline border of `#09090B`. Active state: subtle `#F4F2EB` fill.\n- **Tertiary / Ghost:** Transparent background, `#71717A` label, shifting to `#09090B` on hover/focus.\n\n### Cards & Chat Containers\n- **Surface:** Pure white `#FFFFFF`.\n- **Border:** 1px hairline `#E7E3DC`.\n- **Radius:** `18px` to `20px`.\n- **Padding:** `1.25rem` (`20px`) on mobile; `1.5rem` (`24px`) on desktop.\n- **Divider Lines:** 1px solid `#F4F2EB` internally between replies or metadata strips.\n\n### Input Fields & Chat Composer\n- **Resting:** Pure white `#FFFFFF` background, 1px `#E7E3DC` hairline border, `14px` border radius, text in `#09090B`, placeholder in `#71717A`.\n- **Focus:** 1px solid `#09090B` border with zero outline ring.\n- **Composer Controls:** Monoline action icons (send, attach, format) rendered in `#71717A` with a 1.25px stroke weight. Primary send action leverages a compact black pill button.\n\n### Chips & Channel Filters\n- **Pill Geometry:** Height of 32px with full pill radius.\n- **Resting:** `#FFFFFF` background with 1px `#E7E3DC` border, `#71717A` label.\n- **Active / Selected:** `#09090B` background, `#FFFFFF` text, no outline.\n\n### Checkboxes & Radios\n- **Checkboxes:** 18px square with 4px corner radius. Unchecked: 1px `#E7E3DC` border. Checked: solid `#09090B` fill with a crisp white checkmark icon (1.25px stroke).\n- **Radio Buttons:** 18px circle. Checked: Solid `#09090B` rim with an inner centered 6px dot in `#09090B`.\n\n### Lists & Activity Rows\n- **Layout:** Edge-to-edge within cards or canvas columns.\n- **Dividers:** Optional 1px hairline `#E7E3DC`.\n- **Typographic Pairings:** Item headline in `#09090B` (`body-md` semibold), supporting details and timestamps in `#71717A` (`label-md`).\n- **Selection State:** Subtle tonal fill of `#F6F4EE` across the row radius.",
+        "theme": {
+         "bodyFont": "INTER",
+         "bodyFontFamily": "Inter",
+         "colorMode": "LIGHT",
+         "colorVariant": "FIDELITY",
+         "customColor": "#09090b",
+         "font": "INTER",
+         "headlineFont": "INTER",
+         "headlineFontFamily": "Inter",
+         "labelFont": "INTER",
+         "labelFontFamily": "Inter",
+         "namedColors": {
+          "background": "#fbf9f5",
+          "error": "#ba1a1a",
+          "error_container": "#ffdad6",
+          "inverse_on_surface": "#f2f0ed",
+          "inverse_primary": "#c8c6c8",
+          "inverse_surface": "#30312e",
+          "on_background": "#1b1c1a",
+          "on_error": "#ffffff",
+          "on_error_container": "#93000a",
+          "on_primary": "#ffffff",
+          "on_primary_container": "#858386",
+          "on_primary_fixed": "#1c1b1d",
+          "on_primary_fixed_variant": "#474649",
+          "on_secondary": "#ffffff",
+          "on_secondary_container": "#63646c",
+          "on_secondary_fixed": "#1a1b22",
+          "on_secondary_fixed_variant": "#46464e",
+          "on_surface": "#1b1c1a",
+          "on_surface_variant": "#47464a",
+          "on_tertiary": "#ffffff",
+          "on_tertiary_container": "#8a8282",
+          "on_tertiary_fixed": "#1f1a1a",
+          "on_tertiary_fixed_variant": "#4c4545",
+          "outline": "#78767b",
+          "outline_variant": "#c8c5ca",
+          "primary": "#000000",
+          "primary_container": "#1c1b1d",
+          "primary_fixed": "#e5e1e4",
+          "primary_fixed_dim": "#c8c6c8",
+          "secondary": "#5d5e66",
+          "secondary_container": "#e3e1ec",
+          "secondary_fixed": "#e3e1ec",
+          "secondary_fixed_dim": "#c6c5cf",
+          "surface": "#fbf9f5",
+          "surface_bright": "#fbf9f5",
+          "surface_container": "#efeeea",
+          "surface_container_high": "#eae8e4",
+          "surface_container_highest": "#e4e2de",
+          "surface_container_low": "#f5f3ef",
+          "surface_container_lowest": "#ffffff",
+          "surface_dim": "#dbdad6",
+          "surface_tint": "#5f5e60",
+          "surface_variant": "#e4e2de",
+          "tertiary": "#000000",
+          "tertiary_container": "#1f1a1a",
+          "tertiary_fixed": "#ebe0df",
+          "tertiary_fixed_dim": "#cec4c4"
+         },
+         "overrideNeutralColor": "#fcfaf6",
+         "overridePrimaryColor": "#09090b",
+         "overrideSecondaryColor": "#71717a",
+         "roundness": "ROUND_FULL",
+         "spacing": {
+          "gutter": "1.25rem",
+          "margin": "1.5rem",
+          "space-lg": "1.5rem",
+          "space-md": "1rem",
+          "space-sm": "0.5rem",
+          "space-xl": "2.25rem",
+          "space-xs": "0.25rem"
+         },
+         "spacingScale": 2,
+         "typography": {
+          "body-lg": {
+           "fontFamily": "Inter",
+           "fontSize": "16px",
+           "fontWeight": "400",
+           "letterSpacing": "-0.01em",
+           "lineHeight": "26px"
+          },
+          "body-md": {
+           "fontFamily": "Inter",
+           "fontSize": "14px",
+           "fontWeight": "400",
+           "letterSpacing": "-0.005em",
+           "lineHeight": "22px"
+          },
+          "body-sm": {
+           "fontFamily": "Inter",
+           "fontSize": "13px",
+           "fontWeight": "400",
+           "letterSpacing": "0em",
+           "lineHeight": "18px"
+          },
+          "headline-lg": {
+           "fontFamily": "Inter",
+           "fontSize": "32px",
+           "fontWeight": "600",
+           "letterSpacing": "-0.025em",
+           "lineHeight": "40px"
+          },
+          "headline-lg-mobile": {
+           "fontFamily": "Inter",
+           "fontSize": "24px",
+           "fontWeight": "600",
+           "letterSpacing": "-0.02em",
+           "lineHeight": "32px"
+          },
+          "headline-md": {
+           "fontFamily": "Inter",
+           "fontSize": "22px",
+           "fontWeight": "500",
+           "letterSpacing": "-0.015em",
+           "lineHeight": "30px"
+          },
+          "headline-xl": {
+           "fontFamily": "Inter",
+           "fontSize": "40px",
+           "fontWeight": "600",
+           "letterSpacing": "-0.03em",
+           "lineHeight": "48px"
+          },
+          "headline-xl-mobile": {
+           "fontFamily": "Inter",
+           "fontSize": "30px",
+           "fontWeight": "600",
+           "letterSpacing": "-0.025em",
+           "lineHeight": "38px"
+          },
+          "label-md": {
+           "fontFamily": "Inter",
+           "fontSize": "12px",
+           "fontWeight": "500",
+           "letterSpacing": "0.02em",
+           "lineHeight": "16px"
+          },
+          "label-sm": {
+           "fontFamily": "Inter",
+           "fontSize": "11px",
+           "fontWeight": "600",
+           "letterSpacing": "0.04em",
+           "lineHeight": "14px"
+          }
+         }
+        }
+       },
+       "name": "assets/7f12a838cd1f491ea764078ffb5f6229",
+       "version": "1"
+      },
+      "deviceType": "MOBILE",
+      "generatedBy": "figaro_agent",
+      "height": "2208",
+      "htmlCode": {
+       "downloadUrl": "https://stitch.googleapis.com/v1/projects/12357068339961859333/files/e2b16d9eef264479a838767c0841d725:download",
+       "mimeType": "text/html",
+       "name": "projects/12357068339961859333/files/e2b16d9eef264479a838767c0841d725"
+      },
+      "id": "046545cf262f4132ba581be10937b264",
+      "name": "projects/12357068339961859333/screens/046545cf262f4132ba581be10937b264",
+      "prompt": "First-run welcome onboarding screen after sign-up for 'Talk It Out'. Single screen (not a carousel), 390px mobile layout.\nVisual style: Bold monochrome. Canvas background #FCFAF6. Inter font. Zero gradients, zero purple, zero emoji. Clean hairline borders (#E7E3DC) and crisp 18-20px rounded cards.\n\nScreen Structure:\n1. Top Black Hero Header:\n- Solid deep black (#09090B) hero section with deeply rounded bottom corners (rounded-b-[32px] or rounded-b-[28px]).\n- Generous padding (pt-12 pb-8 px-6).\n- Top row: Small minimalist brand logo mark (e.g. geometric quote/speech bubble mark) with label \"TALK IT OUT\" in tracked small uppercase or refined text mark.\n- Greeting headline: \"Welcome, Neha\" in large crisp white title (font-bold text-2xl tracking-tight text-white).\n- Promise subline: \"Say what you really think at work, kindly and safely.\" in clean white/70 or zinc-400 text-sm mt-2 leading-relaxed.\n\n2. Three Numbered Steps Section (Compact rows with Phosphor-style thin line icons):\n- Container with px-5 pt-6 pb-2.\n- Section label or subtle tracking if fitting: \"HOW IT WORKS\" in tiny uppercase muted text.\n- Three numbered compact rows:\n  Step 1:\n  - Number indicator \"1\" with thin line icon (pen / feather / draft icon).\n  - Title: \"Write it your way\" (font-medium text-[#09090B] text-sm).\n  - Description: \"Send with your name or anonymously. Anonymous is hidden from the group but visible to the controller.\" (text-xs text-[#71717A] leading-normal).\n  Step 2:\n  - Number indicator \"2\" with thin line icon (sparkle / sliders / soundwave adjustment icon).\n  - Title: \"AI keeps the point, calms the tone\" (font-medium text-[#09090B] text-sm).\n  - Description: \"Tone modulation ensures constructive dialog while keeping your core message intact.\" (text-xs text-[#71717A] leading-normal).\n  Step 3:\n  - Number indicator \"3\" with thin line icon (shield-check / user-check / verification icon).\n  - Title: \"The controller reviews, then the group sees it\" (font-medium text-[#09090B] text-sm).\n  - Description: \"A trusted teammate verifies safety and relevance before anything goes live.\" (text-xs text-[#71717A] leading-normal).\n\n3. \"How do you want to start?\" Choice Section:\n- Heading: \"How do you want to start?\" in crisp text-base font-semibold text-[#09090B] px-5 pt-4 pb-2.\n- Vertical stack of three selectable choice cards (white bg #FFFFFF, rounded-[18px] to rounded-[20px], 1px hairline border #E7E3DC, p-4 transition-all):\n  Card A (Highlighted / Recommended):\n  - Subtle top badge or corner pill: \"RECOMMENDED\" (black pill or subtle border tag).\n  - Outer border slightly accentuated or distinct black selection indicator / radio.\n  - Title: \"Join my team\"\n  - Subtitle: \"Paste an invite link from your workspace\"\n  - Radio/indicator: checked black radio dot.\n  Card B:\n  - Title: \"Start a group\"\n  - Subtitle: \"You become its controller and set moderation rules\"\n  - Radio/indicator: empty circular hairline outline.\n  Card C:\n  - Title: \"Just explore\"\n  - Subtitle: \"Read community questions and see how safe chat works\"\n  - Radio/indicator: empty circular hairline outline.\n\n4. Bottom Action Area:\n- Fixed or comfortable bottom container with generous padding (px-5 pb-8 pt-4 bg-[#FCFAF6]/90 backdrop-blur-sm).\n- Primary Button: \"Continue\" as a bold black pill button (bg-[#09090B] text-white font-medium py-3.5 px-6 rounded-full w-full text-center shadow-sm active:scale-[0.99]).\n- Secondary Text Button: \"Skip for now\" (text-xs font-medium text-[#71717A] hover:text-[#09090B] text-center w-full mt-3 py-1 cursor-pointer).\n\nStrict constraints:\n- All cards have 18-20px border radius, white bg, #E7E3DC hairline border.\n- Text: Near-black #09090B, secondary text #71717A.\n- Canvas background #FCFAF6.\n- Strictly no emojis anywhere. Use SVG stroke-based line icons with 1.5px stroke width.\n- Strictly no color gradients or purple tints. Bold high-contrast monochrome aesthetic.",
+      "screenMetadata": {
+       "agentType": "PRO_AGENT",
+       "status": "COMPLETE"
+      },
+      "screenType": "DESIGN",
+      "screenshot": {
+       "downloadUrl": "https://stitch.googleapis.com/v1/projects/12357068339961859333/files/0cfa6679881a4796a3e350d75eac80ea:download",
+       "name": "projects/12357068339961859333/files/0cfa6679881a4796a3e350d75eac80ea"
+      },
+      "theme": {
+       "bodyFont": "INTER",
+       "bodyFontFamily": "Inter",
+       "colorMode": "LIGHT",
+       "colorVariant": "FIDELITY",
+       "customColor": "#09090b",
+       "font": "INTER",
+       "headlineFont": "INTER",
+       "headlineFontFamily": "Inter",
+       "labelFont": "INTER",
+       "labelFontFamily": "Inter",
+       "namedColors": {
+        "background": "#fbf9f5",
+        "error": "#ba1a1a",
+        "error_container": "#ffdad6",
+        "inverse_on_surface": "#f2f0ed",
+        "inverse_primary": "#c8c6c8",
+        "inverse_surface": "#30312e",
+        "on_background": "#1b1c1a",
+        "on_error": "#ffffff",
+        "on_error_container": "#93000a",
+        "on_primary": "#ffffff",
+        "on_primary_container": "#858386",
+        "on_primary_fixed": "#1c1b1d",
+        "on_primary_fixed_variant": "#474649",
+        "on_secondary": "#ffffff",
+        "on_secondary_container": "#63646c",
+        "on_secondary_fixed": "#1a1b22",
+        "on_secondary_fixed_variant": "#46464e",
+        "on_surface": "#1b1c1a",
+        "on_surface_variant": "#47464a",
+        "on_tertiary": "#ffffff",
+        "on_tertiary_container": "#8a8282",
+        "on_tertiary_fixed": "#1f1a1a",
+        "on_tertiary_fixed_variant": "#4c4545",
+        "outline": "#78767b",
+        "outline_variant": "#c8c5ca",
+        "primary": "#000000",
+        "primary_container": "#1c1b1d",
+        "primary_fixed": "#e5e1e4",
+        "primary_fixed_dim": "#c8c6c8",
+        "secondary": "#5d5e66",
+        "secondary_container": "#e3e1ec",
+        "secondary_fixed": "#e3e1ec",
+        "secondary_fixed_dim": "#c6c5cf",
+        "surface": "#fbf9f5",
+        "surface_bright": "#fbf9f5",
+        "surface_container": "#efeeea",
+        "surface_container_high": "#eae8e4",
+        "surface_container_highest": "#e4e2de",
+        "surface_container_low": "#f5f3ef",
+        "surface_container_lowest": "#ffffff",
+        "surface_dim": "#dbdad6",
+        "surface_tint": "#5f5e60",
+        "surface_variant": "#e4e2de",
+        "tertiary": "#000000",
+        "tertiary_container": "#1f1a1a",
+        "tertiary_fixed": "#ebe0df",
+        "tertiary_fixed_dim": "#cec4c4"
+       },
+       "overrideNeutralColor": "#fcfaf6",
+       "overridePrimaryColor": "#09090b",
+       "overrideSecondaryColor": "#71717a",
+       "roundness": "ROUND_FULL",
+       "spacing": {
+        "gutter": "1.25rem",
+        "margin": "1.5rem",
+        "space-lg": "1.5rem",
+        "space-md": "1rem",
+        "space-sm": "0.5rem",
+        "space-xl": "2.25rem",
+        "space-xs": "0.25rem"
+       },
+       "spacingScale": 2,
+       "typography": {
+        "body-lg": {
+         "fontFamily": "Inter",
+         "fontSize": "16px",
+         "fontWeight": "400",
+         "letterSpacing": "-0.01em",
+         "lineHeight": "26px"
+        },
+        "body-md": {
+         "fontFamily": "Inter",
+         "fontSize": "14px",
+         "fontWeight": "400",
+         "letterSpacing": "-0.005em",
+         "lineHeight": "22px"
+        },
+        "body-sm": {
+         "fontFamily": "Inter",
+         "fontSize": "13px",
+         "fontWeight": "400",
+         "letterSpacing": "0em",
+         "lineHeight": "18px"
+        },
+        "headline-lg": {
+         "fontFamily": "Inter",
+         "fontSize": "32px",
+         "fontWeight": "600",
+         "letterSpacing": "-0.025em",
+         "lineHeight": "40px"
+        },
+        "headline-lg-mobile": {
+         "fontFamily": "Inter",
+         "fontSize": "24px",
+         "fontWeight": "600",
+         "letterSpacing": "-0.02em",
+         "lineHeight": "32px"
+        },
+        "headline-md": {
+         "fontFamily": "Inter",
+         "fontSize": "22px",
+         "fontWeight": "500",
+         "letterSpacing": "-0.015em",
+         "lineHeight": "30px"
+        },
+        "headline-xl": {
+         "fontFamily": "Inter",
+         "fontSize": "40px",
+         "fontWeight": "600",
+         "letterSpacing": "-0.03em",
+         "lineHeight": "48px"
+        },
+        "headline-xl-mobile": {
+         "fontFamily": "Inter",
+         "fontSize": "30px",
+         "fontWeight": "600",
+         "letterSpacing": "-0.025em",
+         "lineHeight": "38px"
+        },
+        "label-md": {
+         "fontFamily": "Inter",
+         "fontSize": "12px",
+         "fontWeight": "500",
+         "letterSpacing": "0.02em",
+         "lineHeight": "16px"
+        },
+        "label-sm": {
+         "fontFamily": "Inter",
+         "fontSize": "11px",
+         "fontWeight": "600",
+         "letterSpacing": "0.04em",
+         "lineHeight": "14px"
+        }
+       }
+      },
+      "title": "First-Run Welcome",
+      "width": "780"
+     }
+    ],
+    "theme": {}
+   }
+  },
+  {
+   "text": "I have created the first-run welcome screen for **Talk It Out** tailored to your exact visual system and content specifications:\n\n### Design Implementation\n- **Hero Header**: High-contrast black (`#09090B`) container with deeply rounded bottom corners, featuring the minimal brand mark, \"Welcome, Neha\" headline, and the core promise: *\"Say what you really think at work, kindly and safely.\"*\n- **Canvas & Palette**: Light warm cream base (`#FCFAF6`), near-black typography (`#09090B`), and muted secondary details (`#71717A`) with zero gradients, emojis, or purple accents.\n- **Process Steps**: Three numbered rows with crisp, thin line vector icons illustrating:\n  1. *Write it your way* (with note on anonymity visibility to the controller).\n  2. *AI keeps the point, calms the tone*.\n  3. *The controller reviews, then the group sees it*.\n- **Starting Choices**: Three selectable white cards with 18\u201320px rounded corners and hairline `#E7E3DC` borders. The *Join my team* option is highlighted with a crisp \"RECOMMENDED\" badge and active indicator.\n- **Actions**: Full-width black pill **Continue** CTA with a minimal **Skip for now** text link below."
+  },
+  {
+   "suggestion": "Design the 'Join my team' invite link paste modal/screen"
+  },
+  {
+   "suggestion": "Design the 'Start a group' controller setup flow"
+  },
+  {
+   "suggestion": "Create the main team discussion feed with anonymous and moderated messages"
+  }
+ ],
+ "projectId": "12357068339961859333",
+ "sessionId": "12621363306127698420"
+}

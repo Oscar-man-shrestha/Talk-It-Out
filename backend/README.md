@@ -94,10 +94,12 @@ docker build -t talkitout-backend .
 docker run --rm \
   -e DATABASE_URL=postgres://user:pass@db-host:5432/talkitout \
   -e JWT_SECRET=<64+ random hex chars> \
+  -e CORS_ORIGINS=https://you.github.io \
   talkitout-backend node dist/migrate-cli.js
 # (equivalently: docker run --rm -e ... <image> npm run migrate:dist)
+# The image runs with NODE_ENV=production, so CORS_ORIGINS is required for both commands.
 docker run -d -p 3000:3000 \
-  -e DATABASE_URL=... -e JWT_SECRET=... [-e RUN_STUB_WORKER=true | -e PIPELINE_MODE=external -e PIPELINE_API_KEY=...] \
+  -e DATABASE_URL=... -e JWT_SECRET=... -e CORS_ORIGINS=... [-e RUN_STUB_WORKER=true | -e PIPELINE_MODE=external -e PIPELINE_API_KEY=...] \
   talkitout-backend
 ```
 
@@ -141,7 +143,7 @@ docker run -d -p 3000:3000 \
   otherwise outside tests). Same rule for `PIPELINE_API_KEY` when set.
   Generate with
   `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`.
-- Set `CORS_ORIGINS` to the exact origins the Flutter web build is served
+- **Required in production** (the server will not start without it): set `CORS_ORIGINS` to the exact origins the Flutter web build is served
   from; never `*` in production.
 - Set `JWT_EXPIRES_IN` deliberately (default 7d; there are no refresh tokens).
 
@@ -184,5 +186,16 @@ docker run -d -p 3000:3000 \
 ## Not in this slice
 
 Real NLP rewrite pipeline (stub only), a real feed moderation provider
-(fake only), profiles, WebSockets, controller transfer, editing posts or
+(fake only), WebSockets, controller transfer, editing posts or
 comments (the `content_revision` guard is already in place for it).
+
+## Additions after the v1 client contract
+
+Migrations 005–007 add profiles (with experience and education), profile
+image upload (`/users/me/avatar`, `/users/me/cover`, served at
+`/media/:id` from Postgres), emoji reactions on published group messages,
+`POST /notifications/read-all`, and rotating refresh tokens
+(`/auth/refresh-tokens`, `/auth/refresh`). The Flutter app does not call
+them yet, and the existing endpoints and response shapes are unchanged.
+See `API.md` section 10 for the full contract. New dependency: `multer`
+(multipart parsing for image uploads).

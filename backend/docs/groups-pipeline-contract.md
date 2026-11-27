@@ -54,6 +54,7 @@ Response `200`:
       "raw_message_id": "b2a4...-uuid of the raw_messages row",
       "text": "the original message text submitted by the contributor",
       "group_agenda": "Making NLP notes",
+      "tone": "professional",
       "contract_version": 1
     }
   ]
@@ -72,7 +73,16 @@ is appropriate.
 - credentials, tokens, or group identifiers beyond the agenda text.
 
 The payload keys are exactly `job_id`, `raw_message_id`, `text`,
-`group_agenda`, `contract_version`. Nothing else is added.
+`group_agenda`, `tone`, `contract_version`. Nothing else is added.
+
+`tone` (added within contract version 1; workers that ignore it stay
+compatible) is a wording hint: `professional` (default), `direct`,
+`socratic` or `empathetic`. It is the author's own profile choice, but
+**anonymous messages always get `professional`**, so a distinctive style
+can never point group members at who wrote an anonymous message. The
+trade-off: a non-default tone tells the worker that message was sent with
+a name. The worker treats tone as wording only; it never changes intent
+validation, and unknown values are ignored.
 
 ## 3. Reporting a result — `POST /internal/pipeline/result`
 
@@ -100,6 +110,7 @@ Field rules (enforced with strict schema validation):
 | `relevance_label` | required, one of `relevant`, `borderline`, `off_topic` | absent |
 | `pipeline_version` | required, non-empty string | absent |
 | `error_code` | absent | required, non-empty string (e.g. `model_timeout`) |
+| `moderation_flags` | optional array of `hate_speech`, `threat`, `abusive_language`, `profanity`, `self_harm` (advisory, about the original message; unknown codes are `422`) | absent |
 
 **Relevance is advisory only.** Scores and labels are shown to the group
 controller to help review. They never hide, reject, or auto-approve a
@@ -159,6 +170,8 @@ via `/result` is equivalent.
   attempts, so a crash-looping worker eventually fails the job.
 - Retry backoff after a failed attempt is `2s × attempts` (server-side).
 - `error_code` is recorded in logs (job id + code only); no text is logged.
+- The latest `error_code` is stored on the message (`raw_messages.pipeline_error_code`, a short code, never text) and shown to the controller, and to the sender of a preview, as a plain reason. `unsupported_language` and `input_too_long` fail the job at once (a retry cannot change them); other codes retry as before.
+- Moderation flags never reject, hide or delay a message: the controller decides.
 
 ## 7. Failure semantics (end state)
 

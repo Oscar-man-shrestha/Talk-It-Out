@@ -97,8 +97,11 @@ describe('claim', () => {
       'job_id',
       'raw_message_id',
       'text',
+      'tone',
     ]);
     expect(job.contract_version).toBe(1);
+    // Anonymous message: always the default tone.
+    expect(job.tone).toBe('professional');
     expect(job.group_agenda).toBe('Contract agenda');
     expect(job.text).toBe('external pipeline will rewrite me');
     expect(JSON.stringify(res.body)).not.toContain(contributor.id);

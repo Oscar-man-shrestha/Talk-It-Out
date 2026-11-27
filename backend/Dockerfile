@@ -16,6 +16,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --chown=node:node migrations ./migrations
+COPY --chown=node:node legal ./legal
 # Run as the unprivileged image user, never root.
 USER node
 EXPOSE 3000

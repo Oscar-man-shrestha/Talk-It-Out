@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:talk_it_out/app/repository_providers.dart';
+import 'package:talk_it_out/core/models/enums.dart';
+import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/core/ui/screen_async.dart';
+import 'package:talk_it_out/core/utils/relative_time.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/notifications/data/app_notification.dart';
 import 'package:talk_it_out/features/notifications/notification_providers.dart';
+import 'package:talk_it_out/features/notifications/notification_text.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/core/ui/empty_state.dart';
+import 'package:talk_it_out/core/ui/motion.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
+import 'package:talk_it_out/core/ui/large_title_header.dart';
 
 // Stitch Monochrome Precision tokens
-const _kPrimary = Color(0xFF000000);
-const _kSurface = Color(0xFFFFFFFF);
-const _kSurfaceMuted = Color(0xFFF4F4F5);
-const _kBorderSubtle = Color(0xFFE4E4E7);
-const _kTextPrimary = Color(0xFF09090B);
-const _kTextSecondary = Color(0xFF71717A);
-const _kTextTertiary = Color(0xFFA1A1AA);
+const _kPrimary = Brand.accent;
+const _kSurface = Brand.card;
+const _kBorderSubtle = Brand.border;
+const _kTextPrimary = Brand.ink;
+const _kTextSecondary = Brand.inkSoft;
+const _kTextTertiary = Brand.inkFaint;
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -25,112 +32,106 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
-  String _filter = 'all'; // 'all', 'submissions', 'moderation'
-  bool _diffExpanded = false;
-  bool _appliedRewrite = false;
-  bool _controllerNoteExpanded = false;
-  bool _allMarkedRead = false;
+  String _filter = 'all'; // 'all', 'submissions', 'moderation', 'community'
+
+  /// Submissions are outcomes of your own messages; moderation is review work
+  /// waiting for you as a controller.
+  bool _inFilter(AppNotification item, String filter) {
+    switch (filter) {
+      case 'submissions':
+        return item.type == NotificationType.messageRejected ||
+            item.type == NotificationType.messagePublished;
+      case 'moderation':
+        return item.type == NotificationType.messagePendingReview;
+      case 'community':
+        return item.type == NotificationType.groupInvitation ||
+            item.type == NotificationType.questionAnswered ||
+            item.type == NotificationType.answerBest ||
+            item.type == NotificationType.mentioned ||
+            item.type == NotificationType.memberJoined ||
+            item.type == NotificationType.questionLiked;
+      default:
+        return true;
+    }
+  }
+
+  Future<void> _guard(Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorText(error) ?? AppStrings.errorGeneric)),
+      );
+    }
+  }
+
+  void _open(AppNotification item) {
+    _guard(() => ref.read(notificationsProvider.notifier).markRead(item.id));
+    switch (item.type) {
+      case NotificationType.messagePendingReview:
+        // The router sends anyone who is not this group's controller back.
+        if (item.group case final g?) context.go('/groups/${g.id}/review');
+      case NotificationType.messageRejected:
+        if (item.group case final g?) context.go('/groups/${g.id}/mine');
+      case NotificationType.mentioned:
+        if (item.group case final g?) context.go('/groups/${g.id}');
+      case NotificationType.groupInvitation:
+        // Answered on the Groups screen, where the invitation is shown.
+        context.go('/groups');
+      case NotificationType.questionAnswered:
+      case NotificationType.answerBest:
+      case NotificationType.questionLiked:
+        if (item.post case final p?) context.push('/feed/${p.id}');
+      case NotificationType.messagePublished:
+        if (item.group case final g?) context.go('/groups/${g.id}');
+      case NotificationType.memberJoined:
+        if (item.group case final g?) context.push('/groups/${g.id}/members');
+      case NotificationType.unknown:
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final notifications = ref.watch(notificationsProvider);
     final items = notifications.value ?? const <AppNotification>[];
+    final unread = items.where((item) => item.isUnread).length;
+    final visible = items.where((item) => _inFilter(item, _filter)).toList();
+    int count(String filter) =>
+        items.where((item) => _inFilter(item, filter)).length;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isDesktop = screenWidth >= 900;
     final isMobile = screenWidth < 600;
     final hPad = isDesktop ? (screenWidth - 860) / 2 : (isMobile ? 12.0 : 20.0);
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(56),
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(bottom: BorderSide(color: _kBorderSubtle)),
-          ),
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: _kPrimary,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Icon(
-                      Icons.diversity_3,
-                      size: 16,
-                      color: Colors.white,
-                    ),
+      backgroundColor: Brand.canvas,
+      appBar: LargeTitleHeader(
+        title: 'Alerts',
+        subtitle: '$unread new',
+        actions: [
+          TextButton.icon(
+            onPressed: unread == 0
+                ? null
+                : () => _guard(
+                    ref.read(notificationsProvider.notifier).markAllRead,
                   ),
-                  const SizedBox(width: 10),
-                  const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'TALK IT OUT',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            '•',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        'Talk It Out Alerts',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: _kTextSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.chat_bubble_outline,
-                      size: 20,
-                      color: _kTextSecondary,
-                    ),
-                    onPressed: () {},
-                  ),
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: const BoxDecoration(
-                      color: _kPrimary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.person,
-                      size: 17,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              disabledForegroundColor: HeroInk.inkSoft,
+              backgroundColor: HeroInk.fill,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              minimumSize: const Size(0, 36),
+              shape: const StadiumBorder(side: BorderSide(color: HeroInk.line)),
+            ),
+            icon: const Icon(PhosphorIconsRegular.checks, size: 15),
+            label: const Text(
+              'Mark all read',
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
             ),
           ),
-        ),
+        ],
       ),
       body: AsyncBody(
         status: asyncStatus(notifications, isEmpty: false),
@@ -143,713 +144,84 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         child: ListView(
           padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 40),
           children: [
-            // Sub-header Action Bar
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Text(
-                      'Alerts',
-                      style: TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.4,
-                        color: _kTextPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _allMarkedRead ? _kSurfaceMuted : _kPrimary,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        _allMarkedRead ? '0 new' : '2 new',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontFamily: 'monospace',
-                          fontWeight: FontWeight.w600,
-                          color: _allMarkedRead
-                              ? _kTextSecondary
-                              : Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                TextButton.icon(
-                  onPressed: () {
-                    setState(() => _allMarkedRead = true);
-                    for (final item in items) {
-                      if (item.isUnread) {
-                        ref
-                            .read(notificationRepositoryProvider)
-                            .markRead(item.id);
-                      }
-                    }
-                    ref.invalidate(unreadCountProvider);
-                  },
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    backgroundColor: _kSurfaceMuted,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  icon: const Icon(
-                    Icons.done_all,
-                    size: 15,
-                    color: _kTextSecondary,
-                  ),
-                  label: const Text(
-                    'Mark all read',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: _kTextSecondary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
             // Filter Chips Navigation
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
                   _AlertChip(
-                    label: 'All (5)',
+                    label: 'All (${count('all')})',
                     active: _filter == 'all',
                     onTap: () => setState(() => _filter = 'all'),
                   ),
                   const SizedBox(width: 8),
                   _AlertChip(
-                    label: 'Submissions (2)',
+                    label: 'Submissions (${count('submissions')})',
                     active: _filter == 'submissions',
                     onTap: () => setState(() => _filter = 'submissions'),
                   ),
                   const SizedBox(width: 8),
                   _AlertChip(
-                    label: 'Moderation (2)',
+                    label: 'Moderation (${count('moderation')})',
                     active: _filter == 'moderation',
                     onTap: () => setState(() => _filter = 'moderation'),
+                  ),
+                  const SizedBox(width: 8),
+                  _AlertChip(
+                    label: 'Community (${count('community')})',
+                    active: _filter == 'community',
+                    onTap: () => setState(() => _filter = 'community'),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
 
-            // Item 1: Submission Approved (Category: submissions)
-            if (_filter == 'all' || _filter == 'submissions') ...[
-              _StitchAlertContainer(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        if (!_allMarkedRead) ...[
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: const BoxDecoration(
-                              color: _kPrimary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                        const Icon(
-                          Icons.check_circle,
-                          size: 15,
-                          color: _kPrimary,
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'SUBMISSION APPROVED',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.6,
-                            color: _kTextPrimary,
-                          ),
-                        ),
-                        const Spacer(),
-                        const Text(
-                          '12m ago',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontFamily: 'monospace',
-                            color: _kTextTertiary,
-                          ),
-                        ),
-                      ],
+            if (visible.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: EmptyState(
+                  key: ValueKey('notifications-empty'),
+                  inList: true,
+                  icon: Icons.notifications_none,
+                  title: "You're all caught up",
+                  body: AppStrings.notificationsEmpty,
+                  points: [
+                    (
+                      PhosphorIconsRegular.listChecks,
+                      'When a message you sent is published or not published',
                     ),
-                    const SizedBox(height: 8),
-                    RichText(
-                      text: const TextSpan(
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          height: 1.45,
-                          color: _kTextPrimary,
-                        ),
-                        children: [
-                          TextSpan(text: 'Your anonymous proposal on '),
-                          TextSpan(
-                            text: 'Remote Webcam Monitoring',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          TextSpan(
-                            text: ' was approved by the Controller and published to ',
-                          ),
-                          TextSpan(
-                            text: 'AI Ethics & Workplace Policy',
-                            style: TextStyle(
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                          TextSpan(text: '.'),
-                        ],
-                      ),
+                    (
+                      PhosphorIconsRegular.chatsCircle,
+                      'When someone answers your question',
                     ),
-                    const SizedBox(height: 10),
-                    const Divider(height: 1, color: _kBorderSubtle),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _kSurfaceMuted,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(
-                                Icons.fingerprint,
-                                size: 12,
-                                color: _kTextTertiary,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'hash: #a8f9-40e1',
-                                style: TextStyle(
-                                  fontSize: 10.5,
-                                  fontFamily: 'monospace',
-                                  color: _kTextSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        InkWell(
-                          onTap: () => context.go('/groups'),
-                          child: const Row(
-                            children: [
-                              Text(
-                                'View in Chat',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: _kTextPrimary,
-                                ),
-                              ),
-                              SizedBox(width: 4),
-                              Icon(
-                                Icons.arrow_forward,
-                                size: 14,
-                                color: _kTextPrimary,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                    (
+                      PhosphorIconsRegular.userPlus,
+                      'When you are added to a group',
                     ),
                   ],
+                ),
+              ),
+            for (final (i, item) in visible.indexed) ...[
+              Reveal(
+                index: i,
+                child: PressScale(
+                  child: _NotificationCard(
+                    item: item,
+                    onOpen: () => _open(item),
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
             ],
-
-            // Item 2: AI Rewrite Ready (Category: moderation)
-            if (_filter == 'all' || _filter == 'moderation') ...[
-              _StitchAlertContainer(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        if (!_allMarkedRead) ...[
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: const BoxDecoration(
-                              color: _kPrimary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                        const Icon(
-                          Icons.auto_awesome,
-                          size: 15,
-                          color: _kPrimary,
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'AI REWRITE READY',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.6,
-                            color: _kTextPrimary,
-                          ),
-                        ),
-                        const Spacer(),
-                        const Text(
-                          '45m ago',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontFamily: 'monospace',
-                            color: _kTextTertiary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    RichText(
-                      text: const TextSpan(
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          height: 1.45,
-                          color: _kTextPrimary,
-                        ),
-                        children: [
-                          TextSpan(
-                            text: 'AI synthesized a new structured phrasing for your draft in ',
-                          ),
-                          TextSpan(
-                            text: 'Product Launch Governance',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          TextSpan(
-                            text: ' to reduce friction while preserving your core argument.',
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (_diffExpanded) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: _kSurfaceMuted,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'SYNTHESIZED REPLACEMENT',
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.8,
-                                color: _kTextTertiary,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Text(
-                                '“We propose deferring milestone Beta-2 until automated unit validation passes the 98% threshold, avoiding production regressions.”',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontFamily: 'monospace',
-                                  color: _kTextPrimary,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: () =>
-                              setState(() => _diffExpanded = !_diffExpanded),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            side: const BorderSide(color: _kBorderSubtle),
-                            minimumSize: const Size(0, 32),
-                          ),
-                          icon: const Icon(Icons.difference_outlined, size: 14),
-                          label: const Text(
-                            'Inspect Diff',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        FilledButton.icon(
-                          onPressed: () =>
-                              setState(() => _appliedRewrite = true),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: _kPrimary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            minimumSize: const Size(0, 32),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          icon: const Icon(Icons.check, size: 14),
-                          label: Text(
-                            _appliedRewrite ? 'Applied' : 'Apply',
-                            style: const TextStyle(fontSize: 11.5),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-
-            // Item 3: Controller Action (Category: moderation)
-            if (_filter == 'all' || _filter == 'moderation') ...[
-              _StitchAlertContainer(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(
-                          Icons.shield_outlined,
-                          size: 15,
-                          color: _kTextSecondary,
-                        ),
-                        SizedBox(width: 6),
-                        Text(
-                          'CONTROLLER ACTION',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.6,
-                            color: _kTextSecondary,
-                          ),
-                        ),
-                        Spacer(),
-                        Text(
-                          '2h ago',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontFamily: 'monospace',
-                            color: _kTextTertiary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    RichText(
-                      text: const TextSpan(
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          height: 1.45,
-                          color: _kTextSecondary,
-                        ),
-                        children: [
-                          TextSpan(
-                            text: 'Elena Vance',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                          TextSpan(text: ' accepted 3 pending messages into '),
-                          TextSpan(
-                            text: 'Design Review & Critique',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                          TextSpan(text: ' live stage.'),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _kSurfaceMuted,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'Batch clearance ID: #CR-8820',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontFamily: 'monospace',
-                          color: _kTextTertiary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-
-            // Item 4: Submission Rejected (Category: submissions)
-            if (_filter == 'all' || _filter == 'submissions') ...[
-              _StitchAlertContainer(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(
-                          Icons.cancel_outlined,
-                          size: 15,
-                          color: _kTextSecondary,
-                        ),
-                        SizedBox(width: 6),
-                        Text(
-                          'SUBMISSION REJECTED',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.6,
-                            color: _kTextSecondary,
-                          ),
-                        ),
-                        Spacer(),
-                        Text(
-                          'Yesterday',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontFamily: 'monospace',
-                            color: _kTextTertiary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    RichText(
-                      text: const TextSpan(
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          height: 1.45,
-                          color: _kTextSecondary,
-                        ),
-                        children: [
-                          TextSpan(text: 'Your submission in '),
-                          TextSpan(
-                            text: 'Quarterly OKRs',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                          TextSpan(text: ' was rejected by the Controller: '),
-                          TextSpan(
-                            text: 'Off-topic for current agenda stage.',
-                            style: TextStyle(fontStyle: FontStyle.italic),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    InkWell(
-                      onTap: () => setState(
-                        () =>
-                            _controllerNoteExpanded = !_controllerNoteExpanded,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _controllerNoteExpanded
-                                ? Icons.expand_less
-                                : Icons.expand_more,
-                            size: 16,
-                            color: _kTextPrimary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _controllerNoteExpanded
-                                ? 'Hide Controller Note'
-                                : 'Read Controller Note',
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (_controllerNoteExpanded) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: _kSurfaceMuted,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          '“The agenda is currently evaluating Q3 headcount allocation rather than tech debt remediation. Please resubmit this during the infrastructure sync on Thursday.”',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: _kTextSecondary,
-                            height: 1.35,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-
-            // Item 5: New Discussion Spawned (Category: all)
-            if (_filter == 'all') ...[
-              _StitchAlertContainer(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(
-                          Icons.account_tree_outlined,
-                          size: 15,
-                          color: _kTextSecondary,
-                        ),
-                        SizedBox(width: 6),
-                        Text(
-                          'NEW DISCUSSION SPAWNED',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.6,
-                            color: _kTextSecondary,
-                          ),
-                        ),
-                        Spacer(),
-                        Text(
-                          '2d ago',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontFamily: 'monospace',
-                            color: _kTextTertiary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    RichText(
-                      text: const TextSpan(
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          height: 1.45,
-                          color: _kTextPrimary,
-                        ),
-                        children: [
-                          TextSpan(
-                            text: 'David Chen',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          TextSpan(
-                            text: ' created a new group from your Public Feed post on ',
-                          ),
-                          TextSpan(
-                            text: 'Local Sandboxing',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          TextSpan(text: '.'),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Origin: Public Feed #309',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontFamily: 'monospace',
-                            color: _kTextTertiary,
-                          ),
-                        ),
-                        FilledButton.icon(
-                          onPressed: () => context.go('/groups'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: _kPrimary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            minimumSize: const Size(0, 32),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          icon: const Icon(Icons.group_add, size: 14),
-                          label: const Text(
-                            'Join Group',
-                            style: TextStyle(fontSize: 11.5),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
+            const SizedBox(height: 4),
 
             // Bottom caught-up state
             const Center(
               child: Column(
                 children: [
                   Icon(
-                    Icons.check_circle_outline,
+                    PhosphorIconsRegular.checkCircle,
                     size: 20,
                     color: _kTextTertiary,
                   ),
@@ -930,6 +302,152 @@ class _StitchAlertContainer extends StatelessWidget {
         ],
       ),
       child: child,
+    );
+  }
+}
+
+/// One notification, drawn in the same Stitch card style as before.
+///
+/// It says only what happened and in which group: never message text, a
+/// rewrite, or a rejection reason.
+class _NotificationCard extends StatelessWidget {
+  const _NotificationCard({required this.item, required this.onOpen});
+
+  final AppNotification item;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, label, action) = switch (item.type) {
+      NotificationType.messagePendingReview => (
+        Icons.rate_review_outlined,
+        'REVIEW REQUESTED',
+        AppStrings.openReview,
+      ),
+      NotificationType.messageRejected => (
+        Icons.cancel_outlined,
+        'SUBMISSION REJECTED',
+        AppStrings.openMyMessages,
+      ),
+      NotificationType.groupInvitation => (
+        PhosphorIconsRegular.userPlus,
+        'GROUP INVITATION',
+        'Accept or decline',
+      ),
+      NotificationType.mentioned => (
+        PhosphorIconsRegular.at,
+        'MENTIONED',
+        'Open the chat',
+      ),
+      NotificationType.questionAnswered => (
+        PhosphorIconsRegular.chatsCircle,
+        'NEW ANSWER',
+        'Read the answer',
+      ),
+      NotificationType.answerBest => (
+        PhosphorIconsRegular.crown,
+        'BEST ANSWER',
+        'See your answer',
+      ),
+      NotificationType.messagePublished => (
+        PhosphorIconsRegular.checkCircle,
+        'PUBLISHED',
+        'Open the chat',
+      ),
+      NotificationType.memberJoined => (
+        PhosphorIconsRegular.userPlus,
+        'NEW MEMBER',
+        'See members',
+      ),
+      NotificationType.questionLiked => (
+        Icons.favorite_border,
+        'NEW LIKES',
+        'See your question',
+      ),
+      NotificationType.unknown => (
+        Icons.notifications_none,
+        'NOTIFICATION',
+        null,
+      ),
+    };
+    final unread = item.isUnread;
+    final tone = unread ? _kTextPrimary : _kTextSecondary;
+
+    return InkWell(
+      onTap: action == null ? null : onOpen,
+      borderRadius: BorderRadius.circular(12),
+      child: _StitchAlertContainer(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                if (unread) ...[
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: _kPrimary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Icon(icon, size: 15, color: unread ? _kPrimary : tone),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                      color: tone,
+                    ),
+                  ),
+                ),
+                Text(
+                  relativeTime(item.createdAt),
+                  style: const TextStyle(fontSize: 11, color: _kTextTertiary),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              notificationText(item),
+              style: TextStyle(fontSize: 12.5, height: 1.45, color: tone),
+            ),
+            if (action != null) ...[
+              const SizedBox(height: 10),
+              const Divider(height: 1, color: _kBorderSubtle),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      action,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: _kTextPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      PhosphorIconsRegular.arrowRight,
+                      size: 14,
+                      color: _kTextPrimary,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

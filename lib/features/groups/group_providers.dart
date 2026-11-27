@@ -2,12 +2,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/core/models/group.dart';
 import 'package:talk_it_out/core/models/group_member.dart';
+import 'package:talk_it_out/core/realtime/realtime_client.dart';
+import 'package:talk_it_out/features/auth/session_controller.dart';
+import 'package:talk_it_out/features/groups/data/message_reactions.dart';
 import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/data/published_message.dart';
+import 'package:talk_it_out/features/groups/data/group_invitation.dart';
 
 class GroupsNotifier extends AsyncNotifier<List<Group>> {
   @override
   Future<List<Group>> build() async {
+    refreshOnLiveEvents(
+      ref,
+      (e) => e.type == 'groups',
+      refresh: ref.invalidateSelf,
+    );
     final page = await ref.watch(groupRepositoryProvider).listGroups();
     return page.items;
   }
@@ -24,6 +33,12 @@ class GroupDetailNotifier extends AsyncNotifier<Group> {
 
   @override
   Future<Group> build() {
+    refreshOnLiveEvents(
+      ref,
+      (e) =>
+          (e.type == 'members' || e.type == 'review') && e.groupId == groupId,
+      refresh: ref.invalidateSelf,
+    );
     return ref.watch(groupRepositoryProvider).getGroup(groupId);
   }
 }
@@ -33,15 +48,66 @@ final groupDetailProvider =
       GroupDetailNotifier.new,
     );
 
+/// The chat, newest page first loaded; [loadEarlier] adds older pages on
+/// top. A live refresh reloads the newest page and keeps older ones.
 class GroupMessagesNotifier extends AsyncNotifier<List<PublishedMessage>> {
   GroupMessagesNotifier(this.groupId);
 
   final String groupId;
 
+  /// Cursor for the next older page; null when the start is reached.
+  String? prevCursor;
+  var _loadingEarlier = false;
+
+  bool get hasEarlier => prevCursor != null;
+
   @override
   Future<List<PublishedMessage>> build() async {
-    final page = await ref.watch(groupRepositoryProvider).listMessages(groupId);
-    return page.items;
+    refreshOnLiveEvents(
+      ref,
+      (e) => e.type == 'chat' && e.groupId == groupId,
+      refresh: ref.invalidateSelf,
+    );
+    final older = state.value ?? const <PublishedMessage>[];
+    final keptCursor = prevCursor;
+    final page = await ref
+        .watch(groupRepositoryProvider)
+        .listMessagesBefore(groupId);
+    final latest = page.items;
+    if (latest.isEmpty) {
+      prevCursor = null;
+      return latest;
+    }
+    // Keep earlier pages already loaded (older than this page).
+    final first = latest.first.publishedAt;
+    final ids = {for (final m in latest) m.id};
+    final kept = [
+      for (final m in older)
+        if (m.publishedAt.isBefore(first) && !ids.contains(m.id)) m,
+    ];
+    prevCursor = kept.isEmpty ? page.prevCursor : keptCursor;
+    return [...kept, ...latest];
+  }
+
+  Future<void> loadEarlier() async {
+    final cursor = prevCursor;
+    final current = state.value;
+    if (cursor == null || current == null || _loadingEarlier) return;
+    _loadingEarlier = true;
+    try {
+      final page = await ref
+          .read(groupRepositoryProvider)
+          .listMessagesBefore(groupId, before: cursor);
+      final ids = {for (final m in current) m.id};
+      prevCursor = page.prevCursor;
+      state = AsyncData([
+        for (final m in page.items)
+          if (!ids.contains(m.id)) m,
+        ...current,
+      ]);
+    } finally {
+      _loadingEarlier = false;
+    }
   }
 }
 
@@ -59,6 +125,11 @@ class MyMessagesNotifier extends AsyncNotifier<List<MyMessageStatus>> {
 
   @override
   Future<List<MyMessageStatus>> build() async {
+    refreshOnLiveEvents(
+      ref,
+      (e) => e.type == 'mine' && e.groupId == groupId,
+      refresh: ref.invalidateSelf,
+    );
     final page = await ref
         .watch(groupRepositoryProvider)
         .listMyMessages(groupId);
@@ -80,6 +151,11 @@ class MembersNotifier extends AsyncNotifier<List<GroupMember>> {
 
   @override
   Future<List<GroupMember>> build() async {
+    refreshOnLiveEvents(
+      ref,
+      (e) => e.type == 'members' && e.groupId == groupId,
+      refresh: ref.invalidateSelf,
+    );
     final page = await ref.watch(groupRepositoryProvider).listMembers(groupId);
     return page.items;
   }
@@ -120,6 +196,8 @@ final groupsUnreadTotalProvider = Provider<int>((ref) {
   final groups = ref.watch(groupsProvider).value ?? const <Group>[];
   var total = 0;
   for (final group in groups) {
+    // Muted groups keep their own count but stay out of the tab badge.
+    if (group.muted) continue;
     total += ref.watch(groupUnreadCountProvider(group.id));
   }
   return total;
@@ -141,64 +219,108 @@ String unreadBadgeLabel(int count) {
   return '$count';
 }
 
-/// Emoji reactions state for published messages (WhatsApp & Instagram style).
+/// Reactions for the published messages seen this session, keyed by message
+/// id. Loaded from and saved through [GroupRepository].
 class MessageReactionsState {
-  const MessageReactionsState({
-    this.counts = const {},
-    this.userReactions = const {},
-  });
+  const MessageReactionsState([this.byMessage = const {}]);
 
-  /// Map of messageId -> Map of emoji -> count
-  final Map<String, Map<String, int>> counts;
+  final Map<String, MessageReactions> byMessage;
 
-  /// Map of messageId -> Set of emojis reacted by current user
-  final Map<String, Set<String>> userReactions;
-
-  Map<String, int> getCounts(String messageId) => counts[messageId] ?? const {};
+  Map<String, int> getCounts(String messageId) =>
+      byMessage[messageId]?.counts ?? const {};
 
   bool hasReacted(String messageId, String emoji) =>
-      userReactions[messageId]?.contains(emoji) ?? false;
+      byMessage[messageId]?.mine.contains(emoji) ?? false;
 }
 
 class MessageReactionsNotifier extends Notifier<MessageReactionsState> {
+  final Set<String> _requested = {};
+  final Map<String, String> _groupOf = {};
+
   @override
   MessageReactionsState build() {
-    return const MessageReactionsState(
-      counts: {
-        'pm10': {'❤️': 2, '👍': 3},
-        'pm11': {'🔥': 4, '👏': 2},
-        'pm12': {'💡': 3, '👍': 1},
-        'pm13': {'❤️': 2},
-      },
-      userReactions: {
-        'pm10': {'❤️'},
-      },
-    );
+    // A different account must not inherit the previous user's reactions.
+    ref.watch(sessionProvider.select((session) => session.value?.id));
+    ref.watch(groupRepositoryProvider);
+    _requested.clear();
+    _groupOf.clear();
+    // Live: someone reacted to a message on screen, or the stream was down.
+    final sub = ref.read(realtimeClientProvider).events.listen((event) {
+      if (event.isResync) {
+        for (final entry in [..._groupOf.entries]) {
+          refresh(entry.value, entry.key);
+        }
+      } else if (event.type == 'reaction' &&
+          event.messageId != null &&
+          _groupOf.containsKey(event.messageId)) {
+        refresh(_groupOf[event.messageId]!, event.messageId!);
+      }
+    });
+    ref.onDispose(sub.cancel);
+    return const MessageReactionsState();
   }
 
-  void toggleReaction(String messageId, String emoji) {
-    final currentCounts = Map<String, int>.from(state.getCounts(messageId));
-    final currentUserReactions = Set<String>.from(
-      state.userReactions[messageId] ?? const <String>{},
-    );
+  /// Reloads a message's reactions even if already loaded.
+  Future<void> refresh(String groupId, String messageId) async {
+    _requested.remove(messageId);
+    await load(groupId, messageId);
+  }
 
-    if (currentUserReactions.contains(emoji)) {
-      currentUserReactions.remove(emoji);
-      final c = (currentCounts[emoji] ?? 1) - 1;
-      if (c <= 0) {
-        currentCounts.remove(emoji);
-      } else {
-        currentCounts[emoji] = c;
-      }
-    } else {
-      currentUserReactions.add(emoji);
-      currentCounts[emoji] = (currentCounts[emoji] ?? 0) + 1;
+  void _put(MessageReactions reactions) {
+    state = MessageReactionsState({
+      ...state.byMessage,
+      reactions.messageId: reactions,
+    });
+  }
+
+  /// Fetches a message's reactions once. Failures are silent: reactions are
+  /// decoration and must never block reading the chat.
+  Future<void> load(String groupId, String messageId) async {
+    _groupOf[messageId] = groupId;
+    if (!_requested.add(messageId)) return;
+    try {
+      final loaded = await ref
+          .read(groupRepositoryProvider)
+          .getReactions(groupId, messageId);
+      if (!ref.mounted) return;
+      _put(
+        MessageReactions(
+          messageId: messageId,
+          counts: loaded.counts,
+          mine: loaded.mine,
+        ),
+      );
+    } catch (_) {
+      _requested.remove(messageId);
     }
+  }
 
-    state = MessageReactionsState(
-      counts: {...state.counts, messageId: currentCounts},
-      userReactions: {...state.userReactions, messageId: currentUserReactions},
-    );
+  /// Toggles immediately, then confirms with the repository. A failed call
+  /// restores the previous counts and rethrows.
+  Future<void> toggleReaction(
+    String groupId,
+    String messageId,
+    String emoji,
+  ) async {
+    final before =
+        state.byMessage[messageId] ?? MessageReactions(messageId: messageId);
+    _put(before.toggled(emoji));
+    try {
+      final saved = await ref
+          .read(groupRepositoryProvider)
+          .toggleReaction(groupId, messageId, emoji: emoji);
+      if (!ref.mounted) return;
+      _put(
+        MessageReactions(
+          messageId: messageId,
+          counts: saved.counts,
+          mine: saved.mine,
+        ),
+      );
+    } catch (_) {
+      if (ref.mounted) _put(before);
+      rethrow;
+    }
   }
 }
 
@@ -206,3 +328,27 @@ final messageReactionsProvider =
     NotifierProvider<MessageReactionsNotifier, MessageReactionsState>(
       MessageReactionsNotifier.new,
     );
+
+/// Group invitations waiting for your answer (`API.md` 69). Refreshes when
+/// a notification arrives, so a new invitation shows up at once.
+final myInvitationsProvider = FutureProvider.autoDispose<List<GroupInvitation>>(
+  (ref) {
+    refreshOnLiveEvents(
+      ref,
+      (e) => e.type == 'notifications' || e.type == 'groups',
+      refresh: ref.invalidateSelf,
+    );
+    return ref.watch(groupRepositoryProvider).listMyInvitations();
+  },
+);
+
+/// Controller: invitations in a group nobody has answered yet.
+final groupInvitationsProvider = FutureProvider.autoDispose
+    .family<List<PendingInvitation>, String>((ref, groupId) {
+      refreshOnLiveEvents(
+        ref,
+        (e) => e.type == 'members' && e.groupId == groupId,
+        refresh: ref.invalidateSelf,
+      );
+      return ref.watch(groupRepositoryProvider).listGroupInvitations(groupId);
+    });

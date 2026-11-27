@@ -6,6 +6,9 @@ import 'package:talk_it_out/core/ui/screen_async.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
+import 'package:talk_it_out/core/ui/empty_state.dart';
+import 'package:talk_it_out/core/ui/page_padding.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 /// Status-only ledger for the signed-in member's submissions.
 ///
@@ -21,7 +24,7 @@ class MyMessagesScreen extends ConsumerWidget {
     final messages = ref.watch(myMessagesProvider(groupId));
     final items = messages.asData?.value ?? const <MyMessageStatus>[];
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final hPad = screenWidth > 860 ? (screenWidth - 800) / 2 : 16.0;
+    final hPad = pageHPad(screenWidth);
 
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.myMessages)),
@@ -29,7 +32,22 @@ class MyMessagesScreen extends ConsumerWidget {
         status: asyncStatus(messages, isEmpty: items.isEmpty),
         errorMessage: errorText(messages.error),
         onRetry: () => ref.invalidate(myMessagesProvider(groupId)),
-        empty: const Center(child: Text(AppStrings.myMessagesEmpty)),
+        empty: EmptyState(
+          key: const ValueKey('my-messages-empty'),
+          icon: Icons.outbox_outlined,
+          title: 'Nothing sent yet',
+          body:
+              '${AppStrings.myMessagesEmpty} Each message you send shows its '
+              'review status here: waiting, published or not published. Only you '
+              'see this list.',
+          actions: [
+            EmptyAction(
+              'Write a message',
+              () => Navigator.of(context).maybePop(),
+              icon: PhosphorIconsRegular.pencilSimple,
+            ),
+          ],
+        ),
         child: ListView.separated(
           padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 32),
           itemCount: items.length,
@@ -110,7 +128,7 @@ class _StatusIcon extends StatelessWidget {
     final (icon, color) = switch (status) {
       MessageStatus.pending => (Icons.schedule_outlined, colorScheme.primary),
       MessageStatus.accepted => (
-        Icons.check_circle_outline,
+        PhosphorIconsRegular.checkCircle,
         colorScheme.primary,
       ),
       MessageStatus.rejected => (

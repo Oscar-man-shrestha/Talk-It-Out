@@ -1,3 +1,7 @@
+import 'package:flutter/widgets.dart' show StringCharacters;
+
+import 'dart:typed_data';
+
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/mock/mock_board.dart';
 import 'package:talk_it_out/core/mock/mock_controls.dart';
@@ -9,12 +13,42 @@ import 'package:talk_it_out/core/models/group_member.dart';
 import 'package:talk_it_out/core/models/page_result.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/features/groups/data/group_repository.dart';
+import 'package:talk_it_out/features/groups/data/message_reactions.dart';
 import 'package:talk_it_out/features/groups/data/mock_message_bridge.dart';
 import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/data/published_message.dart';
 import 'package:talk_it_out/features/groups/data/sent_message.dart';
+import 'package:talk_it_out/features/groups/data/group_invitation.dart';
+import 'package:talk_it_out/features/groups/demo_rewriter.dart';
 
 class MockGroupRepository implements GroupRepository {
+  /// Invitations you sent as a controller, per group.
+  final List<({String groupId, PendingInvitation invitation})> _sent = [];
+
+  /// Invitations waiting for you, with the group you would join. The demo
+  /// starts with one so Accept and Decline can be tried.
+  final List<({GroupInvitation invitation, Group group})> _received = [
+    (
+      invitation: GroupInvitation(
+        id: 'rinv1',
+        groupId: 'g3',
+        agenda: 'Design critique',
+        memberCount: 4,
+        invitedBy: 'Rohan',
+        createdAt: DateTime.utc(2026, 11, 14, 9),
+      ),
+      group: Group(
+        id: 'g3',
+        agenda: 'Design critique',
+        controllerId: MockIds.rohan,
+        createdAt: DateTime.utc(2026, 11, 1),
+        myRole: GroupRole.contributor,
+        description: 'Weekly feedback on new screens before they ship.',
+        rules: 'Critique the design, not the designer.',
+      ),
+    ),
+  ];
+
   MockGroupRepository(this._controls, this._board, this._bridge) {
     if (_bridge.published.isEmpty) {
       _bridge.published.addAll(_seedMessages());
@@ -26,6 +60,23 @@ class MockGroupRepository implements GroupRepository {
   final MockBoard _board;
   final MockMessageBridge _bridge;
   var _nextMessage = 400;
+
+  /// Sample reactions for the seeded chat. Counts only, never identities.
+  final Map<String, MessageReactions> _reactions = {
+    'pm10': const MessageReactions(
+      messageId: 'pm10',
+      counts: {'❤️': 2, '👍': 3},
+      mine: {'❤️'},
+    ),
+    'pm11': const MessageReactions(
+      messageId: 'pm11',
+      counts: {'🔥': 4, '👏': 2},
+    ),
+    'pm12': const MessageReactions(
+      messageId: 'pm12',
+      counts: {'💡': 3, '👍': 1},
+    ),
+  };
 
   @override
   Future<PageResult<Group>> listGroups({int? limit, String? cursor}) {
@@ -85,7 +136,10 @@ class MockGroupRepository implements GroupRepository {
       _requireGroup(groupId);
       final members = _board.membersByGroup[groupId] ?? const <GroupMember>[];
       return slicePage(
-        List<GroupMember>.of(members),
+        [
+          for (final m in members)
+            m.copyWith(name: _board.nameOf(m.userId, m.name)),
+        ],
         limit: limit,
         cursor: cursor,
       );
@@ -103,7 +157,11 @@ class MockGroupRepository implements GroupRepository {
       final messages = _bridge.published.where(
         (message) => message.groupId == groupId,
       );
-      return slicePage(messages.toList(), limit: limit, cursor: cursor);
+      return slicePage(
+        messages.map(_named).toList(),
+        limit: limit,
+        cursor: cursor,
+      );
     });
   }
 
@@ -112,6 +170,8 @@ class MockGroupRepository implements GroupRepository {
     String groupId, {
     required String text,
     required bool isAnonymous,
+    String? attachmentId,
+    String? replyToId,
   }) {
     return runMock(_controls, () {
       final group = _requireGroup(groupId);
@@ -149,8 +209,11 @@ class MockGroupRepository implements GroupRepository {
           senderId: MockIds.priya,
           senderName: 'Priya',
           createdAt: createdAt,
+          attachmentId: attachmentId,
+          replyToId: replyToId,
         ),
       );
+      if (replyToId != null) _bridge.replies[id] = replyToId;
       return SentMessage(
         id: id,
         groupId: groupId,
@@ -164,6 +227,8 @@ class MockGroupRepository implements GroupRepository {
   Future<PublishedMessage> sendControllerMessage(
     String groupId, {
     required String text,
+    String? attachmentId,
+    String? replyToId,
   }) {
     return runMock(_controls, () {
       final group = _requireGroup(groupId);
@@ -189,10 +254,271 @@ class MockGroupRepository implements GroupRepository {
           id: MockIds.priya,
           name: 'Priya (Controller)',
         ),
+        attachmentId: attachmentId,
+        replyTo: _quote(replyToId),
         publishedAt: DateTime.now().toUtc(),
       );
       _bridge.published.add(msg);
       return msg;
+    });
+  }
+
+  ReplyQuote? _quote(String? id) {
+    if (id == null) return null;
+    for (final m in _bridge.published) {
+      if (m.id == id) {
+        return ReplyQuote(
+          id: m.id,
+          text: m.text,
+          displaySender: m.displaySender,
+        );
+      }
+    }
+    return null;
+  }
+
+  final Map<String, ({String groupId, String text, bool anonymous})> _previews =
+      {};
+
+  @override
+  Future<MessageHistoryPage> listMessagesBefore(
+    String groupId, {
+    String? before,
+    int? limit,
+  }) {
+    return runMock(_controls, () {
+      _requireGroup(groupId);
+      final all = _bridge.published.where((m) => m.groupId == groupId).toList();
+      final end = before == null || before.isEmpty
+          ? all.length
+          : int.tryParse(before) ?? all.length;
+      final size = limit ?? 50;
+      final start = end - size < 0 ? 0 : end - size;
+      return (
+        items: all.sublist(start, end).map(_named).toList(),
+        prevCursor: start > 0 ? '$start' : null,
+      );
+    });
+  }
+
+  @override
+  Future<List<PublishedMessage>> searchMessages(String groupId, String query) {
+    return runMock(_controls, () {
+      _requireGroup(groupId);
+      final q = query.trim().toLowerCase();
+      if (q.length < 2) {
+        throw const RepositoryException(
+          code: 'bad_request',
+          message: AppStrings.searchTooShort,
+        );
+      }
+      return _bridge.published
+          .where(
+            (m) => m.groupId == groupId && m.text.toLowerCase().contains(q),
+          )
+          .map(_named)
+          .toList()
+          .reversed
+          .toList();
+    });
+  }
+
+  @override
+  Future<String> requestPreview(
+    String groupId, {
+    required String text,
+    required bool isAnonymous,
+  }) {
+    return runMock(_controls, () {
+      _requireGroup(groupId);
+      final id = 'pv${_previews.length + 1}';
+      _previews[id] = (
+        groupId: groupId,
+        text: text.trim(),
+        anonymous: isAnonymous,
+      );
+      return id;
+    });
+  }
+
+  @override
+  Future<RewritePreview> getPreview(String groupId, String previewId) {
+    return runMock(_controls, () {
+      final p = _previews[previewId];
+      if (p == null) {
+        throw const RepositoryException(
+          code: 'not_found',
+          message: AppStrings.previewExpired,
+        );
+      }
+      return (
+        ready: true,
+        failed: false,
+        rewrittenText: demoRewrite(p.text),
+        failureCode: null,
+      );
+    });
+  }
+
+  @override
+  Future<SentMessage> sendPreview(
+    String groupId,
+    String previewId, {
+    required bool isAnonymous,
+    String? attachmentId,
+    String? replyToId,
+  }) async {
+    final p = _previews.remove(previewId);
+    if (p == null) {
+      throw const RepositoryException(
+        code: 'not_found',
+        message: AppStrings.previewExpired,
+      );
+    }
+    return sendMessage(
+      groupId,
+      text: p.text,
+      isAnonymous: isAnonymous,
+      attachmentId: attachmentId,
+      replyToId: replyToId,
+    );
+  }
+
+  @override
+  Future<void> discardPreview(String groupId, String previewId) {
+    return runMock(_controls, () {
+      _previews.remove(previewId);
+    });
+  }
+
+  @override
+  Future<void> withdrawMessage(String messageId) {
+    return runMock(_controls, () {
+      final index = _bridge.mine.indexWhere((m) => m.id == messageId);
+      if (index < 0 || _bridge.mine[index].status != MessageStatus.pending) {
+        throw const RepositoryException(
+          code: 'already_decided',
+          message: AppStrings.withdrawTooLate,
+        );
+      }
+      _bridge.mine.removeAt(index);
+      _bridge.outgoing.removeWhere((m) => m.id == messageId);
+    });
+  }
+
+  @override
+  Future<void> setPinned(
+    String groupId,
+    String messageId, {
+    required bool pinned,
+  }) {
+    return runMock(_controls, () {
+      final group = _requireGroup(groupId);
+      if (group.myRole != GroupRole.controller) {
+        throw const RepositoryException(
+          code: 'forbidden',
+          message: AppStrings.notAllowed,
+        );
+      }
+      final i = _bridge.published.indexWhere((m) => m.id == messageId);
+      if (i >= 0) {
+        _bridge.published[i] = _bridge.published[i].copyWith(pinned: pinned);
+      }
+    });
+  }
+
+  @override
+  Future<PublishedMessage> createPoll(
+    String groupId, {
+    required String question,
+    required List<String> options,
+  }) {
+    return runMock(_controls, () {
+      final group = _requireGroup(groupId);
+      if (group.myRole != GroupRole.controller) {
+        throw const RepositoryException(
+          code: 'forbidden',
+          message: AppStrings.notAllowed,
+        );
+      }
+      final id = 'pm${_nextMessage++}';
+      final msg = PublishedMessage(
+        id: id,
+        groupId: groupId,
+        text: question.trim(),
+        displaySender: const DisplaySender(
+          id: MockIds.priya,
+          name: 'Priya (Controller)',
+        ),
+        poll: Poll(
+          id: 'poll-$id',
+          options: [for (final o in options) PollOption(text: o.trim())],
+        ),
+        publishedAt: DateTime.now().toUtc(),
+      );
+      _bridge.published.add(msg);
+      return msg;
+    });
+  }
+
+  @override
+  Future<void> vote(String groupId, String pollId, int? optionIndex) {
+    return runMock(_controls, () {
+      final i = _bridge.published.indexWhere((m) => m.poll?.id == pollId);
+      if (i < 0) {
+        throw const RepositoryException(
+          code: 'not_found',
+          message: AppStrings.notFound,
+        );
+      }
+      final poll = _bridge.published[i].poll!;
+      final counts = [for (final o in poll.options) o.votes];
+      if (poll.myVote != null) counts[poll.myVote!] -= 1;
+      if (optionIndex != null) counts[optionIndex] += 1;
+      _bridge.published[i] = _bridge.published[i].copyWith(
+        poll: poll.copyWith(
+          options: [
+            for (var k = 0; k < poll.options.length; k++)
+              poll.options[k].copyWith(votes: counts[k]),
+          ],
+          totalVotes: counts.fold(0, (a, b) => a + b),
+          myVote: optionIndex,
+        ),
+      );
+    });
+  }
+
+  @override
+  Future<String> uploadAttachment(
+    String groupId, {
+    required Uint8List bytes,
+    required String filename,
+  }) {
+    return runMock(_controls, () {
+      _requireGroup(groupId);
+      if (bytes.isEmpty) {
+        throw const RepositoryException(
+          code: 'validation',
+          message: AppStrings.imageUnreadable,
+        );
+      }
+      final id = 'att${_bridge.attachments.length + 1}';
+      _bridge.attachments[id] = bytes;
+      return id;
+    });
+  }
+
+  @override
+  Future<Uint8List> fetchAttachment(String groupId, String attachmentId) {
+    return runMock(_controls, () {
+      final bytes = _bridge.attachments[attachmentId];
+      if (bytes == null) {
+        throw const RepositoryException(
+          code: 'not_found',
+          message: AppStrings.notFound,
+        );
+      }
+      return bytes;
     });
   }
 
@@ -203,6 +529,35 @@ class MockGroupRepository implements GroupRepository {
       _bridge.published.removeWhere(
         (m) => m.id == messageId && m.groupId == groupId,
       );
+      _reactions.remove(messageId);
+    });
+  }
+
+  @override
+  Future<MessageReactions> getReactions(String groupId, String messageId) {
+    return runMock(_controls, () {
+      _requireGroup(groupId);
+      return _reactions[messageId] ?? MessageReactions(messageId: messageId);
+    });
+  }
+
+  @override
+  Future<MessageReactions> toggleReaction(
+    String groupId,
+    String messageId, {
+    required String emoji,
+  }) {
+    return runMock(_controls, () {
+      _requireGroup(groupId);
+      if (emoji.trim().isEmpty || emoji.characters.length != 1) {
+        throw const RepositoryException(
+          code: 'validation',
+          message: AppStrings.reactionRequired,
+        );
+      }
+      final current =
+          _reactions[messageId] ?? MessageReactions(messageId: messageId);
+      return _reactions[messageId] = current.toggled(emoji);
     });
   }
 
@@ -222,26 +577,51 @@ class MockGroupRepository implements GroupRepository {
   @override
   Future<GroupMember> addMember(
     String groupId, {
-    required String username,
+    String? username,
+    String? userId,
     GroupRole role = GroupRole.contributor,
   }) {
     return runMock(_controls, () {
       _requireGroup(groupId);
-      final clean = username.trim().replaceAll('@', '');
-      if (clean.isEmpty) {
+      final clean = (username ?? '').trim().replaceAll('@', '');
+      if (clean.isEmpty && userId == null) {
         throw const RepositoryException(
           code: 'validation',
           message: 'Username cannot be empty.',
         );
       }
-      final newMember = GroupMember(
-        userId: 'u_${DateTime.now().millisecondsSinceEpoch}',
-        name: clean,
-        role: role,
-      );
       final currentMembers =
           _board.membersByGroup[groupId] ?? const <GroupMember>[];
-      _board.membersByGroup[groupId] = [...currentMembers, newMember];
+      if (userId != null && currentMembers.any((m) => m.userId == userId)) {
+        throw const RepositoryException(
+          code: 'already_member',
+          message: 'That person is already in this group.',
+        );
+      }
+      final newMember = GroupMember(
+        userId: userId ?? 'u_${DateTime.now().millisecondsSinceEpoch}',
+        name: userId == null ? clean : (_mockNames[userId] ?? clean),
+        role: role,
+      );
+      // Ask first (API.md 69): an invitation, not a membership. Demo
+      // people never answer, so they stay "Invited" until cancelled.
+      if (_sent.any(
+        (i) => i.groupId == groupId && i.invitation.userId == newMember.userId,
+      )) {
+        throw const RepositoryException(
+          code: 'already_invited',
+          message: 'Already invited. Waiting for them to accept.',
+        );
+      }
+      _sent.add((
+        groupId: groupId,
+        invitation: PendingInvitation(
+          id: 'inv${_sent.length + 1}',
+          userId: newMember.userId,
+          name: newMember.name,
+          createdAt: DateTime.now().toUtc(),
+        ),
+      ));
       return newMember;
     });
   }
@@ -249,13 +629,23 @@ class MockGroupRepository implements GroupRepository {
   @override
   Future<void> leaveGroup(String groupId) {
     return runMock(_controls, () {
-      _requireGroup(groupId);
-      final currentMembers = _board.membersByGroup[groupId];
-      if (currentMembers != null) {
-        _board.membersByGroup[groupId] = currentMembers
-            .where((m) => m.userId != MockIds.priya)
-            .toList();
+      final group = _requireGroup(groupId);
+      final currentMembers = _board.membersByGroup[groupId] ?? const [];
+      final others = currentMembers
+          .where((m) => m.userId != MockIds.priya)
+          .toList();
+      // D4: a controller hands over to the earliest remaining member; with
+      // nobody left there is nobody to take over (backend `last_member`).
+      if (group.myRole == GroupRole.controller && others.isEmpty) {
+        throw const RepositoryException(
+          code: 'last_member',
+          message: 'You are the only member, so there is nobody to take over this group.',
+        );
       }
+      if (group.myRole == GroupRole.controller) {
+        others[0] = others[0].copyWith(role: GroupRole.controller);
+      }
+      _board.membersByGroup[groupId] = others;
       _board.groups.removeWhere((g) => g.id == groupId);
     });
   }
@@ -272,6 +662,18 @@ class MockGroupRepository implements GroupRepository {
       return slicePage(mine.toList(), limit: limit, cursor: cursor);
     });
   }
+
+  DisplaySender? _sender(DisplaySender? s) => s == null
+      ? null
+      : DisplaySender(id: s.id, name: _board.nameOf(s.id, s.name));
+
+  /// Your own messages (and quotes of them) carry your current demo name.
+  PublishedMessage _named(PublishedMessage m) => m.copyWith(
+    displaySender: _sender(m.displaySender),
+    replyTo: m.replyTo?.copyWith(
+      displaySender: _sender(m.replyTo!.displaySender),
+    ),
+  );
 
   Group _requireGroup(String groupId) {
     for (final group in _board.groups) {
@@ -389,4 +791,120 @@ class MockGroupRepository implements GroupRepository {
       ),
     ];
   }
+
+  void _replaceGroup(Group next) {
+    final i = _board.groups.indexWhere((g) => g.id == next.id);
+    if (i >= 0) _board.groups[i] = next;
+  }
+
+  @override
+  Future<void> updateGroupInfo(
+    String groupId, {
+    String? description,
+    String? rules,
+  }) {
+    return runMock(_controls, () {
+      final group = _requireGroup(groupId);
+      if (group.myRole != GroupRole.controller) {
+        throw const RepositoryException(
+          code: 'forbidden',
+          message: 'Only the controller can change the group info.',
+        );
+      }
+      _replaceGroup(
+        group.copyWith(
+          description: description?.trim() ?? group.description,
+          rules: rules?.trim() ?? group.rules,
+        ),
+      );
+    });
+  }
+
+  @override
+  Future<void> updateGroupSettings(
+    String groupId, {
+    bool? muted,
+    bool? pinned,
+  }) {
+    return runMock(_controls, () {
+      final group = _requireGroup(groupId);
+      _replaceGroup(
+        group.copyWith(
+          muted: muted ?? group.muted,
+          pinned: pinned ?? group.pinned,
+        ),
+      );
+    });
+  }
+
+  @override
+  Future<List<GroupInvitation>> listMyInvitations() =>
+      runMock(_controls, () => [for (final r in _received) r.invitation]);
+
+  @override
+  Future<String> acceptInvitation(String invitationId) {
+    return runMock(_controls, () {
+      final i = _received.indexWhere((r) => r.invitation.id == invitationId);
+      if (i < 0) {
+        throw const RepositoryException(
+          code: 'not_found',
+          message: 'That invitation is no longer open.',
+        );
+      }
+      final r = _received.removeAt(i);
+      _board.groups.insert(0, r.group);
+      _board.membersByGroup[r.group.id] = [
+        const GroupMember(
+          userId: MockIds.rohan,
+          name: 'Rohan',
+          role: GroupRole.controller,
+        ),
+        GroupMember(
+          userId: MockIds.priya,
+          name: _board.meName,
+          role: GroupRole.contributor,
+        ),
+      ];
+      return r.group.id;
+    });
+  }
+
+  @override
+  Future<void> declineInvitation(String invitationId) => runMock(
+    _controls,
+    () => _received.removeWhere((r) => r.invitation.id == invitationId),
+  );
+
+  @override
+  Future<List<PendingInvitation>> listGroupInvitations(String groupId) =>
+      runMock(
+        _controls,
+        () => [
+          for (final s in _sent)
+            if (s.groupId == groupId) s.invitation,
+        ],
+      );
+
+  @override
+  Future<void> cancelInvitation(String groupId, String invitationId) => runMock(
+    _controls,
+    () => _sent.removeWhere(
+      (s) => s.groupId == groupId && s.invitation.id == invitationId,
+    ),
+  );
 }
+
+/// Names of the demo people search can add (see MockDiscoveryRepository).
+const _mockNames = <String, String>{
+  'u1': 'Priya',
+  'u2': 'Rohan Shrestha',
+  'u3': 'Rohan Basnet',
+  'u4': 'Anita Gurung',
+  'u5': 'Bikash Thapa',
+  'u6': 'Katherine Rai',
+  'u7': 'Sujan Karki',
+  'u8': 'Maya Tamang',
+  'u9': 'Arhat Bajracharya',
+  'u10': 'Alex Dev',
+  'u11': 'Sophia Lee',
+};

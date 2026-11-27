@@ -8,8 +8,7 @@ import {
   resetDb,
   seedGroup,
   testApp,
-  testPool,
-} from './helpers';
+  testPool, acceptInvites } from './helpers';
 
 beforeAll(ensureSchema);
 beforeEach(resetDb);
@@ -80,10 +79,14 @@ describe('full moderation flow', () => {
     expect(chat.body.items).toHaveLength(1);
     const published = chat.body.items[0];
     expect(Object.keys(published).sort()).toEqual([
+      'attachment_id',
       'display_sender',
       'group_id',
       'id',
+      'pinned',
+      'poll',
       'published_at',
+      'reply_to',
       'text',
     ]);
     expect(published.display_sender).toBeNull();
@@ -162,6 +165,7 @@ describe('full moderation flow', () => {
       username: 'other-person',
       role: 'contributor',
     });
+    await acceptInvites(app, other.token);
 
     await api.post(app, `/groups/${groupId}/messages`, contributor.token, {
       text: 'mine only A',
@@ -194,10 +198,14 @@ describe('full moderation flow', () => {
     expect(Object.keys(chat.body).sort()).toEqual(['items', 'next_cursor']);
     for (const item of chat.body.items) {
       expect(Object.keys(item).sort()).toEqual([
+        'attachment_id',
         'display_sender',
         'group_id',
         'id',
+        'pinned',
+        'poll',
         'published_at',
+        'reply_to',
         'text',
       ]);
       expect(new Date(item.published_at).toString()).not.toBe('Invalid Date');
@@ -209,9 +217,14 @@ describe('full moderation flow', () => {
         'agenda',
         'controller_id',
         'created_at',
+        'description',
         'id',
+        'member_count',
+        'muted',
         'my_role',
         'pending_count',
+        'pinned',
+        'rules',
         'source_post_id',
       ]);
       // group list/detail is group-facing too

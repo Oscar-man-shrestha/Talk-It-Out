@@ -53,7 +53,7 @@ void main() {
         _status('other', MessageStatus.pending, groupId: 'other-group'),
       );
     await _pumpScreen(tester, _repository(bridge: emptyBridge));
-    expect(find.text(AppStrings.myMessagesEmpty), findsOneWidget);
+    expect(find.textContaining(AppStrings.myMessagesEmpty), findsOneWidget);
 
     await _pumpScreen(
       tester,

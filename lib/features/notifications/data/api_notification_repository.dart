@@ -41,6 +41,13 @@ class ApiNotificationRepository implements NotificationRepository {
   }
 
   @override
+  Future<void> markAllRead() {
+    return guardApi(() async {
+      await _dio.post(Endpoints.notificationsReadAll);
+    });
+  }
+
+  @override
   Future<UnreadCount> unreadCount() {
     return guardApi(() async {
       final response = await _dio.get(Endpoints.unreadCount);

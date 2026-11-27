@@ -7,7 +7,9 @@ import { Pool } from 'pg';
 import { Config } from './config';
 import { ApiError } from './errors';
 import { createApiRouter } from './routes';
+import { RealtimeHub } from './realtime';
 import { createInternalPipelineRouter } from './internal/pipeline';
+import { createLegalRouter } from './legal';
 
 /**
  * Every error leaves the API as {"error":{"code","message"}} — including
@@ -74,12 +76,22 @@ export function buildApp(pool: Pool, appConfig: Config): Express {
     app.set('trust proxy', appConfig.trustProxy === 'true' ? 1 : appConfig.trustProxy);
   }
   app.use(helmet());
-  app.use(express.json({ limit: appConfig.jsonBodyLimit }));
+  app.use(
+    express.json({
+      limit: appConfig.jsonBodyLimit,
+      // Payment webhooks are signed over the exact bytes received (API.md 75).
+      verify: (req, _res, buf) => {
+        if ((req as { url?: string }).url?.includes('/billing/webhooks/')) {
+          (req as unknown as { rawBody?: Buffer }).rawBody = Buffer.from(buf);
+        }
+      },
+    }),
+  );
 
   app.use(
     cors({
       origin: appConfig.corsOrigins === '*' ? true : appConfig.corsOrigins,
-      methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Authorization', 'Content-Type'],
     }),
   );
@@ -108,7 +120,10 @@ export function buildApp(pool: Pool, appConfig: Config): Express {
     handler: rateLimited(60),
   });
 
-  const api = createApiRouter(pool, appConfig, { authLimiter });
+  // One live-update hub per app; server.ts closes it on shutdown.
+  const realtime = new RealtimeHub(pool);
+  app.locals.realtime = realtime;
+  const api = createApiRouter(pool, appConfig, { authLimiter, realtime });
   // The global limiter covers the public mounts only, never /internal.
   const publicOnly = (req: Request, res: Response, next: express.NextFunction) => {
     if (req.path === '/internal' || req.path.startsWith('/internal/')) {
@@ -118,6 +133,8 @@ export function buildApp(pool: Pool, appConfig: Config): Express {
     globalLimiter(req, res, next);
   };
   app.use(publicOnly);
+  // Public, no sign-in: Google Play links here.
+  app.use('/legal', createLegalRouter());
   app.use('/', api);
   app.use('/api/v1', api);
 

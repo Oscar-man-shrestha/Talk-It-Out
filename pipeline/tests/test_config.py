@@ -24,7 +24,20 @@ class LoadConfigTests(unittest.TestCase):
         self.assertEqual(config.max_output_chars, 8000)  # provisional backend default
         self.assertEqual(config.lease_seconds, 300)
         self.assertEqual(config.max_attempts, 3)
-        self.assertEqual(config.pipeline_version, "talkitout-pipeline 0.1.0")
+        self.assertEqual(config.pipeline_version, "talkitout-pipeline 0.6.0")
+        self.assertEqual(config.model_keep_warm_seconds, 600.0)
+
+    def test_keep_warm_can_be_turned_off_or_changed(self):
+        env = {
+            "PIPELINE_BACKEND_BASE_URL": "http://localhost:3000",
+            "PIPELINE_API_KEY": "k" * 32,
+            "MODEL_ENDPOINT": "http://localhost:8080/v1/chat/completions",
+            "MODEL_ID": "m",
+        }
+        self.assertEqual(load_config({**env, "MODEL_KEEP_WARM_SECONDS": "0"}).model_keep_warm_seconds, 0.0)
+        self.assertEqual(load_config({**env, "MODEL_KEEP_WARM_SECONDS": "300"}).model_keep_warm_seconds, 300.0)
+        with self.assertRaises(ConfigError):
+            load_config({**env, "MODEL_KEEP_WARM_SECONDS": "-5"})
 
     def test_missing_required_vars_raise(self):
         for missing in (

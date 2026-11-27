@@ -15,6 +15,15 @@ _NotificationGroup _$NotificationGroupFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$NotificationGroupToJson(_NotificationGroup instance) =>
     <String, dynamic>{'id': instance.id, 'agenda': instance.agenda};
 
+_NotificationPost _$NotificationPostFromJson(Map<String, dynamic> json) =>
+    _NotificationPost(
+      id: json['id'] as String,
+      title: json['title'] as String? ?? '',
+    );
+
+Map<String, dynamic> _$NotificationPostToJson(_NotificationPost instance) =>
+    <String, dynamic>{'id': instance.id, 'title': instance.title};
+
 _AppNotification _$AppNotificationFromJson(Map<String, dynamic> json) =>
     _AppNotification(
       id: json['id'] as String,
@@ -24,7 +33,12 @@ _AppNotification _$AppNotificationFromJson(Map<String, dynamic> json) =>
         unknownValue: NotificationType.unknown,
       ),
       refId: json['ref_id'] as String,
-      group: NotificationGroup.fromJson(json['group'] as Map<String, dynamic>),
+      group: json['group'] == null
+          ? null
+          : NotificationGroup.fromJson(json['group'] as Map<String, dynamic>),
+      post: json['post'] == null
+          ? null
+          : NotificationPost.fromJson(json['post'] as Map<String, dynamic>),
       createdAt: DateTime.parse(json['created_at'] as String),
       readAt: json['read_at'] == null
           ? null
@@ -36,7 +50,8 @@ Map<String, dynamic> _$AppNotificationToJson(_AppNotification instance) =>
       'id': instance.id,
       'type': _$NotificationTypeEnumMap[instance.type]!,
       'ref_id': instance.refId,
-      'group': instance.group.toJson(),
+      'group': instance.group?.toJson(),
+      'post': instance.post?.toJson(),
       'created_at': instance.createdAt.toIso8601String(),
       'read_at': instance.readAt?.toIso8601String(),
     };
@@ -44,5 +59,12 @@ Map<String, dynamic> _$AppNotificationToJson(_AppNotification instance) =>
 const _$NotificationTypeEnumMap = {
   NotificationType.messageRejected: 'message_rejected',
   NotificationType.messagePendingReview: 'message_pending_review',
+  NotificationType.mentioned: 'mentioned',
+  NotificationType.questionAnswered: 'question_answered',
+  NotificationType.answerBest: 'answer_best',
+  NotificationType.groupInvitation: 'group_invitation',
+  NotificationType.messagePublished: 'message_published',
+  NotificationType.memberJoined: 'member_joined',
+  NotificationType.questionLiked: 'question_liked',
   NotificationType.unknown: 'unknown',
 };

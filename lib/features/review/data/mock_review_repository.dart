@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/mock/mock_controls.dart';
 import 'package:talk_it_out/core/mock/mock_ids.dart';
@@ -10,25 +11,101 @@ import 'package:talk_it_out/features/groups/data/published_message.dart';
 import 'package:talk_it_out/features/review/data/raw_message.dart';
 import 'package:talk_it_out/features/review/data/review_repository.dart';
 import 'package:talk_it_out/features/review/data/review_result.dart';
+import 'package:talk_it_out/core/mock/mock_board.dart';
+import 'package:talk_it_out/features/groups/demo_rewriter.dart';
 
 class MockReviewRepository implements ReviewRepository {
-  MockReviewRepository(this._controls, [MockMessageBridge? bridge])
-    : _bridge = bridge ?? MockMessageBridge() {
+  MockReviewRepository(
+    this._controls, [
+    MockMessageBridge? bridge,
+    MockBoard? board,
+  ]) : _bridge = bridge ?? MockMessageBridge(),
+       _board = board ?? MockBoard() {
     _messages.addAll(_seed());
   }
 
   final MockControls _controls;
   final MockMessageBridge _bridge;
+  final MockBoard _board;
   final List<RawMessage> _messages = [];
+
+  /// Your own messages carry your current demo name.
+  RawMessage _named(RawMessage m) =>
+      m.copyWith(senderName: _board.nameOf(m.senderId, m.senderName));
+
+  /// When each waiting message was first looked at. The demo "pipeline"
+  /// finishes a rewrite a few seconds later, like the real worker.
+  final _firstSeen = <String, DateTime>{};
+
+  static const _demoRewrites = {
+    'm204': 'Could we add an option to export the data to CSV?',
+    'm205': 'The filter row is easy to miss. Could we make it more visible?',
+    'm206':
+        'The loading indicator on the home chart keeps spinning and never '
+        'finishes. Could someone take a look?',
+  };
+
+  /// Completes queued and in-progress rewrites that have waited long
+  /// enough (2 s for in progress, 4 s for queued). Failed ones stay failed
+  /// until someone asks for a new rewrite.
+  void _advancePipeline() {
+    final now = DateTime.now();
+    for (var i = 0; i < _messages.length; i++) {
+      final m = _messages[i];
+      final waiting =
+          m.pipelineStatus == PipelineStatus.queued ||
+          m.pipelineStatus == PipelineStatus.processing;
+      if (!waiting) continue;
+      final seen = _firstSeen.putIfAbsent(m.id, () => now);
+      final needed = m.pipelineStatus == PipelineStatus.processing ? 1 : 2;
+      if (now.difference(seen).inSeconds >= needed) {
+        _messages[i] = _rewritten(m);
+      }
+    }
+  }
+
+  /// Finishes every waiting rewrite now (tests).
+  @visibleForTesting
+  void finishPendingRewrites() {
+    for (var i = 0; i < _messages.length; i++) {
+      final m = _messages[i];
+      if (m.pipelineStatus == PipelineStatus.queued ||
+          m.pipelineStatus == PipelineStatus.processing) {
+        _messages[i] = _rewritten(m);
+      }
+    }
+  }
+
+  RawMessage _rewritten(RawMessage m) => m.copyWith(
+    pipelineStatus: PipelineStatus.done,
+    rewrittenText: _demoRewrites[m.id] ?? demoRewrite(m.originalText),
+    intentPreservationScore: 0.92,
+    relevanceScore: 0.82,
+    relevanceLabel: RelevanceLabel.relevant,
+  );
 
   @override
   Future<PageResult<RawMessage>> listQueue(
     String groupId, {
     int? limit,
     String? cursor,
+    MessageStatus status = MessageStatus.pending,
   }) {
     return runMock(_controls, () {
       _requireControllerGroup(groupId);
+      _advancePipeline();
+      if (status != MessageStatus.pending) {
+        final decided =
+            _messages
+                .where((m) => m.groupId == groupId && m.status == status)
+                .toList()
+              ..sort(
+                (a, b) => (b.decidedAt ?? b.createdAt).compareTo(
+                  a.decidedAt ?? a.createdAt,
+                ),
+              );
+        return slicePage(decided, limit: limit, cursor: cursor);
+      }
       final pending = [
         ..._messages.where(
           (message) =>
@@ -39,15 +116,53 @@ class MockReviewRepository implements ReviewRepository {
             .where((message) => message.groupId == groupId)
             .map(_fromOutgoing),
       ]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      return slicePage(pending, limit: limit, cursor: cursor);
+      return slicePage(
+        pending.map(_named).toList(),
+        limit: limit,
+        cursor: cursor,
+      );
     });
+  }
+
+  @override
+  Future<ReviewCounts> counts(String groupId) {
+    return runMock(_controls, () {
+      _requireControllerGroup(groupId);
+      int count(MessageStatus status) => _messages
+          .where((m) => m.groupId == groupId && m.status == status)
+          .length;
+      final outgoing = _bridge.outgoing
+          .where((message) => message.groupId == groupId)
+          .length;
+      return (
+        pending: count(MessageStatus.pending) + outgoing,
+        accepted: count(MessageStatus.accepted),
+        rejected: count(MessageStatus.rejected),
+      );
+    });
+  }
+
+  /// Records a decision, keeping messages that came from the chat bridge
+  /// so they show up in the decided tabs too.
+  void _decide(RawMessage message, MessageStatus status) {
+    final decided = message.copyWith(
+      status: status,
+      decidedAt: DateTime.now().toUtc(),
+    );
+    final index = _messages.indexWhere((item) => item.id == message.id);
+    if (index >= 0) {
+      _messages[index] = decided;
+    } else {
+      _messages.add(decided);
+    }
   }
 
   @override
   Future<RawMessage> getMessage(String groupId, String messageId) {
     return runMock(_controls, () {
       _requireControllerGroup(groupId);
-      return _find(groupId, messageId);
+      _advancePipeline();
+      return _named(_find(groupId, messageId));
     });
   }
 
@@ -68,10 +183,7 @@ class MockReviewRepository implements ReviewRepository {
       final publishedId = 'pm-${message.id}';
       _publish(message, publishedId, rewrite.trim());
       _bridge.outgoing.removeWhere((item) => item.id == message.id);
-      final index = _messages.indexWhere((item) => item.id == message.id);
-      if (index >= 0) {
-        _messages[index] = message.copyWith(status: MessageStatus.accepted);
-      }
+      _decide(message, MessageStatus.accepted);
       _markMine(message.id, MessageStatus.accepted);
       return AcceptResult(
         id: message.id,
@@ -87,12 +199,26 @@ class MockReviewRepository implements ReviewRepository {
       final message = _requireById(messageId);
       _requirePending(message);
       _bridge.outgoing.removeWhere((item) => item.id == message.id);
-      final index = _messages.indexWhere((item) => item.id == message.id);
-      if (index >= 0) {
-        _messages[index] = message.copyWith(status: MessageStatus.rejected);
-      }
+      _decide(message, MessageStatus.rejected);
       _markMine(message.id, MessageStatus.rejected);
       return RejectResult(id: message.id, status: MessageStatus.rejected);
+    });
+  }
+
+  @override
+  Future<void> requestRewrite(String messageId) {
+    return runMock(_controls, () {
+      final message = _requireById(messageId);
+      _requirePending(message);
+      final index = _messages.indexWhere((item) => item.id == message.id);
+      if (index >= 0) {
+        // The demo "pipeline" queues it again and finishes shortly after.
+        _firstSeen.remove(message.id);
+        _messages[index] = message.copyWith(
+          pipelineStatus: PipelineStatus.processing,
+          rewrittenText: null,
+        );
+      }
     });
   }
 
@@ -103,7 +229,7 @@ class MockReviewRepository implements ReviewRepository {
       senderId: item.senderId,
       senderName: item.senderName,
       originalText: item.text,
-      rewrittenText: item.text,
+      rewrittenText: demoRewrite(item.text),
       isAnonymous: item.isAnonymous,
       intentPreservationScore: 1,
       relevanceScore: 0.8,
@@ -111,6 +237,7 @@ class MockReviewRepository implements ReviewRepository {
       pipelineStatus: PipelineStatus.done,
       status: MessageStatus.pending,
       createdAt: item.createdAt,
+      attachmentId: item.attachmentId,
     );
   }
 
@@ -140,9 +267,33 @@ class MockReviewRepository implements ReviewRepository {
         displaySender: message.isAnonymous
             ? null
             : DisplaySender(id: message.senderId, name: message.senderName),
+        attachmentId: message.attachmentId,
+        replyTo: _quoteFor(message.id),
         publishedAt: DateTime.now().toUtc(),
       ),
     );
+  }
+
+  /// The reply quote for an outgoing message, if it replied to one.
+  ReplyQuote? _quoteFor(String rawId) {
+    String? target;
+    for (final item in _bridge.outgoing) {
+      if (item.id == rawId) target = item.replyToId;
+    }
+    for (final item in _bridge.replies.entries) {
+      if (item.key == rawId) target = item.value;
+    }
+    if (target == null) return null;
+    for (final m in _bridge.published) {
+      if (m.id == target) {
+        return ReplyQuote(
+          id: m.id,
+          text: m.text,
+          displaySender: m.displaySender,
+        );
+      }
+    }
+    return null;
   }
 
   void _markMine(String id, MessageStatus status) {

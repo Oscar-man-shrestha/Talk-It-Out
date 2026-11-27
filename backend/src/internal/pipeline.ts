@@ -63,12 +63,23 @@ interface JobRow {
  * message's pipeline_status becomes 'failed' (it stays pending and
  * controller-reviewable).
  */
+/** Failures a retry cannot change: fail the job at once. */
+const PERMANENT_ERRORS = new Set(['unsupported_language', 'input_too_long', 'abuse_only']);
+
 async function recordFailedAttempt(
   client: PoolClient,
   job: JobRow,
   appConfig: Config,
+  errorCode?: string,
 ): Promise<{ applied: boolean; reason: string }> {
-  if (job.attempts >= appConfig.pipelineMaxAttempts) {
+  // The latest reason, shown to the controller (and to the sender of a
+  // preview) in plain words. A short code only, never message text.
+  const code = errorCode && /^[a-z_]{1,100}$/.test(errorCode) ? errorCode : 'worker_error';
+  await client.query(
+    `UPDATE raw_messages SET pipeline_error_code = $2 WHERE id = $1 AND status = 'pending'`,
+    [job.raw_message_id, code],
+  );
+  if (job.attempts >= appConfig.pipelineMaxAttempts || PERMANENT_ERRORS.has(code)) {
     await client.query(`UPDATE jobs SET status = 'failed' WHERE id = $1`, [job.id]);
     await client.query(
       `UPDATE raw_messages SET pipeline_status = 'failed'
@@ -102,6 +113,11 @@ export function createInternalPipelineRouter(pool: Pool, appConfig: Config): Rou
       relevance_label: z.enum(['relevant', 'borderline', 'off_topic']).optional(),
       pipeline_version: z.string().min(1).max(200).optional(),
       error_code: z.string().min(1).max(100).optional(),
+      // Advisory moderation codes for the original message (contract §3).
+      moderation_flags: z
+        .array(z.enum(['hate_speech', 'threat', 'abusive_language', 'profanity', 'self_harm']))
+        .max(5)
+        .optional(),
     })
     .superRefine((value, ctx) => {
       if (value.outcome === 'ok') {
@@ -178,10 +194,13 @@ export function createInternalPipelineRouter(pool: Pool, appConfig: Config): Rou
     // Build the worker payload: text + agenda only (contract §2).
     const { rows } = await pool.query(
       `SELECT j.id AS job_id, r.id AS raw_message_id,
-              r.original_text AS text, g.agenda AS group_agenda
+              r.original_text AS text, g.agenda AS group_agenda,
+              CASE WHEN r.is_anonymous THEN 'professional'
+                   ELSE coalesce(up.rewrite_tone, 'professional') END AS tone
        FROM jobs j
        JOIN raw_messages r ON r.id = j.raw_message_id
        JOIN groups g ON g.id = r.group_id
+       LEFT JOIN user_profiles up ON up.user_id = r.author_id
        WHERE j.id = ANY($1)`,
       [claimed.map((job) => job.id)],
     );
@@ -190,6 +209,10 @@ export function createInternalPipelineRouter(pool: Pool, appConfig: Config): Rou
       raw_message_id: row.raw_message_id,
       text: row.text,
       group_agenda: row.group_agenda,
+      // Style hint. Anonymous messages always get the default, so their
+      // wording can never hint at who wrote them, and the default is
+      // indistinguishable from a named author's default. No identity.
+      tone: row.tone,
       contract_version: GROUPS_PIPELINE_CONTRACT_VERSION,
     }));
     res.json({ jobs });
@@ -256,14 +279,15 @@ export function createInternalPipelineRouter(pool: Pool, appConfig: Config): Rou
       }
 
       if (parsed.outcome === 'error') {
-        return recordFailedAttempt(client, job, appConfig);
+        return recordFailedAttempt(client, job, appConfig, parsed.error_code);
       }
 
       await client.query(
         `UPDATE raw_messages
          SET pipeline_status = 'done', rewritten_text = $2,
              intent_preservation_score = $3, relevance_score = $4,
-             relevance_label = $5
+             relevance_label = $5, moderation_flags = $6::text[],
+             pipeline_error_code = NULL
          WHERE id = $1 AND status = 'pending'`,
         [
           job.raw_message_id,
@@ -271,6 +295,7 @@ export function createInternalPipelineRouter(pool: Pool, appConfig: Config): Rou
           parsed.intent_preservation_score,
           parsed.relevance_score,
           parsed.relevance_label,
+          [...new Set(parsed.moderation_flags ?? [])],
         ],
       );
       await client.query(`UPDATE jobs SET status = 'done' WHERE id = $1`, [job.id]);
@@ -291,7 +316,7 @@ export function createInternalPipelineRouter(pool: Pool, appConfig: Config): Rou
       const job = rows[0] as JobRow | undefined;
       if (!job) return { applied: false, reason: 'unknown_job' };
       if (job.status !== 'running') return { applied: false, reason: 'not_running' };
-      return recordFailedAttempt(client, job, appConfig);
+      return recordFailedAttempt(client, job, appConfig, parsed.error_code);
     });
     res.json(outcome);
   });

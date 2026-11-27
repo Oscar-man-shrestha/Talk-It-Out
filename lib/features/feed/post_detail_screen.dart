@@ -1,23 +1,42 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:talk_it_out/features/feed/data/post_topic.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/core/ui/screen_async.dart';
+import 'package:talk_it_out/core/utils/relative_time.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
+import 'package:talk_it_out/features/auth/session_controller.dart';
 import 'package:talk_it_out/features/feed/data/comment.dart';
+import 'package:talk_it_out/features/feed/data/post.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
+import 'package:talk_it_out/features/feed/saved_posts.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/features/discovery/discovery_providers.dart';
+import 'package:talk_it_out/features/discovery/safety_actions.dart';
+import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
+import 'package:talk_it_out/core/share/share_links.dart';
+import 'package:talk_it_out/features/discovery/likers_sheet.dart';
+import 'package:talk_it_out/features/feed/edit_sheets.dart';
+import 'package:talk_it_out/core/ui/page_padding.dart';
+import 'package:talk_it_out/core/ui/motion.dart';
+import 'package:talk_it_out/core/ui/double_tap_like.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
+import 'package:talk_it_out/core/ui/premium_badge.dart';
 
 // Stitch Monochrome Precision tokens
-const _kPrimary = Color(0xFF09090B);
-const _kSurface = Color(0xFFFFFFFF);
-const _kSurfaceMuted = Color(0xFFF4F4F5);
-const _kSurfaceSubtle = Color(0xFFFAFAFA);
-const _kBorderSubtle = Color(0xFFE4E4E7);
-const _kTextPrimary = Color(0xFF09090B);
-const _kTextSecondary = Color(0xFF71717A);
-const _kTextTertiary = Color(0xFFA1A1AA);
+const _kPrimary = Brand.accent;
+const _kSurface = Brand.card;
+const _kSurfaceMuted = Brand.muted;
+const _kSurfaceSubtle = Brand.canvas;
+const _kBorderSubtle = Brand.border;
+const _kTextPrimary = Brand.ink;
+const _kTextSecondary = Brand.inkSoft;
+const _kTextTertiary = Brand.inkFaint;
 
 class PostDetailScreen extends ConsumerStatefulWidget {
   const PostDetailScreen({required this.postId, super.key});
@@ -30,8 +49,8 @@ class PostDetailScreen extends ConsumerStatefulWidget {
 
 class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   final _comment = TextEditingController();
+  final _commentFocus = FocusNode();
   var _busy = false;
-  var _isBookmarked = false;
   var _postPublicly = true;
   String? _error;
   String _sortMode = 'TOP FIRST';
@@ -44,7 +63,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
       child: Row(
         children: [
           Icon(
-            isSelected ? Icons.check : Icons.circle_outlined,
+            isSelected ? PhosphorIconsRegular.check : Icons.circle_outlined,
             size: 14,
             color: isSelected ? _kTextPrimary : Colors.transparent,
           ),
@@ -62,9 +81,127 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     );
   }
 
+  /// Comments come oldest-first from the API.
+  /// Top answers: the asker's best answer first, then the most upvoted,
+  /// then the oldest (like Stack Overflow). Newest and oldest are by time.
+  List<Comment> _sorted(List<Comment> items) {
+    final list = [...items];
+    switch (_sortMode) {
+      case 'NEWEST':
+        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      case 'OLDEST':
+        list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      default:
+        list.sort((a, b) {
+          if (a.isBest != b.isBest) return a.isBest ? -1 : 1;
+          final votes = b.voteCount.compareTo(a.voteCount);
+          return votes != 0 ? votes : a.createdAt.compareTo(b.createdAt);
+        });
+    }
+    return list;
+  }
+
+  Future<void> _act(Future<void> Function() action) async {
+    try {
+      await action();
+    } on RepositoryException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
+  /// Like or unlike the question (the heart, or a double tap to like).
+  Future<void> _toggleLike(Post post) async {
+    tapFeedback();
+    final repo = ref.read(feedRepositoryProvider);
+    try {
+      if (post.myReaction == null) {
+        await repo.addReaction(post.id, type: 'like');
+      } else {
+        await repo.removeReaction(post.id);
+      }
+      ref.invalidate(postDetailProvider(widget.postId));
+      ref.invalidate(feedProvider);
+      ref.invalidate(forYouProvider);
+    } on RepositoryException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    }
+  }
+
+  Future<void> _vote(Comment comment) => _act(() async {
+    await ref
+        .read(feedRepositoryProvider)
+        .voteComment(widget.postId, comment.id, up: !comment.votedByMe);
+    ref.invalidate(commentsProvider(widget.postId));
+  });
+
+  Future<void> _markBest(Post post, Comment comment) => _act(() async {
+    await ref
+        .read(feedRepositoryProvider)
+        .setBestAnswer(widget.postId, comment.isBest ? null : comment.id);
+    ref.invalidate(commentsProvider(widget.postId));
+    ref.invalidate(postDetailProvider(widget.postId));
+  });
+
+  Future<void> _toggleFollow(Post post) => _act(() async {
+    final following = await ref
+        .read(feedRepositoryProvider)
+        .setFollowing(widget.postId, following: !post.following);
+    ref.invalidate(postDetailProvider(widget.postId));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: _kPrimary,
+          content: Text(
+            following
+                ? "Following. You'll be notified about new answers."
+                : 'Unfollowed. No more notifications for this question.',
+          ),
+        ),
+      );
+    }
+  });
+
+  Future<void> _editComment(Comment comment) async {
+    final text = await showEditTextSheet(
+      context,
+      title: 'Edit your answer',
+      initial: comment.content,
+      maxLength: 2000,
+    );
+    if (text == null || text == comment.content) return;
+    await _act(() async {
+      await ref
+          .read(feedRepositoryProvider)
+          .editComment(widget.postId, comment.id, content: text);
+      ref.invalidate(commentsProvider(widget.postId));
+    });
+  }
+
+  Future<void> _editPost(Post post) async {
+    final edit = await showEditQuestionSheet(context, post);
+    if (edit == null) return;
+    await _act(() async {
+      await ref
+          .read(feedRepositoryProvider)
+          .editPost(widget.postId, title: edit.title, content: edit.content);
+      ref.invalidate(postDetailProvider(widget.postId));
+      ref.invalidate(feedProvider);
+    });
+  }
+
+  static String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
+    if (parts.isEmpty) return '?';
+    return parts.take(2).map((p) => p[0].toUpperCase()).join();
+  }
+
   @override
   void dispose() {
     _comment.dispose();
+    _commentFocus.dispose();
     super.dispose();
   }
 
@@ -82,6 +219,180 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
       ref.invalidate(commentsProvider(widget.postId));
       ref.invalidate(postDetailProvider(widget.postId));
       ref.invalidate(feedProvider);
+      ref.invalidate(forYouProvider);
+    } on RepositoryException catch (error) {
+      setState(() => _error = error.message);
+    } catch (_) {
+      setState(() => _error = AppStrings.errorGeneric);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// A link to this question on the web; elsewhere the question itself.
+  String _shareText(Post post) {
+    if (kIsWeb) {
+      final base = Uri.base;
+      return '${base.origin}${base.path}#/feed/${post.id}';
+    }
+    final title = post.title;
+    return title == null ? post.content : '$title\n\n${post.content}';
+  }
+
+  Future<void> _copy(String text, String done) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(done)));
+    }
+  }
+
+  Future<void> _onMenu(String action, Post post) async {
+    switch (action) {
+      case 'follow':
+        await _toggleFollow(post);
+      case 'edit':
+        await _editPost(post);
+      case 'share':
+        final text = questionShareText(post);
+        if (!await shareText(text, subject: post.title)) {
+          await _copy(text, AppStrings.questionCopied);
+        }
+      case 'link':
+        await _copy(
+          _shareText(post),
+          kIsWeb ? AppStrings.linkCopied : AppStrings.questionCopied,
+        );
+      case 'text':
+        final title = post.title;
+        await _copy(
+          title == null ? post.content : '$title\n\n${post.content}',
+          AppStrings.questionCopied,
+        );
+      case 'save':
+        await ref.read(savedPostsProvider.notifier).toggle(post.id);
+      case 'group':
+        await _createGroup();
+      case 'delete':
+        await _deletePost();
+      case 'report':
+        if (await showReportQuestionSheet(context, ref, post.id) && mounted) {
+          context.pop();
+        }
+      case 'block':
+        if (await confirmAndBlock(
+              context,
+              ref,
+              post.author.id,
+              post.author.name,
+            ) &&
+            mounted) {
+          context.pop();
+        }
+    }
+  }
+
+  /// Starts a reply: mentions the person in the comment box and focuses it.
+  void _reply(String name) {
+    final mention = '@$name ';
+    if (!_comment.text.startsWith(mention)) {
+      _comment.text = '$mention${_comment.text}';
+    }
+    _comment.selection = TextSelection.collapsed(offset: _comment.text.length);
+    _commentFocus.requestFocus();
+  }
+
+  void _snack(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text), behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  Future<bool> _confirm(String message, String action) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _kSurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 13.5, color: _kTextPrimary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text(
+              AppStrings.cancel,
+              style: TextStyle(color: _kTextSecondary),
+            ),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _kPrimary),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(action),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
+  void _refreshComments() {
+    ref.invalidate(commentsProvider(widget.postId));
+    ref.invalidate(postDetailProvider(widget.postId));
+    ref.invalidate(feedProvider);
+    ref.invalidate(forYouProvider);
+  }
+
+  Future<void> _report(Comment comment) async {
+    final report = !comment.reportedByMe;
+    try {
+      await ref
+          .read(feedRepositoryProvider)
+          .reportComment(widget.postId, comment.id, report: report);
+      ref.invalidate(commentsProvider(widget.postId));
+      _snack(report ? AppStrings.commentReported : AppStrings.reportWithdrawn);
+    } on RepositoryException catch (error) {
+      _snack(error.message);
+    } catch (_) {
+      _snack(AppStrings.errorGeneric);
+    }
+  }
+
+  Future<void> _removeComment(Comment comment) async {
+    if (!await _confirm(AppStrings.removeCommentConfirm, AppStrings.remove)) {
+      return;
+    }
+    try {
+      await ref
+          .read(feedRepositoryProvider)
+          .deleteComment(widget.postId, comment.id);
+      _refreshComments();
+      _snack(AppStrings.commentRemoved);
+    } on RepositoryException catch (error) {
+      _snack(error.message);
+    } catch (_) {
+      _snack(AppStrings.errorGeneric);
+    }
+  }
+
+  Future<void> _deletePost() async {
+    if (!await _confirm(AppStrings.deleteQuestionConfirm, AppStrings.delete)) {
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref.read(feedRepositoryProvider).deletePost(widget.postId);
+      ref.invalidate(feedProvider);
+      ref.invalidate(forYouProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(AppStrings.questionDeleted)));
+      context.go('/feed');
     } on RepositoryException catch (error) {
       setState(() => _error = error.message);
     } catch (_) {
@@ -116,8 +427,10 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     final comments = ref.watch(commentsProvider(widget.postId));
     final post = postState.value;
     final liveComments = comments.value ?? const <Comment>[];
+    final userId = ref.watch(sessionProvider).value?.id;
+    final saved = ref.watch(savedPostsProvider).contains(widget.postId);
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final hPad = screenWidth > 860 ? (screenWidth - 800) / 2 : 16.0;
+    final hPad = pageHPad(screenWidth);
 
     return Scaffold(
       backgroundColor: _kSurface,
@@ -125,8 +438,8 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
         preferredSize: const Size.fromHeight(56),
         child: Container(
           decoration: const BoxDecoration(
-            color: _kSurface,
-            border: Border(bottom: BorderSide(color: _kBorderSubtle)),
+            color: Color(0xFF0A0A0A),
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
           ),
           child: SafeArea(
             bottom: false,
@@ -136,9 +449,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                 children: [
                   IconButton(
                     icon: const Icon(
-                      Icons.arrow_back_ios_new,
+                      PhosphorIconsRegular.caretLeft,
                       size: 18,
-                      color: _kTextPrimary,
+                      color: Colors.white,
                     ),
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
@@ -153,29 +466,102 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.8,
-                          color: _kTextSecondary,
+                          color: Colors.white70,
                         ),
                       ),
                       Text(
-                        'Talk It Out Post Detail',
+                        'Question',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           letterSpacing: -0.2,
-                          color: _kTextPrimary,
+                          color: Colors.white,
                         ),
                       ),
                     ],
                   ),
                   const Spacer(),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.more_vert,
-                      size: 20,
-                      color: _kTextSecondary,
+                  if (post != null)
+                    PopupMenuButton<String>(
+                      key: const ValueKey('post-menu'),
+                      tooltip: 'More',
+                      icon: const Icon(
+                        PhosphorIconsRegular.dotsThreeVertical,
+                        size: 20,
+                        color: Colors.white70,
+                      ),
+                      onSelected: (action) => _onMenu(action, post),
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          key: const ValueKey('follow-question'),
+                          value: 'follow',
+                          child: Text(
+                            post.following
+                                ? 'Unfollow question'
+                                : 'Follow question',
+                          ),
+                        ),
+                        if (post.author.id == userId)
+                          const PopupMenuItem(
+                            key: ValueKey('edit-question'),
+                            value: 'edit',
+                            child: Text('Edit question'),
+                          ),
+                        const PopupMenuItem(
+                          key: ValueKey('share-question'),
+                          value: 'share',
+                          child: Text('Share question'),
+                        ),
+                        PopupMenuItem(
+                          value: 'link',
+                          child: Text(
+                            kIsWeb
+                                ? AppStrings.copyLink
+                                : AppStrings.copyQuestion,
+                          ),
+                        ),
+                        if (kIsWeb)
+                          const PopupMenuItem(
+                            value: 'text',
+                            child: Text(AppStrings.copyQuestion),
+                          ),
+                        PopupMenuItem(
+                          value: 'save',
+                          child: Text(
+                            saved
+                                ? AppStrings.unsaveQuestion
+                                : AppStrings.saveQuestion,
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'group',
+                          enabled: !_busy,
+                          child: const Text(AppStrings.createGroupFromPost),
+                        ),
+                        if (post.author.id == userId)
+                          PopupMenuItem(
+                            key: const ValueKey('delete-question'),
+                            value: 'delete',
+                            enabled: !_busy,
+                            child: const Text(AppStrings.deleteQuestion),
+                          ),
+                        if (post.author.id != userId) ...[
+                          const PopupMenuItem(
+                            key: ValueKey('report-question'),
+                            value: 'report',
+                            child: Text('Report question'),
+                          ),
+                          PopupMenuItem(
+                            key: const ValueKey('block-author'),
+                            value: 'block',
+                            child: Text(
+                              'Block ${post.author.name.split(' ').first}',
+                              style: TextStyle(color: Colors.red.shade800),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                    onPressed: () {},
-                  ),
                 ],
               ),
             ),
@@ -218,11 +604,10 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                             const SizedBox(width: 6),
                             const Expanded(
                               child: Text(
-                                '• PSYCH SAFETY • POLL SES...',
+                                'PUBLIC FEED',
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 11,
-                                  fontFamily: 'monospace',
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.5,
                                   color: _kTextSecondary,
@@ -236,17 +621,18 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                               ),
                               padding: EdgeInsets.zero,
                               icon: Icon(
-                                _isBookmarked
-                                    ? Icons.bookmark
-                                    : Icons.bookmark_border,
+                                saved
+                                    ? PhosphorIconsFill.bookmarkSimple
+                                    : PhosphorIconsRegular.bookmarkSimple,
                                 size: 18,
-                                color: _isBookmarked
-                                    ? _kPrimary
-                                    : _kTextSecondary,
+                                color: saved ? _kPrimary : _kTextSecondary,
                               ),
-                              onPressed: () => setState(
-                                () => _isBookmarked = !_isBookmarked,
-                              ),
+                              tooltip: saved
+                                  ? AppStrings.unsaveQuestion
+                                  : AppStrings.saveQuestion,
+                              onPressed: () => ref
+                                  .read(savedPostsProvider.notifier)
+                                  .toggle(widget.postId),
                             ),
                             const SizedBox(width: 8),
                             IconButton(
@@ -256,11 +642,19 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                               ),
                               padding: EdgeInsets.zero,
                               icon: const Icon(
-                                Icons.share_outlined,
+                                PhosphorIconsRegular.shareNetwork,
                                 size: 18,
                                 color: _kTextSecondary,
                               ),
-                              onPressed: () {},
+                              tooltip: kIsWeb
+                                  ? AppStrings.copyLink
+                                  : AppStrings.copyQuestion,
+                              onPressed: () => _copy(
+                                _shareText(post),
+                                kIsWeb
+                                    ? AppStrings.linkCopied
+                                    : AppStrings.questionCopied,
+                              ),
                             ),
                           ],
                         ),
@@ -268,437 +662,410 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                       const SizedBox(height: 12),
 
                       // Main Original Post Card (matches image4)
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: _kSurface,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: _kBorderSubtle),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x06000000),
-                              blurRadius: 6,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Author Row
-                            Row(
-                              children: [
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: const BoxDecoration(
-                                    color: _kPrimary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: const Text(
-                                    'SK',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                const Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Text(
-                                            'Sophia K.',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w700,
-                                              color: _kTextPrimary,
-                                            ),
-                                          ),
-                                          SizedBox(width: 4),
-                                          Icon(
-                                            Icons.verified,
-                                            size: 15,
-                                            color: _kPrimary,
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(height: 1),
-                                      Text(
-                                        '@sophiak • ...',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: _kTextSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _kSurfaceMuted,
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: const Text(
-                                    '#WORKPLACEAI',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.6,
-                                      color: _kTextSecondary,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-
-                            // Post Content (high-fidelity sample matching image4)
-                            Text(
-                              post.content.length > 50 ? post.content : 'Should AI rewriting be mandatory for executive all-hands Q&A, or strictly opt-in? We tested both in a 200-person team—here are the candid results. When mandatory, 3x more junior engineers submitted concerns, but tone homogenization was noticeable.',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                height: 1.5,
-                                color: _kTextPrimary,
+                      Reveal(
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: _kSurface,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: _kBorderSubtle),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x06000000),
+                                blurRadius: 6,
+                                offset: Offset(0, 2),
                               ),
-                            ),
-                            const SizedBox(height: 14),
-
-                            // Key Finding Metric Box
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: _kSurfaceSubtle,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: _kBorderSubtle),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 32,
-                                    height: 32,
-                                    decoration: BoxDecoration(
-                                      color: _kPrimary,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Icon(
-                                      Icons.trending_up,
-                                      size: 18,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  const Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'KEY FINDING CALLOUT',
-                                          style: TextStyle(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w700,
-                                            letterSpacing: 0.6,
-                                            color: _kTextSecondary,
-                                          ),
-                                        ),
-                                        SizedBox(height: 2),
-                                        Text(
-                                          '+210% Psycho...',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700,
-                                            color: _kTextPrimary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _kSurfaceMuted,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Text(
-                                      'HIGH IMPACT',
-                                      style: TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w700,
-                                        fontFamily: 'monospace',
-                                        color: _kTextPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-
-                            // Reaction & Encryption Bar
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Author Row (opens their profile)
+                              InkWell(
+                                key: const ValueKey('post-author'),
+                                onTap: () =>
+                                    openPerson(context, ref, post.author.id),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Row(
                                   children: [
-                                    InkWell(
-                                      onTap: () async {
-                                        final repo = ref.read(
-                                          feedRepositoryProvider,
-                                        );
-                                        try {
-                                          if (post.myReaction == null) {
-                                            await repo.addReaction(
-                                              post.id,
-                                              type: 'like',
-                                            );
-                                          } else {
-                                            await repo.removeReaction(post.id);
-                                          }
-                                          ref.invalidate(
-                                            postDetailProvider(widget.postId),
-                                          );
-                                          ref.invalidate(feedProvider);
-                                        } on RepositoryException catch (error) {
-                                          if (mounted) {
-                                            setState(
-                                              () => _error = error.message,
-                                            );
-                                          }
-                                        }
-                                      },
-                                      child: Row(
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: const BoxDecoration(
+                                        color: _kPrimary,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        _initials(post.author.name),
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Icon(
-                                            post.myReaction != null
-                                                ? Icons.favorite
-                                                : Icons.favorite_border,
-                                            size: 18,
-                                            color: post.myReaction != null
-                                                ? const Color(0xFFBA1A1A)
-                                                : _kTextSecondary,
+                                          Row(
+                                            children: [
+                                              Text(
+                                                post.author.name,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: _kTextPrimary,
+                                                ),
+                                              ),
+                                              if (post.author.premium) ...[
+                                                const SizedBox(width: 5),
+                                                const PremiumBadge(size: 14),
+                                              ],
+                                            ],
                                           ),
-                                          const SizedBox(width: 4),
+                                          SizedBox(height: 1),
                                           Text(
-                                            post.reactionCount > 0
-                                                ? '${post.reactionCount}'
-                                                : '142',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontFamily: 'monospace',
-                                              fontWeight: FontWeight.w600,
+                                            post.editedAt == null
+                                                ? relativeTime(post.createdAt)
+                                                : '${relativeTime(post.createdAt)} · edited',
+                                            style: TextStyle(
+                                              fontSize: 11,
                                               color: _kTextSecondary,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(width: 16),
-                                    const Row(
-                                      children: [
-                                        Icon(
-                                          Icons.chat_bubble_outline,
-                                          size: 18,
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _kSurfaceMuted,
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        post.nsfwFlag
+                                            ? AppStrings.flagged
+                                            : 'Public',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.6,
                                           color: _kTextSecondary,
                                         ),
-                                        SizedBox(width: 4),
-                                        Text(
-                                          '38',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontFamily: 'monospace',
-                                            fontWeight: FontWeight.w600,
-                                            color: _kTextSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(width: 16),
-                                    const Row(
-                                      children: [
-                                        Icon(
-                                          Icons.repeat,
-                                          size: 18,
-                                          color: _kTextSecondary,
-                                        ),
-                                        SizedBox(width: 4),
-                                        Text(
-                                          '12',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontFamily: 'monospace',
-                                            fontWeight: FontWeight.w600,
-                                            color: _kTextSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                const Row(
-                                  children: [
-                                    Icon(
-                                      Icons.lock_outline,
-                                      size: 14,
-                                      color: _kTextTertiary,
-                                    ),
-                                    SizedBox(width: 4),
-                                    Text(
-                                      'ENCRYPTED',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.6,
-                                        color: _kTextTertiary,
                                       ),
                                     ),
                                   ],
                                 ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
+                              ),
+                              const SizedBox(height: 14),
 
-                      // Controller Action Banner (matches image4)
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: _kSurfaceSubtle,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _kBorderSubtle),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Row(
+                              if (PostTopic.byId(post.topic)
+                                  case final topic?) ...[
+                                Row(
                                   children: [
                                     Icon(
-                                      Icons.hub_outlined,
-                                      size: 18,
-                                      color: _kPrimary,
+                                      topic.icon,
+                                      size: 14,
+                                      color: _kTextSecondary,
                                     ),
-                                    SizedBox(width: 6),
+                                    const SizedBox(width: 4),
                                     Text(
-                                      'Launch Group from this Topic',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
+                                      topic.label,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: _kTextSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                              ],
+                              // Double-tap the question to like it.
+                              DoubleTapLike(
+                                liked: post.myReaction != null,
+                                onLike: () => _toggleLike(post),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (post.title != null) ...[
+                                      Text(
+                                        post.title!,
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w700,
+                                          height: 1.3,
+                                          color: _kTextPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                    ],
+                                    Text(
+                                      post.content,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        height: 1.5,
                                         color: _kTextPrimary,
                                       ),
                                     ),
                                   ],
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _kPrimary,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text(
-                                    'CONTROLLER MODE',
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w700,
-                                      fontFamily: 'monospace',
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            const Text(
-                              'Spin up an anonymous real-time room to draft formal Q&A policy guidelines with team leads.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                height: 1.4,
-                                color: _kTextSecondary,
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      width: 22,
-                                      height: 22,
-                                      decoration: const BoxDecoration(
-                                        color: _kSurfaceMuted,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.person,
-                                        size: 13,
-                                        color: _kTextSecondary,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    const Text(
-                                      '+4 peers ready',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
-                                        color: _kTextSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                FilledButton(
-                                  onPressed: _busy ? null : _createGroup,
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: _kPrimary,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 8,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: const Row(
+                              const SizedBox(height: 14),
+
+                              // Reaction & Encryption Bar (wraps on narrow phones)
+                              Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                runSpacing: 4,
+                                children: [
+                                  Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Text(
-                                        'Create Group',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
+                                      InkWell(
+                                        onTap: () => _toggleLike(post),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              post.myReaction != null
+                                                  ? Icons.favorite
+                                                  : Icons.favorite_border,
+                                              size: 18,
+                                              color: post.myReaction != null
+                                                  ? const Color(0xFFBA1A1A)
+                                                  : _kTextSecondary,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '${post.reactionCount}',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: _kTextSecondary,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      SizedBox(width: 4),
-                                      Icon(Icons.arrow_forward, size: 14),
+                                      const SizedBox(width: 16),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            PhosphorIconsRegular.chatCircle,
+                                            size: 18,
+                                            color: _kTextSecondary,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '${post.commentCount}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: _kTextSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (post.reactionCount > 0) ...[
+                                        const SizedBox(width: 6),
+                                        TextButton(
+                                          key: const ValueKey('liked-by'),
+                                          onPressed: () =>
+                                              showLikersSheet(context, post.id),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: _kTextSecondary,
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
+                                          child: const Text(
+                                            'Liked by',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ),
-                                ),
-                              ],
-                            ),
-                          ],
+                                  const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        PhosphorIconsRegular.lockSimple,
+                                        size: 14,
+                                        color: _kTextTertiary,
+                                      ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Public',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.6,
+                                          color: _kTextTertiary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
+                      const SizedBox(height: 14),
+
+                      // Create-group banner: offered to the post author only.
+                      if (post.author.id == userId)
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: _kSurfaceSubtle,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: _kBorderSubtle),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Expanded(
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          PhosphorIconsRegular.graph,
+                                          size: 18,
+                                          color: _kPrimary,
+                                        ),
+                                        SizedBox(width: 6),
+                                        Flexible(
+                                          child: Text(
+                                            'Launch Group from this Topic',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                              color: _kTextPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _kPrimary,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'Controller',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                AppStrings.createGroupFromPostBody,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  height: 1.4,
+                                  color: _kTextSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 22,
+                                        height: 22,
+                                        decoration: const BoxDecoration(
+                                          color: _kSurfaceMuted,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          PhosphorIconsRegular.user,
+                                          size: 13,
+                                          color: _kTextSecondary,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      const Text(
+                                        'You become the controller',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                          color: _kTextSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  FilledButton(
+                                    onPressed: _busy ? null : _createGroup,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: _kPrimary,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 8,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Create Group',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        SizedBox(width: 4),
+                                        Icon(
+                                          PhosphorIconsRegular.arrowRight,
+                                          size: 14,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       const SizedBox(height: 16),
 
                       // Discussion Section Header (matches image4)
@@ -730,10 +1097,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                     vertical: 1.5,
                                   ),
                                   child: Text(
-                                    '38',
+                                    '${liveComments.length}',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      fontFamily: 'monospace',
                                       fontWeight: FontWeight.w600,
                                       color: _kTextSecondary,
                                     ),
@@ -756,19 +1122,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                               setState(() => _sortMode = val);
                             },
                             itemBuilder: (ctx) => [
-                              _buildSortMenuItem(
-                                'TOP FIRST',
-                                'Top First (Agreed)',
-                              ),
-                              _buildSortMenuItem('NEWEST', 'Newest First'),
-                              _buildSortMenuItem(
-                                'MOST DISCUSSED',
-                                'Most Discussed',
-                              ),
-                              _buildSortMenuItem(
-                                'SHIELDED ONLY',
-                                'Shielded Only',
-                              ),
+                              _buildSortMenuItem('TOP FIRST', 'Top answers'),
+                              _buildSortMenuItem('NEWEST', 'Newest first'),
+                              _buildSortMenuItem('OLDEST', 'Oldest first'),
                             ],
                             child: Container(
                               padding: const EdgeInsets.symmetric(
@@ -784,17 +1140,20 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    _sortMode,
+                                    switch (_sortMode) {
+                                      'NEWEST' => 'Newest first',
+                                      'OLDEST' => 'Oldest first',
+                                      _ => 'Top answers',
+                                    },
                                     style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.6,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
                                       color: _kTextPrimary,
                                     ),
                                   ),
                                   const SizedBox(width: 4),
                                   const Icon(
-                                    Icons.expand_more,
+                                    PhosphorIconsRegular.caretDown,
                                     size: 15,
                                     color: _kTextSecondary,
                                   ),
@@ -807,102 +1166,86 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                       const SizedBox(height: 12),
 
                       // Rich 3-tier Discussion Thread (dynamically sorted & filtered)
-                      if (_sortMode == 'SHIELDED ONLY') ...[
-                        const _DiscussionItem(
-                          isAnonymous: true,
-                          authorName: 'Anonymous Pers...',
-                          isShielded: true,
-                          timeAgo: '25m ago',
-                          content: 'We noticed executive pushback if the AI rewrite sounds too diplomatic—they felt questions were sanitized. We ended up keeping the original bulleted concerns intact and only softening the rhetorical edge.',
-                          likesCount: '9',
-                        ),
-                      ] else if (_sortMode == 'NEWEST') ...[
-                        for (final comment in liveComments.reversed) ...[
-                          _DiscussionItem(
-                            authorInitials: comment.author.name.isNotEmpty
-                                ? comment.author.name[0].toUpperCase()
-                                : '?',
-                            authorName: comment.author.name,
-                            timeAgo: 'just now',
-                            content: comment.content,
-                            likesCount: '0',
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                        const _DiscussionItem(
-                          isAnonymous: true,
-                          authorName: 'Anonymous Pers...',
-                          isShielded: true,
-                          timeAgo: '25m ago',
-                          content: 'We noticed executive pushback if the AI rewrite sounds too diplomatic—they felt questions were sanitized. We ended up keeping the original bulleted concerns intact and only softening the rhetorical edge.',
-                          likesCount: '9',
-                        ),
-                        const SizedBox(height: 8),
+                      if (comments.isLoading && !comments.hasValue)
                         const Padding(
-                          padding: EdgeInsets.only(left: 24),
-                          child: _DiscussionItem(
-                            authorInitials: 'SK',
-                            authorName: 'Sophia K.',
-                            isAuthor: true,
-                            timeAgo: '45m ago',
-                            content: "Exactly. The key is making sure the AI rewrite preserves nuance. If it strips the core tension or urgency, leadership assumes it's low priority.",
-                            likesCount: '18',
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        const _DiscussionItem(
-                          authorInitials: 'M',
-                          authorName: 'M',
-                          timeAgo: '1h ago',
-                          badgeText: 'Rewritten: Gentle Tone',
-                          badgeIcon: Icons.auto_awesome,
-                          content: "Completely agree on psychological safety unlocking participation. When folks aren't paralyzed about how their critique lands, we get the real production blockers surfaced immediately.",
-                          likesCount: '24',
-                        ),
-                      ] else ...[
-                        const _DiscussionItem(
-                          authorInitials: 'M',
-                          authorName: 'M',
-                          timeAgo: '1h ago',
-                          badgeText: 'Rewritten: Gentle Tone',
-                          badgeIcon: Icons.auto_awesome,
-                          content: "Completely agree on psychological safety unlocking participation. When folks aren't paralyzed about how their critique lands, we get the real production blockers surfaced immediately.",
-                          likesCount: '24',
-                        ),
-                        const SizedBox(height: 8),
+                        )
+                      else if (comments.hasError && !comments.hasValue)
+                        Center(
+                          child: TextButton(
+                            onPressed: () =>
+                                ref.invalidate(commentsProvider(widget.postId)),
+                            child: Text(
+                              '${errorText(comments.error)} ${AppStrings.retry}',
+                            ),
+                          ),
+                        )
+                      else if (liveComments.isEmpty)
                         const Padding(
-                          padding: EdgeInsets.only(left: 24),
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: Text(
+                              AppStrings.commentsEmpty,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: _kTextSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      for (final (i, comment) in _sorted(
+                        liveComments,
+                      ).indexed) ...[
+                        Reveal(
+                          index: i + 1,
                           child: _DiscussionItem(
-                            authorInitials: 'SK',
-                            authorName: 'Sophia K.',
-                            isAuthor: true,
-                            timeAgo: '45m ago',
-                            content: "Exactly. The key is making sure the AI rewrite preserves nuance. If it strips the core tension or urgency, leadership assumes it's low priority.",
-                            likesCount: '18',
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const _DiscussionItem(
-                          isAnonymous: true,
-                          authorName: 'Anonymous Pers...',
-                          isShielded: true,
-                          timeAgo: '25m ago',
-                          content: 'We noticed executive pushback if the AI rewrite sounds too diplomatic—they felt questions were sanitized. We ended up keeping the original bulleted concerns intact and only softening the rhetorical edge.',
-                          likesCount: '9',
-                        ),
-                        const SizedBox(height: 8),
-                        for (final comment in liveComments) ...[
-                          _DiscussionItem(
-                            authorInitials: comment.author.name.isNotEmpty
-                                ? comment.author.name[0].toUpperCase()
-                                : '?',
+                            authorInitials: _initials(comment.author.name),
                             authorName: comment.author.name,
-                            timeAgo: 'just now',
+                            authorPremium: comment.author.premium,
+                            isAuthor: comment.author.id == post.author.id,
+                            timeAgo: comment.editedAt == null
+                                ? relativeTime(comment.createdAt)
+                                : '${relativeTime(comment.createdAt)} · edited',
                             content: comment.content,
-                            likesCount: '0',
+                            likesCount: '',
+                            commentId: comment.id,
+                            voteCount: comment.voteCount,
+                            votedByMe: comment.votedByMe,
+                            isBest: comment.isBest,
+                            canVote:
+                                userId != null && comment.author.id != userId,
+                            canMarkBest:
+                                userId != null && post.author.id == userId,
+                            canEdit:
+                                userId != null && comment.author.id == userId,
+                            onVote: () => _vote(comment),
+                            // Your own answer cannot be upvoted (server
+                            // rule); say so instead of ignoring the tap.
+                            onVoteBlocked:
+                                userId != null && comment.author.id == userId
+                                ? () => _snack(AppStrings.cannotUpvoteOwnAnswer)
+                                : null,
+                            onMarkBest: () => _markBest(post, comment),
+                            onEdit: () => _editComment(comment),
+                            reportCount: comment.reportCount,
+                            reportedByMe: comment.reportedByMe,
+                            canReport:
+                                userId != null && comment.author.id != userId,
+                            canRemove:
+                                userId != null &&
+                                (comment.author.id == userId ||
+                                    post.author.id == userId),
+                            onReply: () => _reply(comment.author.name),
+                            onReport: () => _report(comment),
+                            onRemove: () => _removeComment(comment),
+                            onAuthor: () =>
+                                openPerson(context, ref, comment.author.id),
                           ),
-                          const SizedBox(height: 8),
-                        ],
+                        ),
+                        const SizedBox(height: 8),
                       ],
                     ],
                   ),
@@ -932,15 +1275,19 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Status Toggles Bar
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            // Status Toggles Bar (wraps on narrow phones)
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 4,
                               children: [
                                 GestureDetector(
                                   onTap: () => setState(
                                     () => _postPublicly = !_postPublicly,
                                   ),
                                   child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Container(
                                         width: 32,
@@ -968,7 +1315,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                       ),
                                       const SizedBox(width: 8),
                                       const Text(
-                                        'Post Publicly',
+                                        'Answer with my name',
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600,
@@ -979,6 +1326,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                   ),
                                 ),
                                 Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Container(
                                       width: 5,
@@ -989,11 +1337,12 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: 5),
-                                    const Text(
-                                      'AI Rewrite: Active',
+                                    Text(
+                                      _postPublicly
+                                          ? 'Shown with your name'
+                                          : 'Turn on to comment',
                                       style: TextStyle(
                                         fontSize: 10,
-                                        fontFamily: 'monospace',
                                         fontWeight: FontWeight.w600,
                                         color: _kTextSecondary,
                                       ),
@@ -1019,12 +1368,13 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                   Expanded(
                                     child: TextField(
                                       controller: _comment,
+                                      focusNode: _commentFocus,
                                       style: const TextStyle(
                                         fontSize: 13,
                                         color: _kTextPrimary,
                                       ),
                                       decoration: const InputDecoration(
-                                        hintText: 'Add to candid discussion...',
+                                        hintText: 'Write an answer…',
                                         hintStyle: TextStyle(
                                           fontSize: 13,
                                           color: _kTextTertiary,
@@ -1044,7 +1394,11 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                     width: 32,
                                     height: 32,
                                     child: FilledButton(
-                                      onPressed: _busy ? null : _addComment,
+                                      // The switch is consent: feed comments
+                                      // always show your name.
+                                      onPressed: _busy || !_postPublicly
+                                          ? null
+                                          : _addComment,
                                       style: FilledButton.styleFrom(
                                         backgroundColor: _kPrimary,
                                         foregroundColor: Colors.white,
@@ -1065,7 +1419,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                                               ),
                                             )
                                           : const Icon(
-                                              Icons.arrow_upward,
+                                              PhosphorIconsRegular.arrowUp,
                                               size: 16,
                                             ),
                                     ),
@@ -1098,27 +1452,91 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
 class _DiscussionItem extends StatelessWidget {
   const _DiscussionItem({
     required this.authorName,
+    this.authorPremium = false,
     required this.timeAgo,
     required this.content,
     required this.likesCount,
     this.authorInitials,
-    this.badgeText,
-    this.badgeIcon,
     this.isAuthor = false,
-    this.isAnonymous = false,
-    this.isShielded = false,
+    this.commentId = '',
+    this.reportCount,
+    this.reportedByMe = false,
+    this.canReport = false,
+    this.canRemove = false,
+    this.onReply,
+    this.onReport,
+    this.onRemove,
+    this.onAuthor,
+    this.voteCount = 0,
+    this.votedByMe = false,
+    this.isBest = false,
+    this.canVote = false,
+    this.onVoteBlocked,
+    this.canMarkBest = false,
+    this.canEdit = false,
+    this.onVote,
+    this.onMarkBest,
+    this.onEdit,
   });
+
+  final String commentId;
+
+  /// Upvotes (`API.md` 65); you cannot vote on your own answer.
+  final int voteCount;
+  final bool votedByMe;
+  final bool canVote;
+
+  /// Shown instead of a vote when [canVote] is false (your own answer).
+  final VoidCallback? onVoteBlocked;
+  final VoidCallback? onVote;
+
+  /// The asker's chosen answer, shown first with a badge.
+  final bool isBest;
+  final bool canMarkBest;
+  final VoidCallback? onMarkBest;
+  final bool canEdit;
+  final VoidCallback? onEdit;
+
+  /// Opens the commenter's profile.
+  final VoidCallback? onAuthor;
+
+  /// Only the question's author gets a count (null for everyone else).
+  final int? reportCount;
+  final bool reportedByMe;
+  final bool canReport;
+  final bool canRemove;
+  final VoidCallback? onReply;
+  final VoidCallback? onReport;
+  final VoidCallback? onRemove;
 
   final String? authorInitials;
   final String authorName;
+  final bool authorPremium;
   final String timeAgo;
-  final String? badgeText;
-  final IconData? badgeIcon;
   final bool isAuthor;
-  final bool isAnonymous;
-  final bool isShielded;
   final String content;
   final String likesCount;
+
+  static PopupMenuItem<String> _menuItem(
+    String value,
+    IconData icon,
+    String label,
+  ) {
+    return PopupMenuItem(
+      value: value,
+      height: 34,
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: _kTextSecondary),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: _kTextPrimary),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1127,52 +1545,83 @@ class _DiscussionItem extends StatelessWidget {
       decoration: BoxDecoration(
         color: _kSurface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _kBorderSubtle),
+        border: Border.all(
+          color: isBest ? _kPrimary : _kBorderSubtle,
+          width: isBest ? 1.4 : 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (isBest)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                key: ValueKey('best-$commentId'),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _kPrimary,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.workspace_premium,
+                      size: 13,
+                      color: Colors.white,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Best answer',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           Row(
             children: [
-              if (isAnonymous)
-                Container(
-                  width: 26,
-                  height: 26,
-                  decoration: const BoxDecoration(
-                    color: _kPrimary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.security,
-                    size: 14,
-                    color: Colors.white,
-                  ),
-                )
-              else
-                Container(
-                  width: 26,
-                  height: 26,
-                  decoration: const BoxDecoration(
-                    color: _kPrimary,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    authorInitials ?? '?',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
+              GestureDetector(
+                onTap: onAuthor,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: const BoxDecoration(
+                        color: _kPrimary,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        authorInitials ?? '?',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              const SizedBox(width: 8),
-              Text(
-                authorName,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: _kTextPrimary,
+                    const SizedBox(width: 8),
+                    Text(
+                      authorName,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: _kTextPrimary,
+                      ),
+                    ),
+                    if (authorPremium) ...[
+                      const SizedBox(width: 4),
+                      const PremiumBadge(),
+                    ],
+                  ],
                 ),
               ),
               if (isAuthor) ...[
@@ -1196,61 +1645,11 @@ class _DiscussionItem extends StatelessWidget {
                   ),
                 ),
               ],
-              if (isShielded) ...[
-                const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 1.5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _kSurfaceMuted,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: const Text(
-                    'Shielded',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
-                      color: _kTextSecondary,
-                    ),
-                  ),
-                ),
-              ],
               const SizedBox(width: 4),
               Text(
                 '• $timeAgo',
                 style: const TextStyle(fontSize: 11, color: _kTextTertiary),
               ),
-              const Spacer(),
-              if (badgeText != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _kSurfaceMuted,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (badgeIcon != null) ...[
-                        Icon(badgeIcon, size: 10, color: _kTextSecondary),
-                        const SizedBox(width: 3),
-                      ],
-                      Text(
-                        badgeText!,
-                        style: const TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: _kTextSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
             ],
           ),
           const SizedBox(height: 8),
@@ -1270,31 +1669,51 @@ class _DiscussionItem extends StatelessWidget {
             padding: const EdgeInsets.only(left: 34),
             child: Row(
               children: [
-                const Icon(
-                  Icons.favorite_border,
-                  size: 14,
-                  color: _kTextSecondary,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  likesCount,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                    color: _kTextSecondary,
+                // Upvote, like Stack Overflow and Reddit. Your own answer
+                // shows its count but cannot be voted on.
+                InkWell(
+                  key: ValueKey('vote-$commentId'),
+                  onTap: canVote ? onVote : onVoteBlocked,
+                  borderRadius: BorderRadius.circular(999),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: votedByMe ? _kPrimary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: votedByMe ? _kPrimary : _kBorderSubtle,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          votedByMe
+                              ? PhosphorIconsFill.thumbsUp
+                              : PhosphorIconsRegular.thumbsUp,
+                          size: 13,
+                          color: votedByMe ? Colors.white : _kTextSecondary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          voteCount == 0 ? 'Helpful' : '$voteCount',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: votedByMe ? Colors.white : _kTextSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 14),
                 GestureDetector(
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Replying to $authorName...'),
-                        duration: const Duration(seconds: 1),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
+                  key: ValueKey('reply-$commentId'),
+                  onTap: onReply,
                   child: const Text(
                     'Reply',
                     style: TextStyle(
@@ -1304,12 +1723,32 @@ class _DiscussionItem extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (reportCount != null && reportCount! > 0) ...[
+                  const SizedBox(width: 12),
+                  Row(
+                    key: ValueKey('reports-$commentId'),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.flag, size: 12, color: _kTextSecondary),
+                      const SizedBox(width: 3),
+                      Text(
+                        AppStrings.reportedTimes(reportCount!),
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: _kTextSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const Spacer(),
                 PopupMenuButton<String>(
+                  key: ValueKey('comment-menu-$commentId'),
                   tooltip: 'Comment actions',
                   padding: EdgeInsets.zero,
                   icon: const Icon(
-                    Icons.more_horiz,
+                    PhosphorIconsRegular.dotsThree,
                     size: 16,
                     color: _kTextTertiary,
                   ),
@@ -1319,79 +1758,56 @@ class _DiscussionItem extends StatelessWidget {
                   ),
                   color: _kSurface,
                   elevation: 3,
-                  onSelected: (val) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          val == 'copy'
-                              ? 'Comment copied to clipboard'
-                              : 'Feedback logged securely',
-                        ),
-                        duration: const Duration(seconds: 1),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
+                  onSelected: (val) async {
+                    switch (val) {
+                      case 'copy':
+                        await Clipboard.setData(ClipboardData(text: content));
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Comment copied to clipboard'),
+                            duration: Duration(seconds: 1),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      case 'report':
+                        onReport?.call();
+                      case 'remove':
+                        onRemove?.call();
+                      case 'best':
+                        onMarkBest?.call();
+                      case 'edit':
+                        onEdit?.call();
+                    }
                   },
-                  itemBuilder: (ctx) => const [
-                    PopupMenuItem(
-                      value: 'copy',
-                      height: 34,
-                      child: Row(
-                        children: [
-                          Icon(Icons.copy, size: 14, color: _kTextSecondary),
-                          SizedBox(width: 8),
-                          Text(
-                            'Copy Text',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                        ],
+                  itemBuilder: (ctx) => [
+                    if (canMarkBest)
+                      _menuItem(
+                        'best',
+                        PhosphorIconsRegular.crown,
+                        isBest ? 'Unmark best answer' : 'Mark as best answer',
                       ),
-                    ),
-                    PopupMenuItem(
-                      value: 'tone',
-                      height: 34,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.auto_awesome,
-                            size: 14,
-                            color: _kTextSecondary,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Inspect Tone Stack',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                        ],
+                    if (canEdit)
+                      _menuItem(
+                        'edit',
+                        PhosphorIconsRegular.pencilSimple,
+                        'Edit',
                       ),
-                    ),
-                    PopupMenuItem(
-                      value: 'report',
-                      height: 34,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.flag_outlined,
-                            size: 14,
-                            color: _kTextSecondary,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Flag for Moderator',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                        ],
+                    _menuItem('copy', PhosphorIconsRegular.copy, 'Copy Text'),
+                    if (canReport)
+                      _menuItem(
+                        'report',
+                        reportedByMe ? Icons.flag : PhosphorIconsRegular.flag,
+                        reportedByMe
+                            ? AppStrings.withdrawReport
+                            : AppStrings.reportComment,
                       ),
-                    ),
+                    if (canRemove)
+                      _menuItem(
+                        'remove',
+                        PhosphorIconsRegular.trash,
+                        AppStrings.removeComment,
+                      ),
                   ],
                 ),
               ],

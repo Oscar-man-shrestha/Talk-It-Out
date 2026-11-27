@@ -4,6 +4,8 @@ import 'package:talk_it_out/core/api/dio_provider.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/models/user.dart';
 import 'package:talk_it_out/features/auth/auth_events.dart';
+import 'package:talk_it_out/features/auth/data/auth_session.dart';
+import 'package:talk_it_out/features/auth/saved_accounts.dart';
 
 class SessionNotifier extends AsyncNotifier<User?> {
   @override
@@ -21,12 +23,28 @@ class SessionNotifier extends AsyncNotifier<User?> {
     }
   }
 
-  Future<void> login({required String email, required String password}) async {
+  /// With [keepSession] false no refresh token is requested, so the
+  /// session ends when the access token expires.
+  Future<void> login({
+    required String email,
+    required String password,
+    bool keepSession = true,
+  }) async {
     final session = await ref
         .read(authRepositoryProvider)
         .login(email: email, password: password);
-    await ref.read(tokenStoreProvider).write(session.token);
-    state = AsyncData(session.user);
+    await _storeSession(session, keepSession: keepSession);
+  }
+
+  /// Signs in with a Google ID token; same session rules as [login].
+  Future<void> loginWithGoogle({
+    required String idToken,
+    bool keepSession = true,
+  }) async {
+    final session = await ref
+        .read(authRepositoryProvider)
+        .signInWithGoogle(idToken: idToken);
+    await _storeSession(session, keepSession: keepSession, google: true);
   }
 
   Future<void> register({
@@ -37,8 +55,78 @@ class SessionNotifier extends AsyncNotifier<User?> {
     final session = await ref
         .read(authRepositoryProvider)
         .register(name: name, email: email, password: password);
-    await ref.read(tokenStoreProvider).write(session.token);
+    // A brand-new account sees the welcome tour once (`/welcome`).
+    ref.read(justRegisteredProvider.notifier).mark(true);
+    await _storeSession(session);
+  }
+
+  /// Keeps the signed-in user's display name in step with a profile edit.
+  void renamed(String name) {
+    final user = state.value;
+    if (user == null || user.name == name) return;
+    state = AsyncData(user.copyWith(name: name));
+  }
+
+  Future<void> _storeSession(
+    AuthSession session, {
+    bool keepSession = true,
+    bool google = false,
+  }) async {
+    final tokens = ref.read(tokenStoreProvider);
+    await tokens.clear();
+    await tokens.write(session.token);
+    if (keepSession) {
+      final refresh = await ref
+          .read(authRepositoryProvider)
+          .issueRefreshToken();
+      if (refresh != null) await tokens.writeRefresh(refresh);
+    }
+    // Offered as "Continue as..." after signing out (name and email only).
+    ref
+        .read(savedAccountsProvider.notifier)
+        .remember(session.user, google: google);
     state = AsyncData(session.user);
+  }
+
+  /// Deletes the account on the server, then clears the local session.
+  /// Throws [RepositoryException] (for example a wrong password) and keeps
+  /// the user signed in when the server refuses.
+  Future<void> deleteAccount({required String password}) async {
+    await ref.read(authRepositoryProvider).deleteAccount(password: password);
+    final email = state.value?.email;
+    if (email != null) ref.read(savedAccountsProvider.notifier).forget(email);
+    await ref.read(tokenStoreProvider).clear();
+    state = const AsyncData(null);
+  }
+
+  /// Changes the password; the server ends every other session. This
+  /// device keeps going with the returned token, and gets a new refresh
+  /// token only if it had one (so "Keep active session" is respected).
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final repo = ref.read(authRepositoryProvider);
+    final token = await repo.changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+    final tokens = ref.read(tokenStoreProvider);
+    final hadRefresh = (await tokens.readRefresh()) != null;
+    await tokens.clear();
+    await tokens.write(token);
+    if (hadRefresh) {
+      final refresh = await repo.issueRefreshToken();
+      if (refresh != null) await tokens.writeRefresh(refresh);
+    }
+  }
+
+  /// Ends every session on every device, then signs out here. Throws, and
+  /// keeps this session, when the server cannot be reached.
+  Future<void> logoutAll() async {
+    await ref.read(authRepositoryProvider).logoutAll();
+    await ref.read(tokenStoreProvider).clear();
+    state = const AsyncData(null);
   }
 
   Future<void> logout() async {
@@ -54,4 +142,17 @@ class SessionNotifier extends AsyncNotifier<User?> {
 
 final sessionProvider = AsyncNotifierProvider<SessionNotifier, User?>(
   SessionNotifier.new,
+);
+
+/// True between creating an account and finishing (or skipping) the
+/// welcome tour. Kept in memory: people who sign in again never see it.
+class JustRegisteredNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void mark(bool value) => state = value;
+}
+
+final justRegisteredProvider = NotifierProvider<JustRegisteredNotifier, bool>(
+  JustRegisteredNotifier.new,
 );

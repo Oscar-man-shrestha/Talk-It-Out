@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,17 +12,20 @@ import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/review/data/raw_message.dart';
 import 'package:talk_it_out/features/review/review_providers.dart';
+import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/features/groups/chat_image.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
+import 'package:talk_it_out/features/review/moderation_notes.dart';
 
 // Stitch Monochrome Precision Tokens
-const _kPrimary = Color(0xFF000000);
-const _kSurface = Color(0xFFFFFFFF);
-const _kSurfaceMuted = Color(0xFFF4F4F5);
-const _kSurfaceSubtle = Color(0xFFFAFAFA);
-const _kBorderSubtle = Color(0xFFE4E4E7);
-const _kBorderStrong = Color(0xFF27272A);
-const _kBorderHairline = Color(0xFFF4F4F5);
-const _kTextPrimary = Color(0xFF09090B);
-const _kTextSecondary = Color(0xFF71717A);
+const _kPrimary = Brand.accent;
+const _kSurface = Brand.card;
+const _kSurfaceMuted = Brand.muted;
+const _kSurfaceSubtle = Brand.canvas;
+const _kBorderSubtle = Brand.border;
+const _kBorderStrong = Brand.borderStrong;
+const _kTextPrimary = Brand.ink;
+const _kTextSecondary = Brand.inkSoft;
 const _kError = Color(0xFFBA1A1A);
 
 class ReviewDetailScreen extends ConsumerStatefulWidget {
@@ -46,13 +48,19 @@ class _ReviewDetailScreenState extends ConsumerState<ReviewDetailScreen> {
   var _diffActive = false;
   String? _error;
 
+  /// When this screen last asked for a new rewrite. The message's own
+  /// time is when it was sent, which can be days before a retry.
+  DateTime? _rewriteRequestedAt;
+
   ReviewKey get _key => (groupId: widget.groupId, messageId: widget.messageId);
 
   @override
   void initState() {
     super.initState();
+    // Only refetches while the rewrite is still on its way (a warm model
+    // answers in about 2 s), so a finished rewrite shows up quickly.
     _timer = Timer.periodic(
-      const Duration(seconds: 4),
+      const Duration(seconds: 2),
       (_) => _refreshPipeline(),
     );
   }
@@ -72,6 +80,34 @@ class _ReviewDetailScreenState extends ConsumerState<ReviewDetailScreen> {
     if (waiting) ref.invalidate(reviewDetailProvider(_key));
   }
 
+  bool _rewriting(RawMessage message) =>
+      message.pipelineStatus == PipelineStatus.queued ||
+      message.pipelineStatus == PipelineStatus.processing;
+
+  Future<void> _requestRewrite() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref.read(reviewRepositoryProvider).requestRewrite(widget.messageId);
+      _rewriteRequestedAt = DateTime.now().toUtc();
+      ref.invalidate(reviewDetailProvider(_key));
+      ref.invalidate(reviewQueueProvider(widget.groupId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.rewriteRequested)),
+        );
+      }
+    } on RepositoryException catch (error) {
+      setState(() => _error = error.message);
+    } catch (_) {
+      setState(() => _error = AppStrings.errorGeneric);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _decide({required bool accept}) async {
     setState(() {
       _busy = true;
@@ -85,6 +121,9 @@ class _ReviewDetailScreenState extends ConsumerState<ReviewDetailScreen> {
         await repo.reject(widget.messageId);
       }
       ref.invalidate(reviewQueueProvider(widget.groupId));
+      ref.invalidate(reviewCountsProvider(widget.groupId));
+      ref.invalidate(reviewHistoryProvider);
+      ref.invalidate(reviewDetailProvider(_key));
       ref.invalidate(groupMessagesProvider(widget.groupId));
       ref.invalidate(myMessagesProvider(widget.groupId));
       ref.invalidate(groupsProvider);
@@ -107,7 +146,15 @@ class _ReviewDetailScreenState extends ConsumerState<ReviewDetailScreen> {
 
     return Scaffold(
       backgroundColor: _kSurface,
-      appBar: const _ReviewDetailAppBar(),
+      appBar: _ReviewDetailAppBar(
+        onNewRewrite:
+            message == null ||
+                _busy ||
+                _rewriting(message) ||
+                message.status != MessageStatus.pending
+            ? null
+            : _requestRewrite,
+      ),
       body: AsyncBody(
         status: asyncStatus(detail, isEmpty: false),
         errorMessage: errorText(detail.error),
@@ -124,6 +171,8 @@ class _ReviewDetailScreenState extends ConsumerState<ReviewDetailScreen> {
                 onToggleDiff: () => setState(() => _diffActive = !_diffActive),
                 onAccept: () => _decide(accept: true),
                 onReject: () => _decide(accept: false),
+                onNewRewrite: _requestRewrite,
+                rewriteRequestedAt: _rewriteRequestedAt,
               ),
       ),
     );
@@ -132,7 +181,10 @@ class _ReviewDetailScreenState extends ConsumerState<ReviewDetailScreen> {
 
 class _ReviewDetailAppBar extends StatelessWidget
     implements PreferredSizeWidget {
-  const _ReviewDetailAppBar();
+  const _ReviewDetailAppBar({this.onNewRewrite});
+
+  /// Null while a rewrite is already being prepared or a decision is busy.
+  final VoidCallback? onNewRewrite;
 
   @override
   Size get preferredSize => const Size.fromHeight(56);
@@ -147,8 +199,8 @@ class _ReviewDetailAppBar extends StatelessWidget
     return Container(
       height: 56,
       decoration: const BoxDecoration(
-        color: _kSurface,
-        border: Border(bottom: BorderSide(color: _kBorderSubtle)),
+        color: Color(0xFF0A0A0A),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
       ),
       child: SafeArea(
         bottom: false,
@@ -158,9 +210,9 @@ class _ReviewDetailAppBar extends StatelessWidget
             children: [
               IconButton(
                 icon: const Icon(
-                  Icons.arrow_back,
+                  PhosphorIconsRegular.arrowLeft,
                   size: 22,
-                  color: _kTextPrimary,
+                  color: Colors.white,
                 ),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
@@ -172,14 +224,14 @@ class _ReviewDetailAppBar extends StatelessWidget
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Center(
                   child: Text(
                     'T',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Brand.ink,
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                     ),
@@ -197,7 +249,7 @@ class _ReviewDetailAppBar extends StatelessWidget
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.1,
-                      color: _kTextSecondary,
+                      color: Colors.white70,
                     ),
                   ),
                   Text(
@@ -206,35 +258,50 @@ class _ReviewDetailAppBar extends StatelessWidget
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.015,
-                      color: _kTextPrimary,
+                      color: Colors.white,
                     ),
                   ),
                 ],
               ),
               const Spacer(),
-              IconButton(
+              PopupMenuButton<String>(
+                key: const ValueKey('review-menu'),
+                tooltip: 'More',
                 icon: const Icon(
-                  Icons.more_vert,
+                  PhosphorIconsRegular.dotsThreeVertical,
                   size: 20,
-                  color: _kTextSecondary,
+                  color: Colors.white70,
                 ),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                onPressed: () {},
+                onSelected: (_) => onNewRewrite?.call(),
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'rewrite',
+                    enabled: onNewRewrite != null,
+                    child: const Row(
+                      children: [
+                        Icon(Icons.cached, size: 18),
+                        SizedBox(width: 10),
+                        Text(AppStrings.newRewrite),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(width: 4),
               Container(
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: _kSurfaceSubtle,
+                  color: const Color(0x1AFFFFFF),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _kBorderSubtle),
+                  border: Border.all(color: const Color(0x33FFFFFF)),
                 ),
                 child: const Icon(
-                  Icons.person_outline,
+                  PhosphorIconsRegular.user,
                   size: 18,
-                  color: _kTextPrimary,
+                  color: Colors.white,
                 ),
               ),
             ],
@@ -254,7 +321,9 @@ class ReviewDetailBody extends StatelessWidget {
     required this.onToggleDiff,
     required this.onAccept,
     required this.onReject,
+    this.onNewRewrite,
     this.error,
+    this.rewriteRequestedAt,
     super.key,
   });
 
@@ -265,7 +334,13 @@ class ReviewDetailBody extends StatelessWidget {
   final VoidCallback onToggleDiff;
   final VoidCallback onAccept;
   final VoidCallback onReject;
+
+  /// Asks the AI for a new rewrite (`API.md` 43).
+  final VoidCallback? onNewRewrite;
   final String? error;
+
+  /// When a new rewrite was last asked for on this screen, if ever.
+  final DateTime? rewriteRequestedAt;
 
   @override
   Widget build(BuildContext context) {
@@ -296,16 +371,32 @@ class ReviewDetailBody extends StatelessWidget {
               _SectionToggleBar(diffActive: diffActive, onToggle: onToggleDiff),
               const SizedBox(height: 12),
 
+              if (message.moderationFlags.isNotEmpty) ...[
+                ModerationFlagChips(message: message),
+                const SizedBox(height: 10),
+              ],
               // 4. Card 1: Original Contributor Draft
               _OriginalDraftCard(message: message),
+              if (message.rewrittenText == null &&
+                  message.rewriteUnavailable) ...[
+                const SizedBox(height: 10),
+                RewriteReasonNote(message: message),
+              ],
+              if (message.attachmentId != null) ...[
+                const SizedBox(height: 12),
+                _AttachedImageCard(message: message),
+              ],
               const SizedBox(height: 16),
 
-              // 5. Card 2: AI Structured Proposal
-              _AiProposalCard(message: message, diffActive: diffActive),
+              // 5. Card 2: the AI rewrite
+              _AiProposalCard(
+                message: message,
+                diffActive: diffActive,
+                busy: busy,
+                onNewRewrite: onNewRewrite,
+                rewriteRequestedAt: rewriteRequestedAt,
+              ),
               const SizedBox(height: 16),
-
-              // 6. Consensus Impact Projection
-              const _ConsensusImpactCard(),
 
               if (error != null) ...[
                 const SizedBox(height: 16),
@@ -320,12 +411,16 @@ class ReviewDetailBody extends StatelessWidget {
           left: 0,
           right: 0,
           bottom: 0,
-          child: _FixedActionDock(
-            hPad: hPad,
-            busy: busy,
-            onAccept: onAccept,
-            onReject: onReject,
-          ),
+          child: message.status == MessageStatus.pending
+              ? _FixedActionDock(
+                  hPad: hPad,
+                  busy: busy,
+                  // Publishing needs a finished rewrite.
+                  canPublish: _rewriteReady(message),
+                  onAccept: onAccept,
+                  onReject: onReject,
+                )
+              : _DecidedDock(hPad: hPad),
         ),
       ],
     );
@@ -366,7 +461,6 @@ class _SubmissionHeader extends StatelessWidget {
                 Text(
                   'REVIEW SUBMISSION #$subId',
                   style: const TextStyle(
-                    fontFamily: 'monospace',
                     fontSize: 11,
                     letterSpacing: 0.12,
                     fontWeight: FontWeight.w600,
@@ -444,20 +538,16 @@ class _MetadataCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final senderLabel = message.isAnonymous
-        ? 'Submitted Anonymously'
-        : message.senderName;
-    final peerNode = message.senderId.length > 3
-        ? message.senderId
-              .substring(0, min(4, message.senderId.length))
-              .toUpperCase()
-        : 'NODE';
+    // Controllers see the sender even when the message is anonymous.
+    final senderLabel = message.senderName;
 
-    final score = message.relevanceScore ?? 0.94;
-    final scorePercent = (score * 100).round();
+    final score = message.relevanceScore;
     final relevance = message.relevanceLabel != null
         ? relevanceText(message.relevanceLabel!)
-        : 'Relevant';
+        : 'Not scored yet';
+    final scoreText = score == null
+        ? relevance
+        : '$relevance (${(score * 100).round()}% score)';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -480,7 +570,7 @@ class _MetadataCard extends StatelessWidget {
             child: Icon(
               message.isAnonymous
                   ? Icons.visibility_off_outlined
-                  : Icons.person_outline,
+                  : PhosphorIconsRegular.user,
               size: 18,
               color: _kTextSecondary,
             ),
@@ -505,7 +595,7 @@ class _MetadataCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 5),
                     const Icon(
-                      Icons.verified_user,
+                      PhosphorIconsFill.shieldCheck,
                       size: 14,
                       color: _kTextSecondary,
                     ),
@@ -513,7 +603,7 @@ class _MetadataCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Received ${formatWhen(message.createdAt)} • Peer Node #$peerNode',
+                  'Received ${formatWhen(message.createdAt)}',
                   style: const TextStyle(fontSize: 12, color: _kTextSecondary),
                 ),
               ],
@@ -530,10 +620,18 @@ class _MetadataCard extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.check_circle, size: 14, color: _kTextPrimary),
+                Icon(
+                  message.relevanceLabel == null
+                      ? Icons.hourglass_empty
+                      : PhosphorIconsFill.checkCircle,
+                  size: 14,
+                  color: message.relevanceLabel == null
+                      ? _kTextSecondary
+                      : _kTextPrimary,
+                ),
                 const SizedBox(width: 4),
                 Text(
-                  '$relevance ($scorePercent% score)',
+                  scoreText,
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -563,9 +661,8 @@ class _SectionToggleBar extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         const Text(
-          'COMPARATIVE TONE STACKS',
+          'ORIGINAL AND REWRITE',
           style: TextStyle(
-            fontFamily: 'monospace',
             fontSize: 12,
             letterSpacing: 0.08,
             fontWeight: FontWeight.w600,
@@ -580,10 +677,14 @@ class _SectionToggleBar extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.tune, size: 14, color: _kTextPrimary),
+                const Icon(
+                  PhosphorIconsRegular.slidersHorizontal,
+                  size: 14,
+                  color: _kTextPrimary,
+                ),
                 const SizedBox(width: 5),
                 Text(
-                  diffActive ? 'Reset View' : 'Focus Differences',
+                  diffActive ? 'Hide changes' : 'Show changes',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -613,8 +714,7 @@ class _OriginalDraftCard extends StatelessWidget {
         .split(RegExp(r'\s+'))
         .where((s) => s.isNotEmpty)
         .length;
-    final intentScore = message.intentPreservationScore ?? 0.89;
-    final clarity = (intentScore * 100).round();
+    final intentScore = message.intentPreservationScore;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -631,12 +731,15 @@ class _OriginalDraftCard extends StatelessWidget {
             children: [
               Row(
                 children: const [
-                  Icon(Icons.edit_note, size: 17, color: _kTextSecondary),
+                  Icon(
+                    PhosphorIconsRegular.notePencil,
+                    size: 17,
+                    color: _kTextSecondary,
+                  ),
                   SizedBox(width: 6),
                   Text(
-                    'ORIGINAL CONTRIBUTOR DRAFT',
+                    'ORIGINAL MESSAGE',
                     style: TextStyle(
-                      fontFamily: 'monospace',
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.08,
@@ -654,11 +757,7 @@ class _OriginalDraftCard extends StatelessWidget {
                 ),
                 child: Text(
                   '$words words',
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    color: _kTextSecondary,
-                  ),
+                  style: const TextStyle(fontSize: 11, color: _kTextSecondary),
                 ),
               ),
             ],
@@ -695,23 +794,27 @@ class _OriginalDraftCard extends StatelessWidget {
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.info_outline, size: 13, color: _kTextSecondary),
-                    SizedBox(width: 5),
+                  children: [
+                    const Icon(
+                      PhosphorIconsRegular.info,
+                      size: 13,
+                      color: _kTextSecondary,
+                    ),
+                    const SizedBox(width: 5),
                     Text(
-                      'Informal / Emotional tone detected',
+                      message.isAnonymous
+                          ? AppStrings.anonymousFlag
+                          : 'Sent with name',
                       style: TextStyle(fontSize: 11, color: _kTextSecondary),
                     ),
                   ],
                 ),
               ),
               Text(
-                'Intent clarity: $clarity%',
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                  color: _kTextSecondary,
-                ),
+                intentScore == null
+                    ? 'Meaning kept: not scored yet'
+                    : 'Meaning kept: ${(intentScore * 100).round()}%',
+                style: const TextStyle(fontSize: 11, color: _kTextSecondary),
               ),
             ],
           ),
@@ -721,166 +824,223 @@ class _OriginalDraftCard extends StatelessWidget {
   }
 }
 
-// ─── 5. Card 2: AI Structured Proposal ───────────────────────────────────────
+// ─── 5. Card 2: the AI rewrite ───────────────────────────────────────────────
 
 class _AiProposalCard extends StatelessWidget {
-  const _AiProposalCard({required this.message, required this.diffActive});
+  const _AiProposalCard({
+    required this.message,
+    required this.diffActive,
+    required this.busy,
+    this.onNewRewrite,
+    this.rewriteRequestedAt,
+  });
 
   final RawMessage message;
   final bool diffActive;
+  final bool busy;
+  final VoidCallback? onNewRewrite;
+  final DateTime? rewriteRequestedAt;
 
-  String get _rewriteText {
-    if (message.rewriteUnavailable) return AppStrings.rewriteUnavailable;
-    if (message.pipelineStatus == PipelineStatus.queued) {
-      return AppStrings.pipelineQueued;
-    }
-    if (message.pipelineStatus == PipelineStatus.processing) {
-      return AppStrings.pipelineProcessing;
-    }
-    return message.rewrittenText ?? AppStrings.rewriteUnavailable;
+  bool get _waiting =>
+      message.pipelineStatus == PipelineStatus.queued ||
+      message.pipelineStatus == PipelineStatus.processing;
+
+  /// Still waiting after this long means something is slow (a busy or
+  /// cold model); offer to try again. Counted from the later of when the
+  /// message was sent and when a new rewrite was asked for, so an old
+  /// message is not called slow the moment it is retried.
+  bool get _slow {
+    if (!_waiting) return false;
+    final sent = message.createdAt.toUtc();
+    final retried = rewriteRequestedAt?.toUtc();
+    final since = retried != null && retried.isAfter(sent) ? retried : sent;
+    return DateTime.now().toUtc().difference(since) >
+        const Duration(minutes: 2);
   }
+
+  String get _rewriteText => message.rewrittenText?.trim() ?? '';
 
   @override
   Widget build(BuildContext context) {
+    final ready = _rewriteReady(message);
+    final (badge, badgeDark) = ready
+        ? ('READY', true)
+        : _waiting
+        ? ('REWRITING', false)
+        : ('NOT AVAILABLE', false);
     return Container(
+      key: const ValueKey('rewrite-card'),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: _kSurface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kPrimary, width: 2),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: ready ? _kPrimary : _kBorderSubtle,
+          width: ready ? 2 : 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: const [
-                  Icon(Icons.auto_awesome, size: 18, color: _kPrimary),
-                  SizedBox(width: 6),
-                  Text(
-                    'AI Structured Proposal',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.01,
-                      color: _kTextPrimary,
-                    ),
+              const Icon(
+                PhosphorIconsRegular.sparkle,
+                size: 18,
+                color: _kPrimary,
+              ),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  'AI rewrite',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: _kTextPrimary,
                   ),
-                ],
+                ),
               ),
               Container(
+                key: ValueKey('rewrite-badge-$badge'),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _kPrimary,
+                  color: badgeDark ? _kPrimary : _kSurfaceSubtle,
                   borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: badgeDark ? _kPrimary : _kBorderSubtle,
+                  ),
                 ),
-                child: const Text(
-                  'DISCUSSION READY',
+                child: Text(
+                  badge,
                   style: TextStyle(
-                    fontFamily: 'monospace',
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 0.08,
-                    color: Colors.white,
+                    letterSpacing: 0.4,
+                    color: badgeDark ? Colors.white : _kTextSecondary,
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: _kSurfaceSubtle,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: _kBorderSubtle),
-            ),
-            child: diffActive
-                ? _buildHighlightedProposal(_rewriteText)
-                : Text(
-                    _rewriteText,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      height: 1.5,
-                      fontWeight: FontWeight.w400,
-                      color: _kTextPrimary,
-                    ),
-                  ),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.only(top: 10),
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: _kBorderHairline)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: const [
-                    Icon(Icons.insights, size: 15, color: _kTextSecondary),
-                    SizedBox(width: 5),
-                    Text(
-                      'SYNTHESIS RATIONALE',
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.1,
-                        color: _kTextSecondary,
+          if (ready)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _kSurfaceSubtle,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _kBorderSubtle),
+              ),
+              child: diffActive
+                  ? _buildHighlightedProposal(_rewriteText)
+                  : Text(
+                      _rewriteText,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        height: 1.5,
+                        color: _kTextPrimary,
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: const [
-                    _RationalePill(text: 'Preserved core intent'),
-                    _RationalePill(text: 'Elevated professional tone'),
-                    _RationalePill(text: 'Added actionable remedy'),
-                  ],
+            )
+          else if (_waiting)
+            _StatusPanel(
+              key: const ValueKey('rewrite-waiting'),
+              icon: null,
+              title: _slow
+                  ? 'This is taking longer than usual'
+                  : 'The AI is rewriting this message',
+              body: _slow
+                  ? 'The rewrite service may be busy. You can wait, ask for a new rewrite, or reject the message.'
+                  : 'This usually takes a few seconds. This page updates by itself.',
+              action: _slow ? 'Try a new rewrite' : null,
+              onAction: busy ? null : onNewRewrite,
+            )
+          else
+            _StatusPanel(
+              key: const ValueKey('rewrite-failed'),
+              icon: PhosphorIconsRegular.warningCircle,
+              title: 'The AI could not rewrite this message',
+              body: 'Ask for a new rewrite, or reject the message. Only a rewrite can be published, so the original wording never reaches the group.',
+              action: 'Try a new rewrite',
+              onAction: busy ? null : onNewRewrite,
+            ),
+          if (ready) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                if (message.intentPreservationScore != null)
+                  _RationalePill(
+                    text:
+                        'Meaning kept: ${(message.intentPreservationScore! * 100).round()}%',
+                  ),
+                if (message.relevanceLabel != null)
+                  _RationalePill(text: relevanceText(message.relevanceLabel!)),
+                _RationalePill(
+                  text: _changedLabel(_changedWords(_rewriteText)),
                 ),
               ],
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 
+  static String _changedLabel(int n) => switch (n) {
+    0 => 'Wording kept',
+    1 => '1 word changed',
+    _ => '$n words changed',
+  };
+
+  static final _word = RegExp(r"[A-Za-z0-9']+");
+
+  Set<String> get _originalWords => _word
+      .allMatches(message.originalText.toLowerCase())
+      .map((m) => m[0]!)
+      .toSet();
+
+  int _changedWords(String text) {
+    final original = _originalWords;
+    return _word
+        .allMatches(text.toLowerCase())
+        .where((m) => !original.contains(m[0]))
+        .length;
+  }
+
+  /// Highlights the words in the rewrite that are not in the original.
   Widget _buildHighlightedProposal(String text) {
-    // Provide an illustrative breakdown highlighting constructive transforms
+    final original = _originalWords;
+    final spans = <TextSpan>[];
+    var last = 0;
+    for (final match in _word.allMatches(text)) {
+      if (match.start > last) {
+        spans.add(TextSpan(text: text.substring(last, match.start)));
+      }
+      final changed = !original.contains(match[0]!.toLowerCase());
+      spans.add(
+        TextSpan(
+          text: match[0],
+          style: changed
+              ? const TextStyle(
+                  backgroundColor: _kSurfaceMuted,
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.underline,
+                  decorationThickness: 1.5,
+                  decorationColor: _kPrimary,
+                )
+              : null,
+        ),
+      );
+      last = match.end;
+    }
+    if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
     return Text.rich(
       TextSpan(
         style: const TextStyle(fontSize: 15, height: 1.5, color: _kTextPrimary),
-        children: [
-          TextSpan(text: text.length > 30 ? text.substring(0, 30) : text),
-          if (text.length > 30) ...[
-            TextSpan(
-              text: text.substring(30, min(80, text.length)),
-              style: const TextStyle(
-                backgroundColor: _kSurfaceMuted,
-                fontWeight: FontWeight.w600,
-                decoration: TextDecoration.underline,
-                decorationThickness: 1.5,
-                decorationColor: _kPrimary,
-              ),
-            ),
-            if (text.length > 80) TextSpan(text: text.substring(80)),
-          ],
-        ],
+        children: spans,
       ),
     );
   }
@@ -903,7 +1063,11 @@ class _RationalePill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.check, size: 13, color: _kTextPrimary),
+          const Icon(
+            PhosphorIconsRegular.check,
+            size: 13,
+            color: _kTextPrimary,
+          ),
           const SizedBox(width: 5),
           Text(
             text,
@@ -919,70 +1083,64 @@ class _RationalePill extends StatelessWidget {
   }
 }
 
-// ─── 6. Consensus Impact Projection ──────────────────────────────────────────
+// ─── 7. Fixed Bottom Action Dock ─────────────────────────────────────────────
 
-class _ConsensusImpactCard extends StatelessWidget {
-  const _ConsensusImpactCard();
+/// Shown instead of Accept / Reject once a message is decided.
+class _DecidedDock extends StatelessWidget {
+  const _DecidedDock({required this.hPad});
+
+  final double hPad;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
+      key: const ValueKey('decided-dock'),
+      padding: EdgeInsets.fromLTRB(hPad, 14, hPad, 18),
+      decoration: const BoxDecoration(
         color: _kSurface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kBorderSubtle),
+        border: Border(top: BorderSide(color: _kBorderSubtle)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: const [
-              Icon(Icons.psychology_outlined, size: 20, color: _kTextPrimary),
-              SizedBox(width: 8),
-              Text(
-                'Consensus Impact Projection',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: _kTextPrimary,
-                ),
+      child: const SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Icon(
+              PhosphorIconsRegular.lockSimple,
+              size: 16,
+              color: _kTextSecondary,
+            ),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                AppStrings.reviewDecidedNote,
+                style: TextStyle(fontSize: 12, color: _kTextSecondary),
               ),
-            ],
-          ),
-          Row(
-            children: const [
-              Text(
-                '+42% Acceptance',
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: _kTextPrimary,
-                ),
-              ),
-              SizedBox(width: 4),
-              Icon(Icons.trending_up, size: 16, color: _kTextSecondary),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ─── 7. Fixed Bottom Action Dock ─────────────────────────────────────────────
+/// A rewrite the controller can publish.
+bool _rewriteReady(RawMessage m) =>
+    !m.rewriteUnavailable &&
+    m.pipelineStatus == PipelineStatus.done &&
+    (m.rewrittenText?.trim().isNotEmpty ?? false);
 
 class _FixedActionDock extends StatelessWidget {
   const _FixedActionDock({
     required this.hPad,
     required this.busy,
+    required this.canPublish,
     required this.onAccept,
     required this.onReject,
   });
 
   final double hPad;
   final bool busy;
+  final bool canPublish;
   final VoidCallback onAccept;
   final VoidCallback onReject;
 
@@ -1029,10 +1187,10 @@ class _FixedActionDock extends StatelessWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: const [
-                            Icon(Icons.close, size: 18),
+                            Icon(PhosphorIconsRegular.x, size: 18),
                             SizedBox(width: 8),
                             Text(
-                              'Reject Raw',
+                              'Reject',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
@@ -1050,7 +1208,7 @@ class _FixedActionDock extends StatelessWidget {
                     child: SizedBox(
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: busy ? null : onAccept,
+                        onPressed: busy || !canPublish ? null : onAccept,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _kPrimary,
                           foregroundColor: Colors.white,
@@ -1074,7 +1232,7 @@ class _FixedActionDock extends StatelessWidget {
                                   Icon(Icons.task_alt, size: 18),
                                   SizedBox(width: 8),
                                   Text(
-                                    'Publish Rewrite',
+                                    'Publish rewrite',
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w700,
@@ -1083,75 +1241,6 @@ class _FixedActionDock extends StatelessWidget {
                                 ],
                               ),
                       ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  InkWell(
-                    onTap: () {},
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.refresh, size: 14, color: _kTextSecondary),
-                        SizedBox(width: 4),
-                        Text(
-                          'Request Re-run',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: _kTextSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Text(
-                    '•',
-                    style: TextStyle(color: _kBorderStrong, fontSize: 11),
-                  ),
-                  InkWell(
-                    onTap: () {},
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.tune, size: 14, color: _kTextSecondary),
-                        SizedBox(width: 4),
-                        Text(
-                          'Adjust Tone Preset',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: _kTextSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Text(
-                    '•',
-                    style: TextStyle(color: _kBorderStrong, fontSize: 11),
-                  ),
-                  InkWell(
-                    onTap: () {},
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(
-                          Icons.edit_outlined,
-                          size: 14,
-                          color: _kTextSecondary,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          'Manual Polish',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: _kTextSecondary,
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 ],
@@ -1180,12 +1269,150 @@ class _ErrorBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, size: 16, color: _kError),
+          const Icon(
+            PhosphorIconsRegular.warningCircle,
+            size: 16,
+            color: _kError,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               error,
               style: const TextStyle(fontSize: 13, color: _kError),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The photo sent with the message. Published with the rewrite on accept,
+/// deleted on reject. Hidden photo details were removed on upload.
+class _AttachedImageCard extends StatelessWidget {
+  const _AttachedImageCard({required this.message});
+
+  final RawMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('review-image'),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Brand.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Brand.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(PhosphorIconsRegular.image, size: 16, color: Brand.inkSoft),
+              SizedBox(width: 6),
+              Text(
+                'ATTACHED PHOTO',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6,
+                  color: Brand.inkSoft,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Published with the rewrite if you accept. Check it does not '
+            'show who sent it.',
+            style: TextStyle(fontSize: 11.5, color: Brand.inkSoft),
+          ),
+          const SizedBox(height: 10),
+          ChatImage(
+            groupId: message.groupId,
+            attachmentId: message.attachmentId!,
+            maxHeight: 320,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Explains a rewrite that is not ready yet, with an optional action.
+class _StatusPanel extends StatelessWidget {
+  const _StatusPanel({
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.action,
+    this.onAction,
+    super.key,
+  });
+
+  /// Null shows a progress spinner.
+  final IconData? icon;
+  final String title;
+  final String body;
+  final String? action;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _kSurfaceSubtle,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _kBorderSubtle),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: icon == null
+                ? const CircularProgressIndicator(strokeWidth: 2)
+                : Icon(icon, size: 20, color: _kTextPrimary),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: _kTextPrimary,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  body,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    height: 1.4,
+                    color: _kTextSecondary,
+                  ),
+                ),
+                if (action != null) ...[
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    key: const ValueKey('rewrite-retry'),
+                    onPressed: onAction,
+                    icon: const Icon(
+                      PhosphorIconsRegular.arrowClockwise,
+                      size: 16,
+                    ),
+                    label: Text(action!),
+                  ),
+                ],
+              ],
             ),
           ),
         ],

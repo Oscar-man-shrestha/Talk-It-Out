@@ -20,15 +20,19 @@ beforeEach(resetDb);
 afterAll(closePool);
 
 const RAW_MESSAGE_KEYS = [
+  'attachment_id',
   'created_at',
+  'decided_at',
   'group_id',
   'id',
   'intent_preservation_score',
   'is_anonymous',
+  'moderation_flags',
   'original_text',
   'pipeline_status',
   'relevance_label',
   'relevance_score',
+  'rewrite_error_code',
   'rewritten_text',
   'sender_id',
   'sender_name',
@@ -73,9 +77,14 @@ describe('client-model contract', () => {
       'agenda',
       'controller_id',
       'created_at',
+      'description',
       'id',
+      'member_count',
+      'muted',
       'my_role',
       'pending_count',
+      'pinned',
+      'rules',
       'source_post_id',
     ]);
     expectIso(detail.body.created_at);
@@ -95,9 +104,14 @@ describe('client-model contract', () => {
       'agenda',
       'controller_id',
       'created_at',
+      'description',
       'id',
+      'member_count',
+      'muted',
       'my_role',
       'pending_count',
+      'pinned',
+      'rules',
       'source_post_id',
     ]);
   });
@@ -122,10 +136,14 @@ describe('client-model contract', () => {
     expect(items).toHaveLength(2);
     for (const item of items) {
       expect(Object.keys(item).sort()).toEqual([
+        'attachment_id',
         'display_sender',
         'group_id',
         'id',
+        'pinned',
+        'poll',
         'published_at',
+        'reply_to',
         'text',
       ]);
       expectIso(item.published_at);
@@ -229,6 +247,7 @@ describe('client-model contract', () => {
       'created_at',
       'group',
       'id',
+      'post',
       'read_at',
       'ref_id',
       'type',

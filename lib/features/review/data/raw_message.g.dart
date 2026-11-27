@@ -34,6 +34,16 @@ _RawMessage _$RawMessageFromJson(Map<String, dynamic> json) => _RawMessage(
     unknownValue: MessageStatus.pending,
   ),
   createdAt: DateTime.parse(json['created_at'] as String),
+  decidedAt: json['decided_at'] == null
+      ? null
+      : DateTime.parse(json['decided_at'] as String),
+  attachmentId: json['attachment_id'] as String?,
+  rewriteErrorCode: json['rewrite_error_code'] as String?,
+  moderationFlags:
+      (json['moderation_flags'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
+      const <String>[],
 );
 
 Map<String, dynamic> _$RawMessageToJson(_RawMessage instance) =>
@@ -51,6 +61,10 @@ Map<String, dynamic> _$RawMessageToJson(_RawMessage instance) =>
       'pipeline_status': _$PipelineStatusEnumMap[instance.pipelineStatus]!,
       'status': _$MessageStatusEnumMap[instance.status]!,
       'created_at': instance.createdAt.toIso8601String(),
+      'decided_at': instance.decidedAt?.toIso8601String(),
+      'attachment_id': instance.attachmentId,
+      'rewrite_error_code': instance.rewriteErrorCode,
+      'moderation_flags': instance.moderationFlags,
     };
 
 const _$RelevanceLabelEnumMap = {

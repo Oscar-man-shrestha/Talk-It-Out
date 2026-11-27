@@ -30,4 +30,14 @@ void main() {
     );
     expect(repositoryExceptionFromDio(error).message, AppStrings.notFound);
   });
+
+  test('no response means the server cannot be reached', () {
+    final error = DioException(
+      requestOptions: RequestOptions(path: '/auth/password-reset'),
+      type: DioExceptionType.connectionError,
+    );
+    final mapped = repositoryExceptionFromDio(error);
+    expect(mapped.code, 'offline');
+    expect(mapped.message, AppStrings.serverUnreachable);
+  });
 }

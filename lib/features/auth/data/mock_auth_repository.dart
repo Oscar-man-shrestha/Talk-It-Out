@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/mock/mock_controls.dart';
 import 'package:talk_it_out/core/mock/mock_ids.dart';
@@ -6,21 +8,31 @@ import 'package:talk_it_out/core/models/user.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/features/auth/data/auth_repository.dart';
 import 'package:talk_it_out/features/auth/data/auth_session.dart';
+import 'package:talk_it_out/core/mock/mock_board.dart';
 
 class MockAuthRepository implements AuthRepository {
-  MockAuthRepository(this._controls);
+  MockAuthRepository(this._controls, [MockBoard? board])
+    : _board = board ?? MockBoard();
 
   /// Local mock only. Matches the sample in API.md. Not a real credential.
   static const mockPassword = 'secret123';
+  static const mockEmail = 'priya@example.com';
+
+  /// Mock only: every mock password reset accepts this code.
+  static const mockResetCode = '123456';
 
   final MockControls _controls;
+  final MockBoard _board;
   final Map<String, _Account> _accounts = {
-    'priya@example.com': const _Account(
-      user: User(id: MockIds.priya, name: 'Priya', email: 'priya@example.com'),
+    mockEmail: const _Account(
+      user: User(id: MockIds.priya, name: 'Priya', email: mockEmail),
       password: mockPassword,
     ),
   };
-  var _nextUser = 100;
+
+  /// The signed-in mock account. Defaults to the seeded user so a restored
+  /// mock token resolves the same way `GET /me` would.
+  String _currentEmail = mockEmail;
 
   @override
   Future<AuthSession> register({
@@ -43,10 +55,13 @@ class MockAuthRepository implements AuthRepository {
           message: AppStrings.emailInUse,
         );
       }
-      final id = 'u$_nextUser';
-      _nextUser += 1;
-      final user = User(id: id, name: cleanName, email: cleanEmail);
+      // The demo has one "you": a new account takes over the sample user's
+      // seat under its own name, so the sample groups and questions are
+      // there to try (there is no server to start an empty account on).
+      final user = User(id: MockIds.priya, name: cleanName, email: cleanEmail);
       _accounts[cleanEmail] = _Account(user: user, password: password);
+      _currentEmail = cleanEmail;
+      _board.meName = cleanName;
       return _session(user);
     });
   }
@@ -68,13 +83,164 @@ class MockAuthRepository implements AuthRepository {
           message: AppStrings.wrongLogin,
         );
       }
+      _currentEmail = cleanEmail;
+      _board.meName = account.user.name;
       return _session(account.user);
     });
   }
 
   @override
   Future<User> me() {
-    return runMock(_controls, () => _accounts['priya@example.com']!.user);
+    return runMock(_controls, () {
+      final user = _accounts[_currentEmail]!.user;
+      _board.meName = user.name;
+      return user;
+    });
+  }
+
+  /// Mock only: any Google sign-in becomes the seeded sample account.
+  @override
+  Future<AuthSession> signInWithGoogle({required String idToken}) {
+    return runMock(_controls, () {
+      if (idToken.isEmpty) {
+        throw const RepositoryException(
+          code: 'unauthorized',
+          message: AppStrings.googleFailed,
+        );
+      }
+      // The demo has no server to verify Google's token, so it only reads
+      // the name and email Google put in it, to show you as yourself. It
+      // grants nothing beyond this browser's own demo data.
+      final claims = _googleClaims(idToken);
+      if (claims == null) {
+        _currentEmail = mockEmail;
+        _board.meName = 'Priya';
+        return _session(_accounts[mockEmail]!.user);
+      }
+      final (name, email) = claims;
+      final account = _accounts.putIfAbsent(
+        email,
+        () => _Account(
+          user: User(id: MockIds.priya, name: name, email: email),
+          password: '',
+        ),
+      );
+      _currentEmail = email;
+      _board.meName = account.user.name;
+      return _session(account.user);
+    });
+  }
+
+  @override
+  Future<String?> issueRefreshToken() async => null;
+
+  @override
+  Future<void> deleteAccount({required String password}) {
+    return runMock(_controls, () {
+      final account = _accounts[_currentEmail];
+      if (account == null || account.password != password) {
+        throw const RepositoryException(
+          code: 'wrong_password',
+          message: AppStrings.wrongPassword,
+        );
+      }
+      _accounts.remove(_currentEmail);
+    });
+  }
+
+  @override
+  Future<String> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) {
+    return runMock(_controls, () {
+      final account = _accounts[_currentEmail];
+      if (account == null || account.password != currentPassword) {
+        throw const RepositoryException(
+          code: 'wrong_password',
+          message: AppStrings.wrongPassword,
+        );
+      }
+      if (newPassword.length < 8) {
+        throw const RepositoryException(
+          code: 'validation',
+          message: AppStrings.passwordTooShort,
+        );
+      }
+      _accounts[_currentEmail] = _Account(
+        user: account.user,
+        password: newPassword,
+      );
+      return 'mock-token-${account.user.id}';
+    });
+  }
+
+  @override
+  Future<void> logoutAll() => runMock(_controls, () {});
+
+  @override
+  Future<void> requestPasswordReset({required String email}) {
+    return runMock(_controls, () {
+      if (!email.contains('@')) {
+        throw const RepositoryException(
+          code: 'validation',
+          message: AppStrings.enterValidEmail,
+        );
+      }
+      if (!_accounts.containsKey(email.trim().toLowerCase())) {
+        throw const RepositoryException(
+          code: 'no_account',
+          message: AppStrings.resetNoAccount,
+        );
+      }
+    });
+  }
+
+  static const _mockResetToken = 'mock-reset-token';
+
+  @override
+  Future<String> verifyResetCode({
+    required String email,
+    required String code,
+  }) {
+    return runMock(_controls, () {
+      if (!_accounts.containsKey(email.trim().toLowerCase()) ||
+          code.trim() != mockResetCode) {
+        throw const RepositoryException(
+          code: 'invalid_code',
+          message: AppStrings.resetCodeInvalid,
+        );
+      }
+      return _mockResetToken;
+    });
+  }
+
+  @override
+  Future<void> confirmPasswordReset({
+    required String email,
+    required String resetToken,
+    required String newPassword,
+  }) {
+    return runMock(_controls, () {
+      final cleanEmail = email.trim().toLowerCase();
+      final account = _accounts[cleanEmail];
+      if (account == null || resetToken != _mockResetToken) {
+        throw const RepositoryException(
+          code: 'invalid_code',
+          message: AppStrings.resetCodeInvalid,
+        );
+      }
+      if (newPassword.length < 8) {
+        throw const RepositoryException(
+          code: 'validation',
+          message: AppStrings.passwordTooShort,
+        );
+      }
+      _accounts[cleanEmail] = _Account(
+        user: account.user,
+        password: newPassword,
+      );
+    });
   }
 
   @override
@@ -92,4 +258,27 @@ class _Account {
 
   final User user;
   final String password;
+}
+
+/// Name and email from a Google ID token's payload, or null when it is not
+/// one (a stand-in token in tests). Not verified: demo only.
+(String, String)? _googleClaims(String idToken) {
+  final parts = idToken.split('.');
+  if (parts.length != 3) return null;
+  try {
+    final payload = utf8.decode(
+      base64Url.decode(base64Url.normalize(parts[1])),
+    );
+    final json = jsonDecode(payload);
+    if (json is! Map) return null;
+    final email = (json['email'] as String?)?.trim().toLowerCase();
+    if (email == null || email.isEmpty) return null;
+    final name = (json['name'] as String?)?.trim();
+    return (
+      (name == null || name.isEmpty) ? email.split('@').first : name,
+      email,
+    );
+  } catch (_) {
+    return null;
+  }
 }

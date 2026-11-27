@@ -62,14 +62,15 @@ gitignored). All variables:
 | `PIPELINE_MAX_OUTPUT_CHARS` | `8000` | Mirror of the backend's (provisional) output limit |
 | `PIPELINE_LEASE_SECONDS` | `300` | Mirror of the backend's lease |
 | `PIPELINE_MAX_ATTEMPTS` | `3` | Mirror of the backend's retry cap |
-| `PIPELINE_POLL_INTERVAL_SECONDS` | `2` | Sleep between empty claims |
+| `PIPELINE_POLL_INTERVAL_SECONDS` | `1` | Sleep between empty claims |
+| `MODEL_KEEP_WARM_SECONDS` | `600` | While idle, ping the model this often (no message content) so it stays loaded; `0` turns it off. Keep it below the server's unload timer (Ollama `keep_alive`) |
 | `MODEL_ENDPOINT` | — (required) | Full URL of the self-hosted OpenAI-compatible `/v1/chat/completions` |
 | `MODEL_ID` | — (required) | Model identifier the server expects |
 | `MODEL_API_KEY` | *(empty)* | Only if your self-hosted server requires auth; NOT a provider key |
 | `MODEL_TEMPERATURE` | `0.2` | Generation temperature |
 | `MODEL_MAX_TOKENS` | `1024` | Generation cap |
 | `MODEL_REQUEST_TIMEOUT_SECONDS` | `120` | Must be shorter than the lease so failures are reported in time |
-| `PIPELINE_VERSION` | `talkitout-pipeline 0.1.0` | Sent as `pipeline_version`; bump when the model or prompt changes |
+| `PIPELINE_VERSION` | `talkitout-pipeline 0.6.0` | Sent as `pipeline_version`; bump when the model or prompt changes |
 | `PIPELINE_LOG_LEVEL` | `INFO` | Logging level |
 
 The adapter is replaceable: any object with
@@ -145,6 +146,34 @@ nothing more. Exact requirements:
   `MODEL_REQUEST_TIMEOUT_SECONDS < PIPELINE_LEASE_SECONDS` (default
   120 < 300) so a hanging model still lets the worker report failure
   before the backend re-claims the job.
+
+## Local model on a Mac (Ollama) — the default dev setup
+
+No GPU or tunnel needed; this is how the stack runs on the dev Mac
+(8 GB M1) since Run 081. It needs about 2 GB of disk.
+
+```bash
+brew install ollama
+brew services start ollama          # always on, survives reboots, 127.0.0.1 only
+ollama pull qwen2.5:3b              # 1.9 GB, the validated model family
+```
+
+`pipeline/.env`:
+
+```
+MODEL_ENDPOINT=http://127.0.0.1:11434/v1/chat/completions
+MODEL_ID=qwen2.5:3b
+MODEL_API_KEY=
+```
+
+`backend/.env`: `PIPELINE_MODE=external`. Then start the worker with
+`python3 -m talkitout_pipeline` and check the whole stack with
+`cd backend && npm run check:live`. Measured on the M1: about 14 s per
+rewrite (25 s for the first call while the model loads), well inside
+the 300 s lease. The smoke test gives the same result as the Kaggle GPU
+run: functional PASS, `append_token` SUSPECTED (manually reviewed as a
+faithful restatement in Run 072). A GPU (`KAGGLE_ENDPOINT_RUNBOOK.md`) is
+only needed for speed.
 
 ## Smoke test (model only, synthetic text)
 
@@ -321,10 +350,14 @@ computed by fixed, testable heuristics in `scoring.py`:
   −0.2 per digit sequence present in the original but absent from the
   rewrite (capped at −0.4); clamped to [0, 1], rounded to 2 decimals.
 - **`relevance_score` / `relevance_label`** — the fraction of the group
-  agenda's words that appear in the rewrite; `relevant` ≥ 0.50,
-  `borderline` ≥ 0.15, else `off_topic`. **Uncalibrated by design and
-  advisory only** (contract §3): a low score never hides or rejects a
-  message, and the backend treats it the same way.
+  agenda's content words that appear in the rewrite; `relevant` ≥ 0.50,
+  `borderline` ≥ 0.15, else `off_topic`. Since 0.5.0, filler words
+  ("the", "and", "making", ...) are ignored and words are compared by a
+  crude stem, so "improve" matches "improvements" and "dashboards"
+  matches "dashboard". A message on topic that shares no word with the
+  agenda still scores 0. **Uncalibrated by design and advisory only**
+  (contract §3): a low score never hides or rejects a message, and the
+  backend treats it the same way.
 
 Hard validation (rejects the output, reports `intent_not_preserved`):
 every digit sequence, negation, and URL in the original must survive
@@ -332,6 +365,32 @@ into the rewrite; outputs may not exceed 4× the original length, echo
 the prompt scaffold, or be blank/over-limit. Limitations: presence
 checks are not meaning checks, and numerals must stay numerals — both
 are documented trade-offs of deterministic checks.
+
+Corrected attempt (since 0.4.0): when a rewrite fails one of these checks
+(except a scaffold echo or the hard output limit), the worker asks the
+model once more in the same job, adding its first try and a fixed note
+saying what was lost ("keep that negative meaning", or the digits that
+went missing; never other message text). The second output goes through
+the same checks; if it fails too, the job reports `intent_not_preserved`
+as before. The model tends to repeat a mistake, so this replaces about
+10 to 15 s of plain retries (with backoff) with one extra call of about
+3 to 4 s on this Mac.
+
+Since 0.5.0:
+- The same single corrected attempt is also used when a message that
+  still looks rough (casual or harsh words, shouting, "??"/"!!", or a
+  lowercase start) comes back word for word. If that second try fails a
+  check, the valid first output is kept; if it echoes again, that stands
+  as the model's decision. Never more than two model calls per job.
+- The prompt adds rules from observed failures (a request keeps pointing
+  at the same thing: "stop ignoring X" once became "stop mentioning X";
+  criticism is not softened with "seems"/"might"; "nobody" is not
+  narrowed to "I") and three made-up examples.
+- A rewrite starting with a lowercase letter is capitalised (formatting
+  only, after all checks).
+
+`scripts/compare_models.py` runs 18 synthetic messages (6 held out from
+the prompt work) and flags softened, echoed and lost-detail rewrites.
 
 ## Limits status (do not finalize)
 

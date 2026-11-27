@@ -47,6 +47,20 @@ enum NotificationType {
   messageRejected,
   @JsonValue('message_pending_review')
   messagePendingReview,
+  @JsonValue('mentioned')
+  mentioned,
+  @JsonValue('question_answered')
+  questionAnswered,
+  @JsonValue('answer_best')
+  answerBest,
+  @JsonValue('group_invitation')
+  groupInvitation,
+  @JsonValue('message_published')
+  messagePublished,
+  @JsonValue('member_joined')
+  memberJoined,
+  @JsonValue('question_liked')
+  questionLiked,
   @JsonValue('unknown')
   unknown,
 }

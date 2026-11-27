@@ -5,6 +5,7 @@ import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
+import 'package:talk_it_out/features/premium/group_templates.dart';
 
 class CreateGroupScreen extends ConsumerStatefulWidget {
   const CreateGroupScreen({super.key});
@@ -156,12 +157,14 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    Text(
-                                      'You will be the Controller',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        color: scheme.tertiary,
+                                    Flexible(
+                                      child: Text(
+                                        'You will be the Controller',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: scheme.tertiary,
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 6),
@@ -239,6 +242,11 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                     prefixIcon: Icon(Icons.topic_rounded),
                   ),
                   onSubmitted: (_) => _busy ? null : _submit(),
+                ),
+                const SizedBox(height: 12),
+                // Premium templates fill in the topic (docs/PREMIUM_PLAN.md).
+                GroupTemplates(
+                  onPick: (agenda) => setState(() => _agenda.text = agenda),
                 ),
                 const SizedBox(height: 12),
                 Text(

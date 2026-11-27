@@ -37,6 +37,17 @@ class ApiAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<AuthSession> signInWithGoogle({required String idToken}) {
+    return guardApi(() async {
+      final response = await _dio.post(
+        Endpoints.google,
+        data: {'id_token': idToken},
+      );
+      return AuthSession.fromJson(asJsonMap(response.data));
+    });
+  }
+
+  @override
   Future<User> me() {
     return guardApi(() async {
       final response = await _dio.get(Endpoints.me);
@@ -45,8 +56,100 @@ class ApiAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<String?> issueRefreshToken() async {
+    try {
+      final response = await _dio.post(Endpoints.refreshTokens);
+      final token = asJsonMap(response.data)['refresh_token'];
+      return token is String && token.isNotEmpty ? token : null;
+    } catch (_) {
+      // Optional: without it the user simply signs in again when the access
+      // token expires, exactly as before.
+      return null;
+    }
+  }
+
+  @override
+  Future<void> deleteAccount({required String password}) {
+    return guardApi(() async {
+      await _dio.delete(Endpoints.myAccount, data: {'password': password});
+    });
+  }
+
+  @override
+  Future<String> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) {
+    return guardApi(() async {
+      final response = await _dio.post(
+        Endpoints.changePassword,
+        data: {
+          'current_password': currentPassword,
+          'new_password': newPassword,
+        },
+      );
+      final token = asJsonMap(response.data)['token'];
+      if (token is! String || token.isEmpty) {
+        throw const FormatException('missing token');
+      }
+      return token;
+    });
+  }
+
+  @override
+  Future<void> logoutAll() {
+    return guardApi(() async {
+      await _dio.post(Endpoints.logoutAll);
+    });
+  }
+
+  @override
+  Future<void> requestPasswordReset({required String email}) {
+    return guardApi(() async {
+      await _dio.post(Endpoints.passwordReset, data: {'email': email});
+    });
+  }
+
+  @override
+  Future<String> verifyResetCode({
+    required String email,
+    required String code,
+  }) {
+    return guardApi(() async {
+      final response = await _dio.post(
+        Endpoints.passwordResetVerify,
+        data: {'email': email, 'code': code},
+      );
+      return asJsonMap(response.data)['reset_token'] as String;
+    });
+  }
+
+  @override
+  Future<void> confirmPasswordReset({
+    required String email,
+    required String resetToken,
+    required String newPassword,
+  }) {
+    return guardApi(() async {
+      await _dio.post(
+        Endpoints.passwordResetConfirm,
+        data: {
+          'email': email,
+          'reset_token': resetToken,
+          'new_password': newPassword,
+        },
+      );
+    });
+  }
+
+  @override
   Future<void> logout() {
     return guardApi(() async {
+      try {
+        await _dio.delete(Endpoints.refreshTokens);
+      } catch (_) {
+        // Revoking is best-effort; local sign-out still happens.
+      }
       await _dio.post(Endpoints.logout);
     });
   }

@@ -1,13 +1,13 @@
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import argon2 from 'argon2';
-import jwt from 'jsonwebtoken';
 import { Pool } from 'pg';
 import { z } from 'zod';
 import { ApiError, conflict, parseWith, unauthorized } from '../errors';
 import { Config } from '../config';
 import { uniqueConstraint } from '../db';
 import { RequireAuth } from '../middleware/auth';
+import { signAccessToken } from '../tokens';
 
 const registerSchema = z.object({
   name: z
@@ -37,7 +37,7 @@ const loginSchema = z.object({
  * the new user id are appended (more hex chars only in the extreme case where
  * even that collides). The client never sends or receives the username.
  */
-function baseUsername(email: string): string {
+export function baseUsername(email: string): string {
   const local = email.split('@')[0].toLowerCase();
   const cleaned = local.replace(/[^a-z0-9._-]/g, '');
   return cleaned.length > 0 ? cleaned : 'user';
@@ -133,12 +133,7 @@ export function createAuthRouter(
     if (!inserted) {
       throw conflict('username_taken', 'Could not derive a username. Please contact support.');
     }
-    const token = jwt.sign({}, jwtSecret, {
-      subject: inserted.id,
-      // StringValue-typed in @types/jsonwebtoken; config keeps it a string.
-      expiresIn: appConfig.jwtExpiresIn as jwt.SignOptions['expiresIn'],
-      algorithm: 'HS256',
-    });
+    const token = signAccessToken({ jwtSecret, jwtExpiresIn: appConfig.jwtExpiresIn }, inserted.id, 0);
     res.status(201).json(sessionJson(token, inserted));
   });
 
@@ -152,11 +147,13 @@ export function createAuthRouter(
     }
 
     const { rows } = await pool.query(
-      'SELECT id, name, email, password_hash FROM users WHERE email = $1',
+      'SELECT id, name, email, password_hash, token_version FROM users WHERE email = $1',
       [body.email],
     );
     const user = rows[0];
-    const passwordOk = user
+    // Accounts created with Google have no password: same cost and the
+    // same answer as a wrong password.
+    const passwordOk = user?.password_hash
       ? await argon2.verify(user.password_hash, body.password)
       : // Unknown email: burn the same argon2 work so timing does not
         // reveal whether the account exists.
@@ -167,11 +164,11 @@ export function createAuthRouter(
       throw unauthorized('Email or password is incorrect.');
     }
     clearLoginFailures(body.email);
-    const token = jwt.sign({}, jwtSecret, {
-      subject: user.id,
-      expiresIn: appConfig.jwtExpiresIn as jwt.SignOptions['expiresIn'],
-      algorithm: 'HS256',
-    });
+    const token = signAccessToken(
+      { jwtSecret, jwtExpiresIn: appConfig.jwtExpiresIn },
+      user.id,
+      user.token_version,
+    );
     res.json(sessionJson(token, user));
   });
 

@@ -18,6 +18,11 @@ _Group _$GroupFromJson(Map<String, dynamic> json) => _Group(
     unknownValue: GroupRole.contributor,
   ),
   pendingCount: (json['pending_count'] as num?)?.toInt(),
+  description: json['description'] as String? ?? '',
+  rules: json['rules'] as String? ?? '',
+  memberCount: (json['member_count'] as num?)?.toInt() ?? 0,
+  muted: json['muted'] as bool? ?? false,
+  pinned: json['pinned'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$GroupToJson(_Group instance) => <String, dynamic>{
@@ -28,6 +33,11 @@ Map<String, dynamic> _$GroupToJson(_Group instance) => <String, dynamic>{
   'created_at': instance.createdAt.toIso8601String(),
   'my_role': _$GroupRoleEnumMap[instance.myRole]!,
   'pending_count': instance.pendingCount,
+  'description': instance.description,
+  'rules': instance.rules,
+  'member_count': instance.memberCount,
+  'muted': instance.muted,
+  'pinned': instance.pinned,
 };
 
 const _$GroupRoleEnumMap = {

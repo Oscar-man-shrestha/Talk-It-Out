@@ -1,0 +1,35 @@
+name: pipeline-ci
+
+on:
+  push:
+    paths:
+      - "pipeline/**"
+      - ".github/workflows/pipeline-ci.yml"
+  pull_request:
+    paths:
+      - "pipeline/**"
+      - ".github/workflows/pipeline-ci.yml"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: pipeline
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # README: Python 3.10+; stdlib only, so nothing to install.
+        python: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Syntax check
+        run: python -m compileall -q talkitout_pipeline scripts
+      - name: Unit tests (deterministic, no model or network)
+        run: python -m unittest discover -s tests -t .

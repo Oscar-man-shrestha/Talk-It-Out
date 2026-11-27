@@ -19,7 +19,7 @@ class StubService:
     def __init__(self, outcomes):
         self.outcomes = list(outcomes)
 
-    def rewrite(self, text, agenda):
+    def rewrite(self, text, agenda, tone=None):
         item = self.outcomes.pop(0)
         if isinstance(item, Exception):
             raise item
@@ -59,9 +59,11 @@ class ProcessJobTests(unittest.TestCase):
         self.assertEqual(sorted(result.keys()), sorted([
             "job_id", "raw_message_id", "rewritten_text",
             "intent_preservation_score", "relevance_score",
-            "relevance_label", "pipeline_version",
+            "relevance_label", "pipeline_version", "moderation_flags",
         ]))
         self.assertEqual(result["pipeline_version"], "test-worker 1.0.0")
+        # Advisory codes only; the HTTP client leaves the field out when empty.
+        self.assertEqual(result["moderation_flags"], [])
         self.assertEqual(backend.errors, [])
         self.assertEqual(backend.failures, [])
 
@@ -219,6 +221,73 @@ class PrivacyLoggingTests(unittest.TestCase):
         printed = "\n".join(captured.output)
         self.assertIn("unchanged=True", printed)
         self.assertNotIn("sentinel-free-text", printed)
+
+
+class KeepWarmTests(unittest.TestCase):
+    def _worker(self, backend, service, interval, pings, now):
+        return Worker(
+            client=backend,
+            service=service,
+            config=make_config(model_keep_warm_seconds=interval),
+            sleep=lambda _s: None,
+            keep_warm=lambda: pings.append(now[0]),
+            clock=lambda: now[0],
+        )
+
+    def test_pings_only_after_the_idle_interval(self):
+        backend, pings, now = FakeBackend(), [], [0.0]
+        worker = self._worker(backend, StubService([]), 600, pings, now)
+        now[0] = 599
+        worker.run_once()
+        self.assertEqual(pings, [])
+        now[0] = 600
+        worker.run_once()
+        self.assertEqual(pings, [600])
+        now[0] = 1199  # the ping counts as use: wait a full interval again
+        worker.run_once()
+        self.assertEqual(pings, [600])
+        now[0] = 1200
+        worker.run_once()
+        self.assertEqual(pings, [600, 1200])
+
+    def test_a_processed_job_resets_the_timer(self):
+        backend, pings, now = FakeBackend(), [], [0.0]
+        backend.claim_responses = [[make_job()]]
+        worker = self._worker(backend, StubService([OK_OUTCOME]), 600, pings, now)
+        now[0] = 500
+        self.assertEqual(worker.run_once(), "processed")
+        now[0] = 1000
+        worker.run_once()
+        self.assertEqual(pings, [])
+        now[0] = 1100
+        worker.run_once()
+        self.assertEqual(pings, [1100])
+
+    def test_zero_turns_it_off(self):
+        backend, pings, now = FakeBackend(), [], [0.0]
+        worker = self._worker(backend, StubService([]), 0, pings, now)
+        now[0] = 10_000
+        worker.run_once()
+        self.assertEqual(pings, [])
+
+    def test_a_failing_ping_never_stops_the_worker(self):
+        backend, now = FakeBackend(), [0.0]
+
+        def boom():
+            raise RuntimeError("sentinel-free-text")
+
+        worker = Worker(
+            client=backend,
+            service=StubService([]),
+            config=make_config(model_keep_warm_seconds=60),
+            sleep=lambda _s: None,
+            keep_warm=boom,
+            clock=lambda: now[0],
+        )
+        now[0] = 60
+        with self.assertLogs("talkitout.worker", level="WARNING") as logs:
+            self.assertEqual(worker.run_once(), "empty")
+        self.assertNotIn("sentinel-free-text", "\n".join(logs.output))
 
 
 if __name__ == "__main__":

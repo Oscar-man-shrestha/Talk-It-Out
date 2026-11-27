@@ -1,0 +1,62 @@
+# Render Blueprint for the Talk It Out API on Render's free plan.
+# Render -> New -> Blueprint -> pick this repository. Values marked
+# "sync: false" are asked for once in the Render dashboard.
+# Step-by-step guide: docs/DEPLOY.md
+services:
+  - type: web
+    name: talkitout-api
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    # Apply any new migrations before the API starts. Each migration runs
+    # once, in its own transaction, so this is a no-op when nothing is new.
+    # (Render's free plan has no pre-deploy step, so it goes here.)
+    dockerCommand: sh -c "node dist/migrate-cli.js && node dist/server.js"
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Free Postgres from Neon, ending in ?sslmode=require.
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      # The rewrite worker on your own computer uses the same key.
+      - key: PIPELINE_API_KEY
+        generateValue: true
+      - key: PIPELINE_MODE
+        value: external
+      - key: RUN_STUB_WORKER
+        value: "false"
+      - key: RUN_FEED_WORKER
+        value: "true"
+      # Real local moderation for the public feed (hate, threats, abuse).
+      - key: FEED_PROVIDER
+        value: lexicon
+      # The web app's address, for example https://<you>.github.io
+      - key: CORS_ORIGINS
+        sync: false
+      # Where invite links point, for example https://<you>.github.io/Talk-It-Out
+      - key: APP_WEB_URL
+        sync: false
+      - key: TRUST_PROXY
+        value: "1"
+      # Password-reset codes ("Forgot?") are emailed through Gmail SMTP.
+      # SMTP_USER is the Gmail address, SMTP_PASS a Gmail app password
+      # (docs/SETUP_GOOGLE_AND_EMAIL.md). The API refuses to start with
+      # smtp and no password; set MAIL_TRANSPORT to disabled to run
+      # without email ("Forgot?" then says email is not set up).
+      - key: MAIL_TRANSPORT
+        value: smtp
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false

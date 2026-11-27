@@ -1,0 +1,351 @@
+{
+ "outputComponents": [
+  {
+   "design": {
+    "screens": [
+     {
+      "designSystem": {
+       "designSystem": {
+        "displayName": "Talk It Out Monochrome",
+        "styleGuidelines": "## Brand & Style\nThe brand personality is disciplined, articulate, and architecturally grounded. Designed for modern professional teams, it balances corporate utility with high-end editorial calm. The interface removes ambient distractions, unnecessary gamification, and saturated accents to elevate clear written communication and intentional dialogue.\n\nThe aesthetic merges **Minimalism** with **Modern Editorial Restraint**:\n- Deep obsidian anchors contrasting with delicate, warm alabaster surfaces.\n- Strictly no synthetic gradients, playful illustrations, or emoji-heavy UI ornamentation.\n- Structural layout integrity driven by razor-thin hairline boundaries and deliberate, spacious typographic hierarchy.\n- Thin-line visual iconography (1px to 1.25px stroke weights) communicating utility with quiet confidence.\n\n## Layout & Spacing\nThe layout leverages a disciplined fluid grid anchored inside structured containment modules.\n\n- **Desktop (1024px+):** 12-column architecture featuring a persistent channel/thread hierarchy; 24px gutters and 36px outer margin.\n- **Tablet (768px - 1023px):** 8-column layout with 20px gutters and 24px margins, transitioning auxiliary sidebars into collapsable drawers.\n- **Mobile (< 768px):** Single-column stacked canvas with 16px margins (`1rem`) and unified vertical spacing rhythm.\n- **Rhythm Rules:** All layout margins, padding blocks, and gaps resolve to increments of 4px and 8px. Component density stays open and calm; chat bubbles and post modules use ample inner padding (`space-md` to `space-lg`) to maintain editorial elegance.\n\n## Elevation & Depth\nElevation in this design system is strictly achieved through surface contrast and crisp 1px hairline boundaries\u2014never through drop shadows or blurred ambient glows.\n\n- **Level 0 (Canvas):** Tone `#FCFAF6`. Ground level containing main scroll areas and backdrop regions.\n- **Level 1 (Cards & Message Bubbles):** Crisp pure white `#FFFFFF` bounded by a 1px solid `#E7E3DC` hairline border. No drop shadow.\n- **Level 2 (Inverted Anchor / Hero Module):** Solid `#09090B` blocks anchored at top viewports or global navigation panels, featuring distinct rounded bottom corners (`24px` to `28px`).\n- **Level 3 (Overlays & Dialogs):** `#FFFFFF` surfaces with a 1px solid `#09090B` crisp contour, paired with a solid `#09090B` backdrop at 20% opacity without blur filters.\n\n## Components\n\n### Top Hero Panel\n- **Background:** Solid `#09090B` with white `#FFFFFF` text.\n- **Geometry:** Square top corners against the window frame; bottom corners rounded to `24px` (mobile) or `32px` (desktop).\n- **Contents:** Channel names, contextual team status, and search trigger. Icon buttons inside use thin 1px white strokes.\n\n### Buttons\n- **Primary:** Solid `#09090B` background, full pill silhouette (`9999px` radius), pure white text, zero border. Active state: `#27272A`.\n- **Secondary:** Pure white `#FFFFFF` background, full pill silhouette, `#09090B` text, wrapped in a 1px hairline border of `#09090B`. Active state: subtle `#F4F2EB` fill.\n- **Tertiary / Ghost:** Transparent background, `#71717A` label, shifting to `#09090B` on hover/focus.\n\n### Cards & Chat Containers\n- **Surface:** Pure white `#FFFFFF`.\n- **Border:** 1px hairline `#E7E3DC`.\n- **Radius:** `18px` to `20px`.\n- **Padding:** `1.25rem` (`20px`) on mobile; `1.5rem` (`24px`) on desktop.\n- **Divider Lines:** 1px solid `#F4F2EB` internally between replies or metadata strips.\n\n### Input Fields & Chat Composer\n- **Resting:** Pure white `#FFFFFF` background, 1px `#E7E3DC` hairline border, `14px` border radius, text in `#09090B`, placeholder in `#71717A`.\n- **Focus:** 1px solid `#09090B` border with zero outline ring.\n- **Composer Controls:** Monoline action icons (send, attach, format) rendered in `#71717A` with a 1.25px stroke weight. Primary send action leverages a compact black pill button.\n\n### Chips & Channel Filters\n- **Pill Geometry:** Height of 32px with full pill radius.\n- **Resting:** `#FFFFFF` background with 1px `#E7E3DC` border, `#71717A` label.\n- **Active / Selected:** `#09090B` background, `#FFFFFF` text, no outline.\n\n### Checkboxes & Radios\n- **Checkboxes:** 18px square with 4px corner radius. Unchecked: 1px `#E7E3DC` border. Checked: solid `#09090B` fill with a crisp white checkmark icon (1.25px stroke).\n- **Radio Buttons:** 18px circle. Checked: Solid `#09090B` rim with an inner centered 6px dot in `#09090B`.\n\n### Lists & Activity Rows\n- **Layout:** Edge-to-edge within cards or canvas columns.\n- **Dividers:** Optional 1px hairline `#E7E3DC`.\n- **Typographic Pairings:** Item headline in `#09090B` (`body-md` semibold), supporting details and timestamps in `#71717A` (`label-md`).\n- **Selection State:** Subtle tonal fill of `#F6F4EE` across the row radius.",
+        "theme": {
+         "bodyFont": "INTER",
+         "bodyFontFamily": "Inter",
+         "colorMode": "LIGHT",
+         "colorVariant": "FIDELITY",
+         "customColor": "#09090b",
+         "font": "INTER",
+         "headlineFont": "INTER",
+         "headlineFontFamily": "Inter",
+         "labelFont": "INTER",
+         "labelFontFamily": "Inter",
+         "namedColors": {
+          "background": "#fbf9f5",
+          "error": "#ba1a1a",
+          "error_container": "#ffdad6",
+          "inverse_on_surface": "#f2f0ed",
+          "inverse_primary": "#c8c6c8",
+          "inverse_surface": "#30312e",
+          "on_background": "#1b1c1a",
+          "on_error": "#ffffff",
+          "on_error_container": "#93000a",
+          "on_primary": "#ffffff",
+          "on_primary_container": "#858386",
+          "on_primary_fixed": "#1c1b1d",
+          "on_primary_fixed_variant": "#474649",
+          "on_secondary": "#ffffff",
+          "on_secondary_container": "#63646c",
+          "on_secondary_fixed": "#1a1b22",
+          "on_secondary_fixed_variant": "#46464e",
+          "on_surface": "#1b1c1a",
+          "on_surface_variant": "#47464a",
+          "on_tertiary": "#ffffff",
+          "on_tertiary_container": "#8a8282",
+          "on_tertiary_fixed": "#1f1a1a",
+          "on_tertiary_fixed_variant": "#4c4545",
+          "outline": "#78767b",
+          "outline_variant": "#c8c5ca",
+          "primary": "#000000",
+          "primary_container": "#1c1b1d",
+          "primary_fixed": "#e5e1e4",
+          "primary_fixed_dim": "#c8c6c8",
+          "secondary": "#5d5e66",
+          "secondary_container": "#e3e1ec",
+          "secondary_fixed": "#e3e1ec",
+          "secondary_fixed_dim": "#c6c5cf",
+          "surface": "#fbf9f5",
+          "surface_bright": "#fbf9f5",
+          "surface_container": "#efeeea",
+          "surface_container_high": "#eae8e4",
+          "surface_container_highest": "#e4e2de",
+          "surface_container_low": "#f5f3ef",
+          "surface_container_lowest": "#ffffff",
+          "surface_dim": "#dbdad6",
+          "surface_tint": "#5f5e60",
+          "surface_variant": "#e4e2de",
+          "tertiary": "#000000",
+          "tertiary_container": "#1f1a1a",
+          "tertiary_fixed": "#ebe0df",
+          "tertiary_fixed_dim": "#cec4c4"
+         },
+         "overrideNeutralColor": "#fcfaf6",
+         "overridePrimaryColor": "#09090b",
+         "overrideSecondaryColor": "#71717a",
+         "roundness": "ROUND_FULL",
+         "spacing": {
+          "gutter": "1.25rem",
+          "margin": "1.5rem",
+          "space-lg": "1.5rem",
+          "space-md": "1rem",
+          "space-sm": "0.5rem",
+          "space-xl": "2.25rem",
+          "space-xs": "0.25rem"
+         },
+         "spacingScale": 2,
+         "typography": {
+          "body-lg": {
+           "fontFamily": "Inter",
+           "fontSize": "16px",
+           "fontWeight": "400",
+           "letterSpacing": "-0.01em",
+           "lineHeight": "26px"
+          },
+          "body-md": {
+           "fontFamily": "Inter",
+           "fontSize": "14px",
+           "fontWeight": "400",
+           "letterSpacing": "-0.005em",
+           "lineHeight": "22px"
+          },
+          "body-sm": {
+           "fontFamily": "Inter",
+           "fontSize": "13px",
+           "fontWeight": "400",
+           "letterSpacing": "0em",
+           "lineHeight": "18px"
+          },
+          "headline-lg": {
+           "fontFamily": "Inter",
+           "fontSize": "32px",
+           "fontWeight": "600",
+           "letterSpacing": "-0.025em",
+           "lineHeight": "40px"
+          },
+          "headline-lg-mobile": {
+           "fontFamily": "Inter",
+           "fontSize": "24px",
+           "fontWeight": "600",
+           "letterSpacing": "-0.02em",
+           "lineHeight": "32px"
+          },
+          "headline-md": {
+           "fontFamily": "Inter",
+           "fontSize": "22px",
+           "fontWeight": "500",
+           "letterSpacing": "-0.015em",
+           "lineHeight": "30px"
+          },
+          "headline-xl": {
+           "fontFamily": "Inter",
+           "fontSize": "40px",
+           "fontWeight": "600",
+           "letterSpacing": "-0.03em",
+           "lineHeight": "48px"
+          },
+          "headline-xl-mobile": {
+           "fontFamily": "Inter",
+           "fontSize": "30px",
+           "fontWeight": "600",
+           "letterSpacing": "-0.025em",
+           "lineHeight": "38px"
+          },
+          "label-md": {
+           "fontFamily": "Inter",
+           "fontSize": "12px",
+           "fontWeight": "500",
+           "letterSpacing": "0.02em",
+           "lineHeight": "16px"
+          },
+          "label-sm": {
+           "fontFamily": "Inter",
+           "fontSize": "11px",
+           "fontWeight": "600",
+           "letterSpacing": "0.04em",
+           "lineHeight": "14px"
+          }
+         }
+        }
+       },
+       "name": "assets/7f12a838cd1f491ea764078ffb5f6229",
+       "version": "1"
+      },
+      "deviceType": "MOBILE",
+      "generatedBy": "figaro_agent",
+      "height": "1876",
+      "htmlCode": {
+       "downloadUrl": "https://stitch.googleapis.com/v1/projects/12357068339961859333/files/e071e8f4d6314510b497a5724affa3d4:download",
+       "mimeType": "text/html",
+       "name": "projects/12357068339961859333/files/e071e8f4d6314510b497a5724affa3d4"
+      },
+      "id": "c51f77f21ea74575b0a1e108df8337f5",
+      "name": "projects/12357068339961859333/screens/c51f77f21ea74575b0a1e108df8337f5",
+      "prompt": "Brand: 'Talk It Out', workplace group-chat app. Bold monochrome visual identity matching {{DATA:SCREEN:SCREEN_2}}.\nDevice: Mobile (390px width).\nCanvas background: light cream #FCFAF6.\nFont: Inter. No gradients, no purple, no emoji. Thin line icons (Phosphor style).\n\nScreen layout:\n1. Top black hero header with rounded bottom corners (large border-radius e.g. 28px on bottom left and bottom right) matching SCREEN_2 style:\n   - Top status / navigation row: 'TALK IT OUT' logo mark/icon and text left-aligned, and 'Skip' text button top-right in subtle muted white/gray (text-zinc-400 font-medium text-sm hover:text-white).\n   - Large bold white heading: 'What are you into?'\n   - Subtitle below in zinc-400: 'Pick 3 or more. Your For You feed starts here and learns from what you like and answer.'\n   - Search input right inside or nestled below header: A clean search input 'Search topics' with magnifying glass line icon, white/off-white background with hairline border or subtle pill shape.\n\n2. Topic chips / pills section:\n   - Compact selectable pill chips with small crisp thin line vector icons (Phosphor style SVG icons for each topic).\n   - Wrapping flex layout displaying ~20 compact chips so they are visible:\n     Topics:\n     1. 'Workplace policy' (outline chip)\n     2. 'Engineering & tech' (SELECTED: solid black pill, white text, white checkmark icon)\n     3. 'Leadership' (outline chip)\n     4. 'Pay & equity' (outline chip)\n     5. 'Psychological safety' (SELECTED: solid black pill, white text, white checkmark icon)\n     6. 'Ethics & culture' (outline chip)\n     7. 'Career growth' (outline chip)\n     8. 'Wellbeing & burnout' (outline chip)\n     9. 'Remote & hybrid' (outline chip)\n     10. 'Conflict' (outline chip)\n     11. 'Product & design' (outline chip)\n     12. 'Job search' (outline chip)\n     13. 'Learning' (outline chip)\n     14. 'Startups' (outline chip)\n     15. 'Inclusion' (outline chip)\n     16. 'Data & AI' (SELECTED: solid black pill, white text, white checkmark icon)\n     17. 'Communication' (outline chip)\n     18. 'Productivity' (outline chip)\n     19. 'Hiring' (outline chip)\n     20. 'Benefits' (outline chip)\n   - Unselected pill chips: white background, hairline border #E7E3DC, text near-black #09090B, subtle hover/active states.\n   - Selected pill chips: solid black background (#09090B), white text (#FFFFFF), check icon before or after the text.\n\n3. Sticky bottom action bar:\n   - Light cream or translucent frosted cream bar at the bottom with subtle top border (#E7E3DC).\n   - Left side: progress text '3 picked' (subtle subtitle 'Minimum 3 required' or check indicator).\n   - Right side / full-width: black pill CTA button 'Show my feed' with slight arrow or clean bold typography.\n\nCrisp, pixel-perfect, authentic monochrome feel aligned with First-Run Welcome screen.",
+      "screenMetadata": {
+       "agentType": "PRO_AGENT",
+       "status": "COMPLETE"
+      },
+      "screenType": "DESIGN",
+      "screenshot": {
+       "downloadUrl": "https://stitch.googleapis.com/v1/projects/12357068339961859333/files/32cacd76c4c64fdfb0bf850692e24cb8:download",
+       "name": "projects/12357068339961859333/files/32cacd76c4c64fdfb0bf850692e24cb8"
+      },
+      "theme": {
+       "bodyFont": "INTER",
+       "bodyFontFamily": "Inter",
+       "colorMode": "LIGHT",
+       "colorVariant": "FIDELITY",
+       "customColor": "#09090b",
+       "font": "INTER",
+       "headlineFont": "INTER",
+       "headlineFontFamily": "Inter",
+       "labelFont": "INTER",
+       "labelFontFamily": "Inter",
+       "namedColors": {
+        "background": "#fbf9f5",
+        "error": "#ba1a1a",
+        "error_container": "#ffdad6",
+        "inverse_on_surface": "#f2f0ed",
+        "inverse_primary": "#c8c6c8",
+        "inverse_surface": "#30312e",
+        "on_background": "#1b1c1a",
+        "on_error": "#ffffff",
+        "on_error_container": "#93000a",
+        "on_primary": "#ffffff",
+        "on_primary_container": "#858386",
+        "on_primary_fixed": "#1c1b1d",
+        "on_primary_fixed_variant": "#474649",
+        "on_secondary": "#ffffff",
+        "on_secondary_container": "#63646c",
+        "on_secondary_fixed": "#1a1b22",
+        "on_secondary_fixed_variant": "#46464e",
+        "on_surface": "#1b1c1a",
+        "on_surface_variant": "#47464a",
+        "on_tertiary": "#ffffff",
+        "on_tertiary_container": "#8a8282",
+        "on_tertiary_fixed": "#1f1a1a",
+        "on_tertiary_fixed_variant": "#4c4545",
+        "outline": "#78767b",
+        "outline_variant": "#c8c5ca",
+        "primary": "#000000",
+        "primary_container": "#1c1b1d",
+        "primary_fixed": "#e5e1e4",
+        "primary_fixed_dim": "#c8c6c8",
+        "secondary": "#5d5e66",
+        "secondary_container": "#e3e1ec",
+        "secondary_fixed": "#e3e1ec",
+        "secondary_fixed_dim": "#c6c5cf",
+        "surface": "#fbf9f5",
+        "surface_bright": "#fbf9f5",
+        "surface_container": "#efeeea",
+        "surface_container_high": "#eae8e4",
+        "surface_container_highest": "#e4e2de",
+        "surface_container_low": "#f5f3ef",
+        "surface_container_lowest": "#ffffff",
+        "surface_dim": "#dbdad6",
+        "surface_tint": "#5f5e60",
+        "surface_variant": "#e4e2de",
+        "tertiary": "#000000",
+        "tertiary_container": "#1f1a1a",
+        "tertiary_fixed": "#ebe0df",
+        "tertiary_fixed_dim": "#cec4c4"
+       },
+       "overrideNeutralColor": "#fcfaf6",
+       "overridePrimaryColor": "#09090b",
+       "overrideSecondaryColor": "#71717a",
+       "roundness": "ROUND_FULL",
+       "spacing": {
+        "gutter": "1.25rem",
+        "margin": "1.5rem",
+        "space-lg": "1.5rem",
+        "space-md": "1rem",
+        "space-sm": "0.5rem",
+        "space-xl": "2.25rem",
+        "space-xs": "0.25rem"
+       },
+       "spacingScale": 2,
+       "typography": {
+        "body-lg": {
+         "fontFamily": "Inter",
+         "fontSize": "16px",
+         "fontWeight": "400",
+         "letterSpacing": "-0.01em",
+         "lineHeight": "26px"
+        },
+        "body-md": {
+         "fontFamily": "Inter",
+         "fontSize": "14px",
+         "fontWeight": "400",
+         "letterSpacing": "-0.005em",
+         "lineHeight": "22px"
+        },
+        "body-sm": {
+         "fontFamily": "Inter",
+         "fontSize": "13px",
+         "fontWeight": "400",
+         "letterSpacing": "0em",
+         "lineHeight": "18px"
+        },
+        "headline-lg": {
+         "fontFamily": "Inter",
+         "fontSize": "32px",
+         "fontWeight": "600",
+         "letterSpacing": "-0.025em",
+         "lineHeight": "40px"
+        },
+        "headline-lg-mobile": {
+         "fontFamily": "Inter",
+         "fontSize": "24px",
+         "fontWeight": "600",
+         "letterSpacing": "-0.02em",
+         "lineHeight": "32px"
+        },
+        "headline-md": {
+         "fontFamily": "Inter",
+         "fontSize": "22px",
+         "fontWeight": "500",
+         "letterSpacing": "-0.015em",
+         "lineHeight": "30px"
+        },
+        "headline-xl": {
+         "fontFamily": "Inter",
+         "fontSize": "40px",
+         "fontWeight": "600",
+         "letterSpacing": "-0.03em",
+         "lineHeight": "48px"
+        },
+        "headline-xl-mobile": {
+         "fontFamily": "Inter",
+         "fontSize": "30px",
+         "fontWeight": "600",
+         "letterSpacing": "-0.025em",
+         "lineHeight": "38px"
+        },
+        "label-md": {
+         "fontFamily": "Inter",
+         "fontSize": "12px",
+         "fontWeight": "500",
+         "letterSpacing": "0.02em",
+         "lineHeight": "16px"
+        },
+        "label-sm": {
+         "fontFamily": "Inter",
+         "fontSize": "11px",
+         "fontWeight": "600",
+         "letterSpacing": "0.04em",
+         "lineHeight": "14px"
+        }
+       }
+      },
+      "title": "What are you into?",
+      "width": "780"
+     }
+    ],
+    "theme": {}
+   }
+  },
+  {
+   "text": "I've designed the **'What are you into?'** topic picker screen for **Talk It Out**, matching the exact bold monochrome design system established in your onboarding flow.\n\n### Design Highlights:\n- **Signature Hero Header:** Features the solid near-black `#09090B` hero header with dramatic rounded bottom corners, brand wordmark, clear \"Skip\" button top-right, and the subtitle explaining how interest selections personalize the algorithmic feed.\n- **Search & Filter:** An integrated search bar with a crisp line icon allows quick topic filtering.\n- **Compact Chip Cloud:** All 20 requested topics rendered as compact, wrapping pill chips with custom thin-line Phosphor-style vector icons:\n  - **Selected items (3 picked):** *Engineering & tech*, *Psychological safety*, and *Data & AI* formatted in solid black pills with white text and checkmark indicators.\n  - **Unselected items:** White chips with hairline `#E7E3DC` borders and `#09090B` typography.\n- **Privacy Assurance:** A discreet informational badge highlighting that topic preferences remain private by default to uphold workplace psychological safety.\n- **Sticky Action Footer:** Shows live status (\"3 picked \u00b7 Minimum requirement met\") alongside the prominent black pill primary button (\"Show my feed \u2192\")."
+  },
+  {
+   "suggestion": "Create the 'For You' Feed home screen based on these selected topics"
+  },
+  {
+   "suggestion": "Design the topic search active state with keyboard and filtered results"
+  },
+  {
+   "suggestion": "Add a confirmation modal when skipping topic selection"
+  }
+ ],
+ "projectId": "12357068339961859333",
+ "sessionId": "16204099961033756702"
+}

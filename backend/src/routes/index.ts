@@ -1,13 +1,30 @@
+import { createAccountRouter } from './account';
 import { Router, RequestHandler } from 'express';
 import { Pool } from 'pg';
 import { Config } from '../config';
+import { RealtimeHub } from '../realtime';
 import { createAuthMiddleware } from '../middleware/auth';
 import { createAuthRouter, createMeHandler } from './auth';
+import { createEventsRouter } from './events';
 import { createFeedRouter } from './feed';
+import { createFeedDiscoveryRouter } from './feedDiscovery';
+import { createPeopleRouter } from './people';
+import { createGoogleAuthRouter } from './googleAuth';
 import { createGroupsRouter } from './groups';
 import { createMessagesRouter } from './messages';
 import { createNotificationsRouter } from './notifications';
+import { createPasswordResetRouter } from './passwordReset';
+import { createAttachmentsRouter } from './attachments';
+import { createSecurityRouter } from './security';
+import { createMediaRouter, createProfilesRouter } from './profiles';
+import { createNotificationsReadAllRouter, createReactionsRouter } from './reactions';
+import { createRefreshRouter } from './refresh';
 import '../types';
+import { createGroupInvitesRouter, createInvitesRouter } from './invites';
+import { createBillingRouter } from './billing';
+import { createInsightsRouter } from './insights';
+import { createGroupSummaryRouter } from './groupSummary';
+import { createInvitationsRouter } from './invitations';
 
 /**
  * The full API router. It is mounted at both / and /api/v1 so the Flutter
@@ -17,14 +34,25 @@ import '../types';
 export function createApiRouter(
   pool: Pool,
   appConfig: Config,
-  opts: { authLimiter?: RequestHandler } = {},
+  opts: { authLimiter?: RequestHandler; realtime?: RealtimeHub } = {},
 ): Router {
   const router = Router();
   const requireAuth = createAuthMiddleware(pool, appConfig.jwtSecret);
 
   // Strict per-IP limit on credential endpoints (15-minute window).
   if (opts.authLimiter) {
-    router.use(['/auth/login', '/auth/register'], opts.authLimiter);
+    router.use(
+      [
+        '/auth/login',
+        '/auth/register',
+        '/auth/refresh',
+        '/auth/password-reset',
+        '/auth/password-reset/confirm',
+        '/auth/change-password',
+        '/auth/google',
+      ],
+      opts.authLimiter,
+    );
   }
 
   // Cheap and public; never touches the database.
@@ -52,8 +80,42 @@ export function createApiRouter(
     createGroupsRouter(pool, requireAuth, appConfig.pipelineMaxInputChars),
   );
   router.use('/messages', createMessagesRouter(pool, requireAuth));
+  // Discovery paths first so GET /posts/:postId does not take them.
+  router.use('/posts', createFeedDiscoveryRouter(pool, requireAuth));
   router.use('/posts', createFeedRouter(pool, requireAuth));
   router.use('/notifications', createNotificationsRouter(pool, requireAuth));
+
+  // Additions after the v1 client contract (not yet called by the Flutter
+  // app). Mounted after the routers above so they never shadow them.
+  router.use('/auth', createRefreshRouter(pool, appConfig.jwtSecret, requireAuth, appConfig));
+  router.use('/auth', createPasswordResetRouter(pool, appConfig));
+  router.use('/auth', createSecurityRouter(pool, requireAuth, appConfig));
+  router.use('/auth', createGoogleAuthRouter(pool, appConfig));
+  router.use('/groups', createReactionsRouter(pool, requireAuth));
+  router.use('/groups', createAttachmentsRouter(pool, requireAuth));
+  router.use('/notifications', createNotificationsReadAllRouter(pool, requireAuth));
+  router.use('/groups/:groupId/invites', createGroupInvitesRouter(pool, appConfig, requireAuth));
+  router.use('/invites', createInvitesRouter(pool, requireAuth));
+  router.use('/invitations', createInvitationsRouter(pool, requireAuth));
+  router.use('/groups/:groupId/summary', createGroupSummaryRouter(pool, requireAuth));
+  router.use('/groups/:groupId/insights', createInsightsRouter(pool, requireAuth));
+  router.use(
+    '/billing',
+    createBillingRouter(pool, requireAuth, {
+      revenuecatWebhookSecret: appConfig.revenuecatWebhookSecret,
+      revenuecatSecretKey: appConfig.revenuecatSecretKey,
+      premiumEntitlementId: appConfig.premiumEntitlementId,
+      razorpayKeyId: appConfig.razorpayKeyId,
+      razorpayKeySecret: appConfig.razorpayKeySecret,
+      razorpayWebhookSecret: appConfig.razorpayWebhookSecret,
+      razorpayPlanId: appConfig.razorpayPlanId,
+    }),
+  );
+  router.use('/users', createPeopleRouter(pool, requireAuth));
+  router.use('/users', createProfilesRouter(pool, requireAuth));
+  router.use('/users', createAccountRouter(pool, requireAuth));
+  router.use('/media', createMediaRouter(pool));
+  router.use('/events', createEventsRouter(pool, requireAuth, appConfig, opts.realtime ?? new RealtimeHub(pool)));
 
   return router;
 }

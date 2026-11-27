@@ -15,7 +15,7 @@ import time
 
 from . import PIPELINE_COMPONENT_VERSION
 from .config import Config, load_config, load_env_file
-from .errors import BackendFatal, ConfigError
+from .errors import BackendFatal, ConfigError, ModelError
 from .http_client import BackendClient
 from .model_adapter import OpenAICompatibleAdapter
 from .rewrite import RewriteService
@@ -34,7 +34,41 @@ def build_worker(config: Config) -> Worker:
         extra_body=config.model_extra_body,
     )
     service = RewriteService(adapter=adapter, config=config)
-    return Worker(client=client, service=service, config=config, sleep=time.sleep)
+    return Worker(
+        client=client,
+        service=service,
+        config=config,
+        sleep=time.sleep,
+        keep_warm=lambda: warm_up_model(config, announce=False),
+    )
+
+
+def warm_up_model(config: Config, poster=None, announce: bool = True) -> bool:
+    """Loads the model before the first real message (a cold model can take
+    15 s or more; a warm one about 2 s). Sends a one-word prompt with no
+    user content. Never raises: a failure only means the first rewrite is
+    slower. Returns whether the model answered."""
+    adapter = OpenAICompatibleAdapter(
+        endpoint=config.model_endpoint,
+        model_id=config.model_id,
+        api_key=config.model_api_key,
+        timeout=config.model_request_timeout_seconds,
+        extra_body=config.model_extra_body,
+        poster=poster,
+    )
+    started = time.monotonic()
+    try:
+        adapter.complete([{"role": "user", "content": "ok"}], temperature=0.0, max_tokens=1)
+    except (ModelError, OSError):
+        logging.getLogger("talkitout.main").warning(
+            "model warm-up failed; the first rewrite may be slow"
+        )
+        return False
+    log = logging.getLogger("talkitout.main")
+    (log.info if announce else log.debug)(
+        "model warm in %.1fs", time.monotonic() - started
+    )
+    return True
 
 
 def main() -> int:
@@ -59,6 +93,7 @@ def main() -> int:
         config.max_output_chars,
     )
 
+    warm_up_model(config)
     stop_via_signal(worker.stop_event)
     try:
         worker.run()

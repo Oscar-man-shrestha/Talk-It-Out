@@ -15,14 +15,19 @@ afterAll(closePool);
 
 const POST_KEYS = [
   'author',
+  'best_comment_id',
   'comment_count',
   'content',
   'created_at',
+  'edited_at',
+  'following',
   'id',
   'my_reaction',
   'nsfw_flag',
   'other_flags',
   'reaction_count',
+  'title',
+  'topic',
 ];
 
 async function createPost(
@@ -44,7 +49,7 @@ describe('posts', () => {
     });
     expect(res.status).toBe(201);
     expect(Object.keys(res.body).sort()).toEqual(POST_KEYS);
-    expect(res.body.author).toEqual({ id: user.id, name: 'Poster' });
+    expect(res.body.author).toEqual({ id: user.id, name: 'Poster', premium: false });
     expect(res.body.content).toBe('How do we label borderline relevance?');
     expect(res.body.nsfw_flag).toBe(false);
     expect(res.body.other_flags).toEqual({});
@@ -161,13 +166,19 @@ describe('comments', () => {
       'author',
       'content',
       'created_at',
+      'edited_at',
       'id',
+      'is_best',
       'nsfw_flag',
       'other_flags',
       'post_id',
+      'report_count',
+      'reported_by_me',
+      'vote_count',
+      'voted_by_me',
     ]);
     expect(created.body.post_id).toBe(postId);
-    expect(created.body.author).toEqual({ id: commenter.id, name: 'Commenter' });
+    expect(created.body.author).toEqual({ id: commenter.id, name: 'Commenter', premium: false });
     expect(created.body.nsfw_flag).toBe(false);
     expect(created.body.other_flags).toEqual({});
 
@@ -225,9 +236,14 @@ describe('post to group conversion', () => {
       'agenda',
       'controller_id',
       'created_at',
+      'description',
       'id',
+      'member_count',
+      'muted',
       'my_role',
       'pending_count',
+      'pinned',
+      'rules',
       'source_post_id',
     ]);
     expect(res.body.agenda).toBe('Should we split preprocessing notes?');
@@ -258,5 +274,68 @@ describe('post to group conversion', () => {
         await api.post(app, '/posts/00000000-0000-0000-0000-000000000000/group', author.token)
       ).status,
     ).toBe(404);
+  });
+});
+
+describe('feed filters (API.md 70)', () => {
+  it('filters by topic in the database, including untagged posts by keyword', async () => {
+    const app = testApp();
+    const user = await registerUser(app, 'Poster', 'filters1@example.com');
+    const tagged = await api.post(app, '/posts', user.token, {
+      content: 'How should we size sprint work?',
+      topic: 'engineering',
+    });
+    expect(tagged.status).toBe(201);
+    const untagged = await createPost(app, user.token, 'The NLP pipeline needs a review');
+    await createPost(app, user.token, 'Where is the offsite this year?');
+    await api.post(app, '/posts', user.token, { content: 'Raise bands?', topic: 'compensation' });
+
+    const res = await api.get(app, '/posts?topic=engineering', user.token);
+    expect(res.status).toBe(200);
+    expect(res.body.items.map((p: { id: string }) => p.id).sort()).toEqual(
+      [tagged.body.id, untagged].sort(),
+    );
+
+    const bad = await api.get(app, '/posts?topic=gossip', user.token);
+    expect(bad.status).toBe(422);
+  });
+
+  it('filters by answered state and keeps cursor paging within the filter', async () => {
+    const app = testApp();
+    const user = await registerUser(app, 'Poster', 'filters2@example.com');
+    const other = await registerUser(app, 'Answerer', 'filters3@example.com');
+    const ids: string[] = [];
+    for (let i = 0; i < 4; i += 1) {
+      ids.push(await createPost(app, user.token, `question ${i}`));
+      await testPool().query(`SELECT pg_sleep(0.01)`);
+    }
+    // question 1: one answer; question 3: two answers.
+    await api.post(app, `/posts/${ids[1]}/comments`, other.token, { content: 'one' });
+    await api.post(app, `/posts/${ids[3]}/comments`, other.token, { content: 'a' });
+    await api.post(app, `/posts/${ids[3]}/comments`, user.token, { content: 'b' });
+
+    const contents = (body: { items: { content: string }[] }) =>
+      body.items.map((p) => p.content);
+
+    const unanswered = await api.get(app, '/posts?filter=unanswered', user.token);
+    expect(contents(unanswered.body)).toEqual(['question 2', 'question 0']);
+
+    const answered = await api.get(app, '/posts?filter=answered', user.token);
+    expect(contents(answered.body)).toEqual(['question 3', 'question 1']);
+
+    const discussed = await api.get(app, '/posts?filter=discussed', user.token);
+    expect(contents(discussed.body)).toEqual(['question 3']);
+
+    const page1 = await api.get(app, '/posts?filter=unanswered&limit=1', user.token);
+    expect(contents(page1.body)).toEqual(['question 2']);
+    const page2 = await api.get(
+      app,
+      `/posts?filter=unanswered&limit=1&cursor=${page1.body.next_cursor}`,
+      user.token,
+    );
+    expect(contents(page2.body)).toEqual(['question 0']);
+    expect(page2.body.next_cursor).toBeNull();
+
+    expect((await api.get(app, '/posts?filter=popular', user.token)).status).toBe(422);
   });
 });

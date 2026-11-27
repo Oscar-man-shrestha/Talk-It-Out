@@ -48,7 +48,7 @@ export function createInvitationsRouter(pool: Pool, requireAuth: RequireAuth): R
       );
       const inv = rows[0];
       if (!inv) throw notFound('That invitation is no longer open.');
-      if (accept && inv.inviter_id && (await blockedEitherWay(pool, me, inv.inviter_id))) {
+      if (accept && inv.inviter_id && (await blockedEitherWay(client, me, inv.inviter_id))) {
         throw new ApiError(403, 'blocked', 'You cannot join this group.');
       }
       if (accept) {

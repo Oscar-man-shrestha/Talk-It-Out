@@ -146,7 +146,7 @@ class ApiFeedRepository implements FeedRepository {
   @override
   Future<bool> setFollowing(String postId, {required bool following}) {
     return guardApi(() async {
-      final path = '/posts/$postId/follow';
+      final path = Endpoints.postFollow(postId);
       final response = following
           ? await _dio.post(path)
           : await _dio.delete(path);
@@ -161,7 +161,7 @@ class ApiFeedRepository implements FeedRepository {
     required bool up,
   }) {
     return guardApi(() async {
-      final path = '/posts/$postId/comments/$commentId/vote';
+      final path = Endpoints.commentVote(postId, commentId);
       final response = up ? await _dio.post(path) : await _dio.delete(path);
       final json = asJsonMap(response.data);
       return CommentVote(
@@ -174,7 +174,10 @@ class ApiFeedRepository implements FeedRepository {
   @override
   Future<void> setBestAnswer(String postId, String? commentId) {
     return guardApi(() async {
-      await _dio.put('/posts/$postId/best', data: {'comment_id': commentId});
+      await _dio.put(
+        Endpoints.postBest(postId),
+        data: {'comment_id': commentId},
+      );
     });
   }
 
@@ -187,7 +190,7 @@ class ApiFeedRepository implements FeedRepository {
   }) {
     return guardApi(() async {
       final response = await _dio.patch(
-        '/posts/$postId',
+        Endpoints.post(postId),
         data: {'title': ?title, 'topic': ?topic, 'content': ?content},
       );
       return Post.fromJson(asJsonMap(response.data));
@@ -202,7 +205,7 @@ class ApiFeedRepository implements FeedRepository {
   }) {
     return guardApi(() async {
       final response = await _dio.patch(
-        '/posts/$postId/comments/$commentId',
+        Endpoints.comment(postId, commentId),
         data: {'content': content},
       );
       return Comment.fromJson(asJsonMap(response.data));

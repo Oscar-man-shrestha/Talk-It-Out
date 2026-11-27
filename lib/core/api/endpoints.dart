@@ -91,4 +91,59 @@ abstract final class Endpoints {
 
   static String notificationRead(String notificationId) =>
       '/notifications/$notificationId/read';
+
+  // Discovery & Users
+  static const usersSearch = '/users/search';
+  static const usersSuggested = '/users/suggested';
+  static const myHandle = '/users/me/handle';
+  static const handleAvailable = '/users/handle-available';
+  static const myInterests = '/users/me/interests';
+  static const postsSearch = '/posts/search';
+  static const postsClassify = '/posts/classify';
+  static String postSignals(String postId) => '/posts/$postId/signals';
+  static const myFeedSettings = '/users/me/feed-settings';
+  static const postsSimilar = '/posts/similar';
+  static String userProfile(String userId) => '/users/$userId/profile';
+  static String userPosts(String userId) => '/users/$userId/posts';
+  static String userBlock(String userId) => '/users/$userId/block';
+  static const myBlocked = '/users/me/blocked';
+  static String postReport(String postId) => '/posts/$postId/report';
+  static String postLikes(String postId) => '/posts/$postId/likes';
+
+  // Feed & Comments interactions
+  static String postFollow(String postId) => '/posts/$postId/follow';
+  static String commentVote(String postId, String commentId) =>
+      '/posts/$postId/comments/$commentId/vote';
+  static String postBest(String postId) => '/posts/$postId/best';
+
+  // Group operations & Invitations
+  static String withdrawMessage(String messageId) =>
+      '/messages/$messageId/withdraw';
+  static String groupMessage(String groupId, String messageId) =>
+      '/groups/$groupId/messages/$messageId';
+  static String messagePin(String groupId, String messageId) =>
+      '/groups/$groupId/messages/$messageId/pin';
+  static String groupPolls(String groupId) => '/groups/$groupId/polls';
+  static String groupPollVote(String groupId, String pollId) =>
+      '/groups/$groupId/polls/$pollId/vote';
+  static String groupMember(String groupId, String userId) =>
+      '/groups/$groupId/members/$userId';
+  static String groupLeave(String groupId) => '/groups/$groupId/leave';
+  static String groupSettings(String groupId) => '/groups/$groupId/settings';
+  static const invitations = '/invitations';
+  static String acceptInvitation(String invitationId) =>
+      '/invitations/$invitationId/accept';
+  static String declineInvitation(String invitationId) =>
+      '/invitations/$invitationId/decline';
+  static String groupInvitations(String groupId) =>
+      '/groups/$groupId/invitations';
+  static String groupInvitation(String groupId, String invitationId) =>
+      '/groups/$groupId/invitations/$invitationId';
+
+  // Invite links
+  static String groupInvites(String groupId) => '/groups/$groupId/invites';
+  static String groupInvite(String groupId, String code) =>
+      '/groups/$groupId/invites/$code';
+  static String invite(String code) => '/invites/$code';
+  static String acceptInvite(String code) => '/invites/$code/accept';
 }

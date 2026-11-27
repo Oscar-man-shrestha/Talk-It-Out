@@ -427,7 +427,7 @@ export function createGroupsRouter(
     const body = parseWith(addMemberSchema, req.body);
 
     if (!body.username && !body.user_id) {
-      throw new ApiError(422, 'validation_error', 'Choose someone to add.');
+      throw new ApiError(422, 'validation', 'Choose someone to add.');
     }
     const { rows: userRows } = body.user_id
       ? await pool.query('SELECT id, name FROM users WHERE id = $1', [body.user_id])
@@ -1040,6 +1040,10 @@ export function createGroupsRouter(
       if (rows[0].attachment_id) {
         await client.query('DELETE FROM message_attachments WHERE id = $1', [rows[0].attachment_id]);
       }
+      await client.query(
+        "DELETE FROM notifications WHERE type = 'mentioned' AND ref_id = $1",
+        [messageId],
+      );
       return true;
     });
     if (!deleted) throw notFound();

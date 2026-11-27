@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:talk_it_out/core/api/api_guard.dart';
+import 'package:talk_it_out/core/api/endpoints.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/mock/mock_board.dart';
 import 'package:talk_it_out/core/mock/mock_controls.dart';
@@ -106,7 +107,7 @@ class ApiInviteRepository implements InviteRepository {
   }) {
     return guardApi(() async {
       final response = await _dio.post(
-        '/groups/$groupId/invites',
+        Endpoints.groupInvites(groupId),
         data: {'expires_in_days': expiresInDays, 'max_uses': maxUses},
       );
       return InviteLink.fromJson(asJsonMap(response.data));
@@ -116,7 +117,7 @@ class ApiInviteRepository implements InviteRepository {
   @override
   Future<List<InviteLink>> listInvites(String groupId) {
     return guardApi(() async {
-      final response = await _dio.get('/groups/$groupId/invites');
+      final response = await _dio.get(Endpoints.groupInvites(groupId));
       final items = asJsonMap(response.data)['items'];
       return [
         if (items is List)
@@ -129,14 +130,14 @@ class ApiInviteRepository implements InviteRepository {
   @override
   Future<void> revokeInvite(String groupId, String code) {
     return guardApi(() async {
-      await _dio.delete('/groups/$groupId/invites/$code');
+      await _dio.delete(Endpoints.groupInvite(groupId, code));
     });
   }
 
   @override
   Future<InvitePreview> previewInvite(String code) {
     return guardApi(() async {
-      final response = await _dio.get('/invites/$code');
+      final response = await _dio.get(Endpoints.invite(code));
       return InvitePreview.fromJson(asJsonMap(response.data));
     });
   }
@@ -144,7 +145,7 @@ class ApiInviteRepository implements InviteRepository {
   @override
   Future<String> acceptInvite(String code) {
     return guardApi(() async {
-      final response = await _dio.post('/invites/$code/accept');
+      final response = await _dio.post(Endpoints.acceptInvite(code));
       return asJsonMap(response.data)['group_id'] as String? ?? '';
     });
   }

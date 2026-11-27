@@ -45,7 +45,8 @@ final dioProvider = Provider<Dio>((ref) {
         final isAuthCall =
             request.path == Endpoints.login ||
             request.path == Endpoints.register ||
-            request.path == Endpoints.refresh;
+            request.path == Endpoints.refresh ||
+            request.path == Endpoints.google;
         if (!isAuthCall && request.extra[_retriedKey] != true) {
           final fresh = await refresher.refresh();
           if (fresh != null) {

@@ -8,3 +8,4 @@ reel-unsent/voice/model/
 reel-unsent/showcase/state.json
 reel-unsent/showcase/shots/code.txt
 __pycache__/
+.venv/

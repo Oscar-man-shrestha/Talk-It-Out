@@ -25,6 +25,7 @@ ACCOUNTS = {
     "priya": ("priya@example.com", "secret123"),
     "rahul": ("rahul@example.test", PASSWORD),
     "kabir": ("kabir@example.test", PASSWORD),
+    "newuser": (os.environ.get("NEW_EMAIL", ""), "firstrun123"),
 }
 
 
@@ -93,11 +94,15 @@ async def open_app(pw, who=None, start="/login", view=None):
     await app.semantics()
     if who:
         email, password = ACCOUNTS[who]
-        await app.click("alex@example.com")
+        # Field positions on the login screen (Runs 118-125 layout, 390x815).
+        await app.tap(195, 255, wait=300)
         await app.type(email, 10)
-        await app.click("Enter your security passkey")
-        await app.type(password, 10)
-        await page.keyboard.press("Enter")
+        await page.wait_for_timeout(600)
+        await app.tap(180, 344, wait=900)
+        await page.keyboard.insert_text(password)  # obscured fields drop typed keys
+        await page.wait_for_timeout(500)
+        await page.wait_for_timeout(400)
+        await app.tap(195, 438, wait=200)  # Sign in
         await page.wait_for_timeout(3500)
         await app.semantics()
         # New accounts may see the welcome tour first.
@@ -316,6 +321,87 @@ async def signin(pw):
         await app.semantics()
         await app.snap("11_new_password", wait=500)
     print(json.dumps(await app.labels())[:800])
+    await b.close()
+
+
+@step
+async def newuser(pw):
+    """The first-time experience as a brand-new user sees it (UX review)."""
+    import time
+    out = "ux"
+    b, app = await open_app(pw, start="/register")
+    await app.snap(f"{out}_01_register")
+    print(json.dumps(await app.labels())[:900])
+    stamp = int(time.time()) % 100000
+    for label, text in (("name", "Neha Gupta"), ("example.com", f"neha{stamp}@example.test"),
+                        ("password", "firstrun123")):
+        pos = await app.find(label)
+        if pos:
+            await app.tap(pos[0], pos[1], wait=300)
+            await app.type(text, 15)
+    await app.snap(f"{out}_02_register_filled")
+    await app.page.keyboard.press("Enter")
+    await app.page.wait_for_timeout(4000)
+    await app.semantics()
+    for i in range(3, 12):
+        await app.snap(f"{out}_{i:02d}_step")
+        labels = await app.labels()
+        print(i, app.page.url, json.dumps(labels)[:500])
+        clicked = False
+        for nxt in ("Next", "Continue", "Get started", "Skip", "Done", "Start"):
+            pos = await app.find(nxt)
+            if pos:
+                await app.tap(pos[0], pos[1], wait=2200)
+                await app.semantics()
+                clicked = True
+                break
+        if not clicked:
+            break
+    await b.close()
+
+
+@step
+async def firstrun(pw):
+    """A brand-new account signing in for the first time (UX review)."""
+    b, app = await open_app(pw, "newuser")
+    for i in range(1, 14):
+        await app.snap(f"ux_fr{i:02d}", wait=800)
+        print(i, app.page.url.split("#")[-1], json.dumps(await app.labels())[:300], flush=True)
+        clicked = False
+        for nxt in ("Next", "Continue", "Get started", "Let's go", "Start", "Done", "Skip"):
+            pos = await app.find(nxt)
+            if pos:
+                await app.tap(pos[0], pos[1], wait=2000)
+                await app.semantics()
+                clicked = True
+                break
+        if not clicked:
+            break
+    for route in ("/groups", "/feed", "/notifications", "/profile"):
+        await app.go(route, wait=2800)
+        await app.snap("ux_empty" + route.replace("/", "_"))
+    await b.close()
+
+
+@step
+async def ux_after(pw):
+    """The redesigned first-time screens (Stitch-based)."""
+    b, app = await open_app(pw, start="/register")
+    await app.snap("uxnew_01_register_empty")
+    await app.tap(195, 289, wait=500)  # email field
+    await app.page.keyboard.insert_text("neha@example.test")
+    await app.snap("uxnew_02_register_email", wait=600)
+    await b.close()
+    b, app = await open_app(pw, "newuser")
+    await app.go("/welcome", wait=2500)
+    await app.snap("uxnew_03_welcome")
+    await app.page.mouse.move(195, 500)
+    await app.page.mouse.wheel(0, 900)
+    await app.snap("uxnew_04_welcome_bottom", wait=900)
+    await app.go("/groups", wait=2800)
+    await app.snap("uxnew_05_groups_empty")
+    await app.go("/feed", wait=3000)
+    await app.snap("uxnew_06_interests")
     await b.close()
 
 

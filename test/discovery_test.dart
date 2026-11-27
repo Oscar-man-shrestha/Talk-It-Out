@@ -224,10 +224,12 @@ void main() {
     expect(find.text('What are you into?'), findsOneWidget);
     expect(find.text('Pick 3 more'), findsOneWidget);
     for (final id in ['career_growth', 'wellbeing', 'startups']) {
+      await tester.ensureVisible(find.byKey(ValueKey('interest-$id')));
       await tester.tap(find.byKey(ValueKey('interest-$id')));
       await tester.pump();
     }
-    expect(find.text('Continue'), findsOneWidget);
+    expect(find.text('3 picked'), findsOneWidget);
+    expect(find.text('Show my feed'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('interests-continue')));
     await tester.pumpAndSettle();
     final saved = await container

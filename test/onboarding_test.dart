@@ -101,12 +101,12 @@ void main() {
       find.textContaining('visible to the controller who reviews them'),
       findsOneWidget,
     );
-    for (var i = 0; i < 4; i++) {
-      await tester.tap(find.byKey(const ValueKey('welcome-next')));
-      await tester.pumpAndSettle();
-    }
-    expect(find.text('Where do you want to start?'), findsOneWidget);
+    // One screen: how it works, then where to start (join is preselected).
+    expect(find.text('How do you want to start?'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('welcome-explore')));
     await tester.tap(find.byKey(const ValueKey('welcome-explore')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('welcome-continue')));
     await tester.pumpAndSettle();
     expect(_where(tester), startsWith('/feed'));
     await _close(tester);
@@ -138,7 +138,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('decline-rinv1')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('groups-empty')), findsOneWidget);
-    expect(find.text('Start your first safe space'), findsOneWidget);
+    expect(find.text('Your first group'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('groups-empty-join')));
     await tester.pumpAndSettle();

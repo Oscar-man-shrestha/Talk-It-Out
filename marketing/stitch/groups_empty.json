@@ -1,0 +1,351 @@
+{
+ "outputComponents": [
+  {
+   "design": {
+    "screens": [
+     {
+      "designSystem": {
+       "designSystem": {
+        "displayName": "Talk It Out Monochrome",
+        "styleGuidelines": "## Brand & Style\nThe brand personality is disciplined, articulate, and architecturally grounded. Designed for modern professional teams, it balances corporate utility with high-end editorial calm. The interface removes ambient distractions, unnecessary gamification, and saturated accents to elevate clear written communication and intentional dialogue.\n\nThe aesthetic merges **Minimalism** with **Modern Editorial Restraint**:\n- Deep obsidian anchors contrasting with delicate, warm alabaster surfaces.\n- Strictly no synthetic gradients, playful illustrations, or emoji-heavy UI ornamentation.\n- Structural layout integrity driven by razor-thin hairline boundaries and deliberate, spacious typographic hierarchy.\n- Thin-line visual iconography (1px to 1.25px stroke weights) communicating utility with quiet confidence.\n\n## Layout & Spacing\nThe layout leverages a disciplined fluid grid anchored inside structured containment modules.\n\n- **Desktop (1024px+):** 12-column architecture featuring a persistent channel/thread hierarchy; 24px gutters and 36px outer margin.\n- **Tablet (768px - 1023px):** 8-column layout with 20px gutters and 24px margins, transitioning auxiliary sidebars into collapsable drawers.\n- **Mobile (< 768px):** Single-column stacked canvas with 16px margins (`1rem`) and unified vertical spacing rhythm.\n- **Rhythm Rules:** All layout margins, padding blocks, and gaps resolve to increments of 4px and 8px. Component density stays open and calm; chat bubbles and post modules use ample inner padding (`space-md` to `space-lg`) to maintain editorial elegance.\n\n## Elevation & Depth\nElevation in this design system is strictly achieved through surface contrast and crisp 1px hairline boundaries\u2014never through drop shadows or blurred ambient glows.\n\n- **Level 0 (Canvas):** Tone `#FCFAF6`. Ground level containing main scroll areas and backdrop regions.\n- **Level 1 (Cards & Message Bubbles):** Crisp pure white `#FFFFFF` bounded by a 1px solid `#E7E3DC` hairline border. No drop shadow.\n- **Level 2 (Inverted Anchor / Hero Module):** Solid `#09090B` blocks anchored at top viewports or global navigation panels, featuring distinct rounded bottom corners (`24px` to `28px`).\n- **Level 3 (Overlays & Dialogs):** `#FFFFFF` surfaces with a 1px solid `#09090B` crisp contour, paired with a solid `#09090B` backdrop at 20% opacity without blur filters.\n\n## Components\n\n### Top Hero Panel\n- **Background:** Solid `#09090B` with white `#FFFFFF` text.\n- **Geometry:** Square top corners against the window frame; bottom corners rounded to `24px` (mobile) or `32px` (desktop).\n- **Contents:** Channel names, contextual team status, and search trigger. Icon buttons inside use thin 1px white strokes.\n\n### Buttons\n- **Primary:** Solid `#09090B` background, full pill silhouette (`9999px` radius), pure white text, zero border. Active state: `#27272A`.\n- **Secondary:** Pure white `#FFFFFF` background, full pill silhouette, `#09090B` text, wrapped in a 1px hairline border of `#09090B`. Active state: subtle `#F4F2EB` fill.\n- **Tertiary / Ghost:** Transparent background, `#71717A` label, shifting to `#09090B` on hover/focus.\n\n### Cards & Chat Containers\n- **Surface:** Pure white `#FFFFFF`.\n- **Border:** 1px hairline `#E7E3DC`.\n- **Radius:** `18px` to `20px`.\n- **Padding:** `1.25rem` (`20px`) on mobile; `1.5rem` (`24px`) on desktop.\n- **Divider Lines:** 1px solid `#F4F2EB` internally between replies or metadata strips.\n\n### Input Fields & Chat Composer\n- **Resting:** Pure white `#FFFFFF` background, 1px `#E7E3DC` hairline border, `14px` border radius, text in `#09090B`, placeholder in `#71717A`.\n- **Focus:** 1px solid `#09090B` border with zero outline ring.\n- **Composer Controls:** Monoline action icons (send, attach, format) rendered in `#71717A` with a 1.25px stroke weight. Primary send action leverages a compact black pill button.\n\n### Chips & Channel Filters\n- **Pill Geometry:** Height of 32px with full pill radius.\n- **Resting:** `#FFFFFF` background with 1px `#E7E3DC` border, `#71717A` label.\n- **Active / Selected:** `#09090B` background, `#FFFFFF` text, no outline.\n\n### Checkboxes & Radios\n- **Checkboxes:** 18px square with 4px corner radius. Unchecked: 1px `#E7E3DC` border. Checked: solid `#09090B` fill with a crisp white checkmark icon (1.25px stroke).\n- **Radio Buttons:** 18px circle. Checked: Solid `#09090B` rim with an inner centered 6px dot in `#09090B`.\n\n### Lists & Activity Rows\n- **Layout:** Edge-to-edge within cards or canvas columns.\n- **Dividers:** Optional 1px hairline `#E7E3DC`.\n- **Typographic Pairings:** Item headline in `#09090B` (`body-md` semibold), supporting details and timestamps in `#71717A` (`label-md`).\n- **Selection State:** Subtle tonal fill of `#F6F4EE` across the row radius.",
+        "theme": {
+         "bodyFont": "INTER",
+         "bodyFontFamily": "Inter",
+         "colorMode": "LIGHT",
+         "colorVariant": "FIDELITY",
+         "customColor": "#09090b",
+         "font": "INTER",
+         "headlineFont": "INTER",
+         "headlineFontFamily": "Inter",
+         "labelFont": "INTER",
+         "labelFontFamily": "Inter",
+         "namedColors": {
+          "background": "#fbf9f5",
+          "error": "#ba1a1a",
+          "error_container": "#ffdad6",
+          "inverse_on_surface": "#f2f0ed",
+          "inverse_primary": "#c8c6c8",
+          "inverse_surface": "#30312e",
+          "on_background": "#1b1c1a",
+          "on_error": "#ffffff",
+          "on_error_container": "#93000a",
+          "on_primary": "#ffffff",
+          "on_primary_container": "#858386",
+          "on_primary_fixed": "#1c1b1d",
+          "on_primary_fixed_variant": "#474649",
+          "on_secondary": "#ffffff",
+          "on_secondary_container": "#63646c",
+          "on_secondary_fixed": "#1a1b22",
+          "on_secondary_fixed_variant": "#46464e",
+          "on_surface": "#1b1c1a",
+          "on_surface_variant": "#47464a",
+          "on_tertiary": "#ffffff",
+          "on_tertiary_container": "#8a8282",
+          "on_tertiary_fixed": "#1f1a1a",
+          "on_tertiary_fixed_variant": "#4c4545",
+          "outline": "#78767b",
+          "outline_variant": "#c8c5ca",
+          "primary": "#000000",
+          "primary_container": "#1c1b1d",
+          "primary_fixed": "#e5e1e4",
+          "primary_fixed_dim": "#c8c6c8",
+          "secondary": "#5d5e66",
+          "secondary_container": "#e3e1ec",
+          "secondary_fixed": "#e3e1ec",
+          "secondary_fixed_dim": "#c6c5cf",
+          "surface": "#fbf9f5",
+          "surface_bright": "#fbf9f5",
+          "surface_container": "#efeeea",
+          "surface_container_high": "#eae8e4",
+          "surface_container_highest": "#e4e2de",
+          "surface_container_low": "#f5f3ef",
+          "surface_container_lowest": "#ffffff",
+          "surface_dim": "#dbdad6",
+          "surface_tint": "#5f5e60",
+          "surface_variant": "#e4e2de",
+          "tertiary": "#000000",
+          "tertiary_container": "#1f1a1a",
+          "tertiary_fixed": "#ebe0df",
+          "tertiary_fixed_dim": "#cec4c4"
+         },
+         "overrideNeutralColor": "#fcfaf6",
+         "overridePrimaryColor": "#09090b",
+         "overrideSecondaryColor": "#71717a",
+         "roundness": "ROUND_FULL",
+         "spacing": {
+          "gutter": "1.25rem",
+          "margin": "1.5rem",
+          "space-lg": "1.5rem",
+          "space-md": "1rem",
+          "space-sm": "0.5rem",
+          "space-xl": "2.25rem",
+          "space-xs": "0.25rem"
+         },
+         "spacingScale": 2,
+         "typography": {
+          "body-lg": {
+           "fontFamily": "Inter",
+           "fontSize": "16px",
+           "fontWeight": "400",
+           "letterSpacing": "-0.01em",
+           "lineHeight": "26px"
+          },
+          "body-md": {
+           "fontFamily": "Inter",
+           "fontSize": "14px",
+           "fontWeight": "400",
+           "letterSpacing": "-0.005em",
+           "lineHeight": "22px"
+          },
+          "body-sm": {
+           "fontFamily": "Inter",
+           "fontSize": "13px",
+           "fontWeight": "400",
+           "letterSpacing": "0em",
+           "lineHeight": "18px"
+          },
+          "headline-lg": {
+           "fontFamily": "Inter",
+           "fontSize": "32px",
+           "fontWeight": "600",
+           "letterSpacing": "-0.025em",
+           "lineHeight": "40px"
+          },
+          "headline-lg-mobile": {
+           "fontFamily": "Inter",
+           "fontSize": "24px",
+           "fontWeight": "600",
+           "letterSpacing": "-0.02em",
+           "lineHeight": "32px"
+          },
+          "headline-md": {
+           "fontFamily": "Inter",
+           "fontSize": "22px",
+           "fontWeight": "500",
+           "letterSpacing": "-0.015em",
+           "lineHeight": "30px"
+          },
+          "headline-xl": {
+           "fontFamily": "Inter",
+           "fontSize": "40px",
+           "fontWeight": "600",
+           "letterSpacing": "-0.03em",
+           "lineHeight": "48px"
+          },
+          "headline-xl-mobile": {
+           "fontFamily": "Inter",
+           "fontSize": "30px",
+           "fontWeight": "600",
+           "letterSpacing": "-0.025em",
+           "lineHeight": "38px"
+          },
+          "label-md": {
+           "fontFamily": "Inter",
+           "fontSize": "12px",
+           "fontWeight": "500",
+           "letterSpacing": "0.02em",
+           "lineHeight": "16px"
+          },
+          "label-sm": {
+           "fontFamily": "Inter",
+           "fontSize": "11px",
+           "fontWeight": "600",
+           "letterSpacing": "0.04em",
+           "lineHeight": "14px"
+          }
+         }
+        }
+       },
+       "name": "assets/7f12a838cd1f491ea764078ffb5f6229",
+       "version": "1"
+      },
+      "deviceType": "MOBILE",
+      "generatedBy": "figaro_agent",
+      "height": "1880",
+      "htmlCode": {
+       "downloadUrl": "https://stitch.googleapis.com/v1/projects/12357068339961859333/files/f3ddb36c31e147a3bd256570679ce317:download",
+       "mimeType": "text/html",
+       "name": "projects/12357068339961859333/files/f3ddb36c31e147a3bd256570679ce317"
+      },
+      "id": "d13586483f2a4c56bc93eae2b0f4a109",
+      "name": "projects/12357068339961859333/screens/d13586483f2a4c56bc93eae2b0f4a109",
+      "prompt": "Brand: 'Talk It Out'. Screen: the Groups tab for a brand-new user with no groups yet.\nDevice: Mobile (390px wide).\nVisual Style: Bold monochrome aesthetic. \nCanvas background color: light cream (#FCFAF6).\nFont: Inter, clean tracking and typography hierarchy.\nIcons: Thin line icons (Phosphor style), strokes around 1.5px. Strictly no gradients, no purple, no emoji.\n\nPage structure:\n1. Top Hero Header:\n- Solid black hero header block (#09090B) with rounded bottom corners (rounded-b-3xl / 28px).\n- Large white title \"Groups\" in bold clean Inter.\n- In the top right corner of the header, include a subtle profile icon (thin line circle user avatar in white stroke/circle button).\n- Generous padding inside header, high contrast white-on-black typography.\n\n2. Empty State Main Content (on #FCFAF6 cream background):\n- An elegant, calm empty state presentation.\n- Top icon: A refined thin line group/chat bubble icon (Phosphor style) inside a subtle circular border or clean icon badge.\n- Heading: \"Your first group\" (font-bold text-xl or 22px text-[#09090B]).\n- Subtitle: \"Groups are where your team talks it out. Join one with an invite link or start your own.\" (text-sm text-[#71717A], centered, relaxed line height).\n\n3. Two Large Choice Cards (stacked vertically, 18-20px corner radius):\n- Primary filled black card:\n  * Title: \"Join with an invite link\" (white text, bold, font-semibold)\n  * Subtitle: \"Paste a link from your team\" (white text with slight opacity / #D4D4D8, text-xs/sm)\n  * Background: solid black (#09090B), rounded-[20px], padding p-5, with an arrow or right-chevron icon in thin white stroke.\n- Secondary outlined white card:\n  * Title: \"Start a group\" (near-black text #09090B, bold, font-semibold)\n  * Subtitle: \"For a team, project or retro; you become its controller\" (secondary text #71717A, text-xs/sm)\n  * Background: pure white (#FFFFFF), rounded-[20px], hairline border 1px solid #E7E3DC, padding p-5, with an arrow or plus icon in thin line stroke.\n\n4. Slim Text Link:\n- Directly under the cards: \"Or explore community questions\" (text-xs or text-sm, text-[#71717A] hover:text-[#09090B], underline or subtle hover, centered).\n\n5. Quiet 'How it works' strip:\n- Subtle header/label: \"HOW IT WORKS\" in small uppercase tracking-wider text-[#A1A1AA] (10-11px).\n- Three-item horizontal strip (or vertical clean list card) on a subtle white/hairline card or clean row with 3 columns:\n  * Item 1: Thin line icon (incognito / eye-slash / mask or pen) + label \"Anonymous if you want\"\n  * Item 2: Thin line icon (sliders / sound wave / spark / tone) + label \"AI calms the tone\"\n  * Item 3: Thin line icon (shield / check / user-check) + label \"Controller reviews first\"\n- All icons thin monochrome line style, text is tiny, quiet, and legible (11-12px, font-medium text-[#71717A]).\n\nHard constraints:\n- NO floating action button.\n- NO upgrade banner.\n- NO purple, NO gradients, NO emojis.\n- Cards have 18-20px radius and hairline border #E7E3DC.\n- Fits seamlessly inside the mobile shell frame with the bottom navigation bar active on Groups.",
+      "screenMetadata": {
+       "agentType": "PRO_AGENT",
+       "status": "COMPLETE"
+      },
+      "screenType": "DESIGN",
+      "screenshot": {
+       "downloadUrl": "https://stitch.googleapis.com/v1/projects/12357068339961859333/files/64b2f49d7a8649f0a938fa4b4f443fff:download",
+       "name": "projects/12357068339961859333/files/64b2f49d7a8649f0a938fa4b4f443fff"
+      },
+      "theme": {
+       "bodyFont": "INTER",
+       "bodyFontFamily": "Inter",
+       "colorMode": "LIGHT",
+       "colorVariant": "FIDELITY",
+       "customColor": "#09090b",
+       "font": "INTER",
+       "headlineFont": "INTER",
+       "headlineFontFamily": "Inter",
+       "labelFont": "INTER",
+       "labelFontFamily": "Inter",
+       "namedColors": {
+        "background": "#fbf9f5",
+        "error": "#ba1a1a",
+        "error_container": "#ffdad6",
+        "inverse_on_surface": "#f2f0ed",
+        "inverse_primary": "#c8c6c8",
+        "inverse_surface": "#30312e",
+        "on_background": "#1b1c1a",
+        "on_error": "#ffffff",
+        "on_error_container": "#93000a",
+        "on_primary": "#ffffff",
+        "on_primary_container": "#858386",
+        "on_primary_fixed": "#1c1b1d",
+        "on_primary_fixed_variant": "#474649",
+        "on_secondary": "#ffffff",
+        "on_secondary_container": "#63646c",
+        "on_secondary_fixed": "#1a1b22",
+        "on_secondary_fixed_variant": "#46464e",
+        "on_surface": "#1b1c1a",
+        "on_surface_variant": "#47464a",
+        "on_tertiary": "#ffffff",
+        "on_tertiary_container": "#8a8282",
+        "on_tertiary_fixed": "#1f1a1a",
+        "on_tertiary_fixed_variant": "#4c4545",
+        "outline": "#78767b",
+        "outline_variant": "#c8c5ca",
+        "primary": "#000000",
+        "primary_container": "#1c1b1d",
+        "primary_fixed": "#e5e1e4",
+        "primary_fixed_dim": "#c8c6c8",
+        "secondary": "#5d5e66",
+        "secondary_container": "#e3e1ec",
+        "secondary_fixed": "#e3e1ec",
+        "secondary_fixed_dim": "#c6c5cf",
+        "surface": "#fbf9f5",
+        "surface_bright": "#fbf9f5",
+        "surface_container": "#efeeea",
+        "surface_container_high": "#eae8e4",
+        "surface_container_highest": "#e4e2de",
+        "surface_container_low": "#f5f3ef",
+        "surface_container_lowest": "#ffffff",
+        "surface_dim": "#dbdad6",
+        "surface_tint": "#5f5e60",
+        "surface_variant": "#e4e2de",
+        "tertiary": "#000000",
+        "tertiary_container": "#1f1a1a",
+        "tertiary_fixed": "#ebe0df",
+        "tertiary_fixed_dim": "#cec4c4"
+       },
+       "overrideNeutralColor": "#fcfaf6",
+       "overridePrimaryColor": "#09090b",
+       "overrideSecondaryColor": "#71717a",
+       "roundness": "ROUND_FULL",
+       "spacing": {
+        "gutter": "1.25rem",
+        "margin": "1.5rem",
+        "space-lg": "1.5rem",
+        "space-md": "1rem",
+        "space-sm": "0.5rem",
+        "space-xl": "2.25rem",
+        "space-xs": "0.25rem"
+       },
+       "spacingScale": 2,
+       "typography": {
+        "body-lg": {
+         "fontFamily": "Inter",
+         "fontSize": "16px",
+         "fontWeight": "400",
+         "letterSpacing": "-0.01em",
+         "lineHeight": "26px"
+        },
+        "body-md": {
+         "fontFamily": "Inter",
+         "fontSize": "14px",
+         "fontWeight": "400",
+         "letterSpacing": "-0.005em",
+         "lineHeight": "22px"
+        },
+        "body-sm": {
+         "fontFamily": "Inter",
+         "fontSize": "13px",
+         "fontWeight": "400",
+         "letterSpacing": "0em",
+         "lineHeight": "18px"
+        },
+        "headline-lg": {
+         "fontFamily": "Inter",
+         "fontSize": "32px",
+         "fontWeight": "600",
+         "letterSpacing": "-0.025em",
+         "lineHeight": "40px"
+        },
+        "headline-lg-mobile": {
+         "fontFamily": "Inter",
+         "fontSize": "24px",
+         "fontWeight": "600",
+         "letterSpacing": "-0.02em",
+         "lineHeight": "32px"
+        },
+        "headline-md": {
+         "fontFamily": "Inter",
+         "fontSize": "22px",
+         "fontWeight": "500",
+         "letterSpacing": "-0.015em",
+         "lineHeight": "30px"
+        },
+        "headline-xl": {
+         "fontFamily": "Inter",
+         "fontSize": "40px",
+         "fontWeight": "600",
+         "letterSpacing": "-0.03em",
+         "lineHeight": "48px"
+        },
+        "headline-xl-mobile": {
+         "fontFamily": "Inter",
+         "fontSize": "30px",
+         "fontWeight": "600",
+         "letterSpacing": "-0.025em",
+         "lineHeight": "38px"
+        },
+        "label-md": {
+         "fontFamily": "Inter",
+         "fontSize": "12px",
+         "fontWeight": "500",
+         "letterSpacing": "0.02em",
+         "lineHeight": "16px"
+        },
+        "label-sm": {
+         "fontFamily": "Inter",
+         "fontSize": "11px",
+         "fontWeight": "600",
+         "letterSpacing": "0.04em",
+         "lineHeight": "14px"
+        }
+       }
+      },
+      "title": "Groups - First Run",
+      "width": "780"
+     }
+    ],
+    "theme": {}
+   }
+  },
+  {
+   "text": "Here is the initial empty-state **Groups** tab for **Talk It Out**, crafted strictly to your specifications:\n\n### Design Details:\n- **Palette & Atmosphere:** Warm light cream canvas (`#FCFAF6`) paired with bold, crisp contrast elements in pure black (`#09090B`), stark white (`#FFFFFF`), hairline borders (`#E7E3DC`), and muted secondary gray text (`#71717A`). Zero purple, zero gradients, zero emojis.\n- **Top Hero Header:** Bold black header with smoothly curved bottom corners, a prominent white title (\"Groups\"), and an understated user profile outline icon in the top right.\n- **Calm Empty State:** Features a minimal line icon, the heading **\"Your first group\"**, and the descriptive guidance copy.\n- **Two Choice Cards:**\n  1. **Join with an invite link** \u2014 Filled black primary card with white copy and action arrow.\n  2. **Start a group** \u2014 Clean white secondary card with a 1px hairline border (`#E7E3DC`) and subtle icon.\n- **Explore Link:** Minimal centered link reading *\"Or explore community questions\"*.\n- **\"How It Works\" Strip:** A quiet, three-pillar overview highlighting *Anonymous if you want*, *AI calms the tone*, and *Controller reviews first* with fine-line Phosphor-style icons.\n- **Navigation:** Persistent bottom tab bar with the **Groups** tab highlighted as a clean black pill.\n\nLet me know what you would like to explore next!"
+  },
+  {
+   "suggestion": "Design the 'Join with an invite link' modal / input sheet"
+  },
+  {
+   "suggestion": "Design the 'Start a group' flow / controller configuration screen"
+  },
+  {
+   "suggestion": "Design the active Groups tab with sample team channels"
+  }
+ ],
+ "projectId": "12357068339961859333",
+ "sessionId": "8496449800892004099"
+}

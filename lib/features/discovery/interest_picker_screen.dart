@@ -25,6 +25,7 @@ class InterestPickerScreen extends ConsumerStatefulWidget {
 class _InterestPickerScreenState extends ConsumerState<InterestPickerScreen> {
   Set<String>? _picked;
   var _saving = false;
+  var _query = '';
 
   Future<void> _save(List<String> picked) async {
     setState(() => _saving = true);
@@ -53,8 +54,18 @@ class _InterestPickerScreenState extends ConsumerState<InterestPickerScreen> {
     final data = state.value;
     final picked = _picked ??= data == null ? null : {...data.picked};
     final width = MediaQuery.sizeOf(context).width;
-    final columns = width >= 900 ? 4 : (width >= 560 ? 3 : 2);
+    final side = width > 760 ? (width - 680) / 2 : 20.0;
     final count = picked?.length ?? 0;
+    final q = _query.trim().toLowerCase();
+    final shown = data == null
+        ? const <InterestOption>[]
+        : [
+            for (final o in data.available)
+              if (q.isEmpty ||
+                  o.label.toLowerCase().contains(q) ||
+                  o.blurb.toLowerCase().contains(q))
+                o,
+          ];
     final enough = count >= InterestPickerScreen.minimum;
 
     return Scaffold(
@@ -78,63 +89,126 @@ class _InterestPickerScreenState extends ConsumerState<InterestPickerScreen> {
       body: data == null
           ? Center(
               child: state.hasError
-                  ? Text('${state.error}')
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Could not load topics.',
+                          style: TextStyle(color: Brand.inkSoft),
+                        ),
+                        TextButton(
+                          onPressed: () => ref.invalidate(interestsProvider),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    )
                   : const CircularProgressIndicator(strokeWidth: 2),
             )
-          : CustomScrollView(
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  sliver: SliverToBoxAdapter(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.firstRun
-                              ? 'What are you into?'
-                              : 'Your interests',
-                          style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.6,
-                            color: Brand.ink,
-                          ),
+          : ListView(
+              padding: EdgeInsets.fromLTRB(side, 4, side, 24),
+              children: [
+                Text(
+                  widget.firstRun ? 'What are you into?' : 'Your interests',
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.6,
+                    color: Brand.ink,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Pick ${InterestPickerScreen.minimum} or more. Your For You feed '
+                  'starts from these and learns from the questions you like and answer.',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.4,
+                    color: Brand.inkSoft,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  key: const ValueKey('interests-search'),
+                  onChanged: (v) => setState(() => _query = v),
+                  style: const TextStyle(fontSize: 14.5, color: Brand.ink),
+                  decoration: InputDecoration(
+                    hintText: 'Search topics',
+                    hintStyle: const TextStyle(color: Brand.inkFaint),
+                    prefixIcon: const Icon(
+                      PhosphorIconsRegular.magnifyingGlass,
+                      size: 18,
+                      color: Brand.inkSoft,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 13),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(999),
+                      borderSide: const BorderSide(color: Brand.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(999),
+                      borderSide: const BorderSide(color: Brand.border),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (shown.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Text(
+                      'No topic matches "$_query".',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Brand.inkSoft),
+                    ),
+                  )
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 10,
+                    children: [
+                      for (final option in shown)
+                        _InterestChip(
+                          option: option,
+                          selected: picked!.contains(option.id),
+                          onTap: () => setState(() {
+                            if (!picked.remove(option.id)) {
+                              picked.add(option.id);
+                            }
+                          }),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Pick ${InterestPickerScreen.minimum} or more. Your For You feed '
-                          'starts from these and learns from the questions you like and answer.',
-                          style: const TextStyle(
-                            fontSize: 14,
+                    ],
+                  ),
+                const SizedBox(height: 18),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Brand.border),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        PhosphorIconsRegular.shieldCheck,
+                        size: 18,
+                        color: Brand.ink,
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Only you see your interests. They shape your '
+                          'For You feed and are never shown to anyone.',
+                          style: TextStyle(
+                            fontSize: 13,
                             height: 1.4,
                             color: Brand.inkSoft,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
-                  sliver: SliverGrid(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: columns,
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
-                      // Taller on phones so two-line blurbs fit.
-                      childAspectRatio: columns == 2 ? 0.98 : 1.15,
-                    ),
-                    delegate: SliverChildBuilderDelegate((context, i) {
-                      final option = data.available[i];
-                      final selected = picked!.contains(option.id);
-                      return _InterestTile(
-                        option: option,
-                        selected: selected,
-                        onTap: () => setState(() {
-                          if (!picked.remove(option.id)) picked.add(option.id);
-                        }),
-                      );
-                    }, childCount: data.available.length),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -143,29 +217,43 @@ class _InterestPickerScreenState extends ConsumerState<InterestPickerScreen> {
           ? null
           : SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: FilledButton(
-                  key: const ValueKey('interests-continue'),
-                  onPressed: _saving || !enough
-                      ? null
-                      : () => _save(picked!.toList()),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Brand.ink,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Brand.muted,
-                    disabledForegroundColor: Brand.inkSoft,
-                    minimumSize: const Size.fromHeight(52),
-                    shape: const StadiumBorder(),
-                  ),
-                  child: Text(
-                    enough
-                        ? (widget.firstRun ? 'Continue' : 'Save')
-                        : 'Pick ${InterestPickerScreen.minimum - count} more',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                padding: EdgeInsets.fromLTRB(side, 8, side, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        count == 0 ? 'None picked' : '$count picked',
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: Brand.ink,
+                        ),
+                      ),
                     ),
-                  ),
+                    FilledButton(
+                      key: const ValueKey('interests-continue'),
+                      onPressed: _saving || !enough
+                          ? null
+                          : () => _save(picked!.toList()),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Brand.ink,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Brand.muted,
+                        disabledForegroundColor: Brand.inkSoft,
+                        minimumSize: const Size(160, 50),
+                        shape: const StadiumBorder(),
+                      ),
+                      child: Text(
+                        enough
+                            ? (widget.firstRun ? 'Show my feed' : 'Save')
+                            : 'Pick ${InterestPickerScreen.minimum - count} more',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -173,8 +261,8 @@ class _InterestPickerScreenState extends ConsumerState<InterestPickerScreen> {
   }
 }
 
-class _InterestTile extends StatelessWidget {
-  const _InterestTile({
+class _InterestChip extends StatelessWidget {
+  const _InterestChip({
     required this.option,
     required this.selected,
     required this.onTap,
@@ -186,88 +274,40 @@ class _InterestTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fg = selected ? Colors.white : Brand.ink;
     return Semantics(
       button: true,
       selected: selected,
       label: option.label,
+      excludeSemantics: true,
       child: Material(
         color: selected ? Brand.ink : Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        shape: StadiumBorder(
+          side: BorderSide(color: selected ? Brand.ink : Brand.border),
+        ),
         child: InkWell(
           key: ValueKey('interest-${option.id}'),
           onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: selected ? Brand.ink : Brand.border),
-            ),
-            child: Stack(
+          customBorder: const StadiumBorder(),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // A vector icon in a circle: crisp on every device,
-                    // light on the dark selected tile.
-                    Container(
-                      width: 44,
-                      height: 44,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: selected ? Colors.white : Brand.accentSoft,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        interestIcon(option.icon),
-                        size: 22,
-                        color: Brand.ink,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      option.label,
-                      maxLines: 2,
-                      style: TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                        color: selected ? Colors.white : Brand.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      option.blurb,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        height: 1.3,
-                        color: selected ? Colors.white70 : Brand.inkSoft,
-                      ),
-                    ),
-                  ],
+                Icon(
+                  selected
+                      ? PhosphorIconsRegular.check
+                      : interestIcon(option.icon),
+                  size: 16,
+                  color: fg,
                 ),
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 160),
-                    opacity: selected ? 1 : 0,
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        PhosphorIconsRegular.check,
-                        size: 15,
-                        color: Brand.ink,
-                      ),
-                    ),
+                const SizedBox(width: 7),
+                Text(
+                  option.label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: fg,
                   ),
                 ),
               ],

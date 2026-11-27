@@ -12,7 +12,7 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-11-28 (IST, Run 128: Runs 112-127 committed; collaborator branch merged)
+**Last updated:** 2026-11-28 (IST, Run 129: first-time experience redesigned with Stitch)
 **Current phase:** Complete; all four test suites green. Run 105's fixes are pushed and `stack-ci` is green; `backend-ci` is green again as of `b6758f8` (Run 107; confirmed in Run 108), including the Docker smoke test. Verified end to end in Run 101: Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. Screens are wired to the backend (Run 071 onward). Rewrites run on a local Qwen2.5-3B model through Ollama (Run 081). Run 110 made rewrites faster and more reliable (model kept warm while the worker runs; one corrected attempt when a rewrite drops meaning) and fixed three review/profile display bugs. Latest gates are in Run 110: Flutter 170, pipeline 167, live check 84/84 (backend source unchanged since Run 105: 300).
@@ -71,7 +71,7 @@ The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL b
 
 Status values: `Not started` / `In progress` / `Done` / `Blocked`
 
-**Quality gates (latest known):** Run 128 (local, after merging `fix/backend-auth-ui-cleanup`): Flutter 223 passed, analyze 0, format clean; backend 329 passed (48 files), type-check and lint clean; pipeline 200 passed. Not yet pushed, so GitHub CI has not run on it.
+**Quality gates (latest known):** Run 129 (local): Flutter 223 passed, analyze 0, format clean. Run 128: backend 329, pipeline 200. Run 129 is not committed or pushed yet.
 
 **Pipeline notebook handoff:** Kaggle GPU environment verified with vLLM serving Qwen2.5-3B-Instruct (0 hijacks on adversarial probes). End-to-end claim/rewrite/result cycle against live backend verified (Run 057).
 
@@ -4212,3 +4212,32 @@ _The entries below were written on the branch `fix/backend-auth-ui-cleanup` (Mit
   - [x] No "show original" UI anywhere
   - [x] Anonymity disclosure unchanged
   - [x] No secrets committed
+
+
+### Run 129: First-time experience redesigned with Google Stitch; payments without a PAN answered
+- **Date/time:** 2026-11-28 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5) with the Google Stitch MCP
+- **Phase:** UI/UX (user asked: "work more on the UI/UX part, you can integrate MCP of Stitch"; focus chosen: first-time experience)
+- **Prompt / task:** "can we implement anything razor but I don't have any kind of PAN", then UI/UX with Stitch; follow-up "can I use Razorpay without PAN or any method of adding payment method".
+- **Result:** Completed (not committed)
+- **Summary:**
+  - **Payments, answered (no code change):** every Indian payment provider (Razorpay, Stripe, Cashfree, Paddle and others) needs a PAN before it pays out. Razorpay test mode needs no KYC or PAN, so the Run 127 integration can be exercised end to end with test keys today; live payments need a PAN (free Instant e-PAN with an Aadhaar-linked mobile). No workaround that takes real money without KYC was built.
+  - **Stitch MCP:** added at user scope (`claude mcp add stitch --transport http https://stitch.googleapis.com/mcp`, key in `~/.claude.json`, not in the repo). Its tools load in new sessions; this run called the endpoint directly with `marketing/stitch/stitch.py`. Stitch project "Talk It Out — First-time experience" (`12357068339961859333`) holds three generated screens (welcome, groups empty state, interest picker) and the design system "Talk It Out Monochrome" (`assets/7f12a838cd1f491ea764078ffb5f6229`). The user pasted the key in chat; rotating it in Stitch settings is advised.
+  - **Found by capturing the real first-run flow (Playwright, new local account):** sign-up's email tick was hard-wired on (shown on an empty field); password hints were dots that looked filled in; a new account's Groups screen showed three equal buttons, a Premium upsell and a floating "Create Group" button covering the Premium card; the interest picker's large cards showed 6 of 30 topics per screen and could show a raw exception on error.
+  - **Built (layouts from the Stitch screens, copy kept accurate):**
+    - Welcome (`lib/features/onboarding/welcome_screen.dart`): one screen instead of a 4-page carousel: black hero "Welcome, {name}", "How it works" in three numbered steps (exact anonymity wording kept), "How do you want to start?" with selectable cards (Join my team, recommended and preselected; Start a group; Just explore), Continue and "Skip for now".
+    - Groups for a new user (`groups_screen.dart`): "Your first group" card, two large choices (Join with an invite link as the primary black card, Start a group), "Or explore community questions", and a "How Talk It Out works" strip with the anonymity disclosure. No floating button and no Premium card until the first group exists.
+    - Interest picker (`interest_picker_screen.dart`): compact chips with icons in a wrapping layout, "Search topics", a privacy note, and a sticky bar ("3 picked" + "Show my feed"); a readable error with Retry instead of a raw exception.
+    - Sign-up (`register_screen.dart`): the email tick shows only for a valid-looking address; password hints read "At least 8 characters" and "Type it again".
+  - Checked on the live build at 390 px with real captures (`marketing/reel-unsent/showcase/shots/uxnew_*.png`).
+- **Files created:** `marketing/stitch/{stitch.py,gen.py}` and the Stitch outputs there (JSON and PNG references)
+- **Files modified:** `lib/features/onboarding/welcome_screen.dart`, `lib/features/groups/groups_screen.dart`, `lib/features/discovery/interest_picker_screen.dart`, `lib/features/auth/register_screen.dart`, `test/onboarding_test.dart`, `test/discovery_test.dart`, `marketing/reel-unsent/showcase/cap.py`, `marketing/.gitignore` (`.venv/`), `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none in the app (Playwright and kokoro-onnx live in the gitignored `marketing/.venv`)
+- **Commands run and results:** `dart format` 0 changed; `flutter analyze` 0 issues; `flutter test --concurrency=2` 223 passed (includes `responsive_layout_test`); live web build rebuilt and captured.
+- **Assumptions / decisions:** "Join my team" is the recommended first step (most people arrive through a team's link); Premium is not offered before the first group.
+- **Issues / blockers / known bugs:** the welcome screen still appears only after the in-app sign-up (`justRegistered`), not for new Google sign-ups; Alerts still shows empty filter tabs and "Mark all read" to new users; the Stitch key should be rotated.
+- **Hard-rules check:**
+  - [x] Anonymity disclosure wording unchanged and shown on the welcome and groups-empty screens
+  - [x] No "show original" UI; no RawMessage outside review
+  - [x] No secrets in the repo (the Stitch key is only in the user's Claude config)

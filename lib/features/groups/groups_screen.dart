@@ -12,7 +12,6 @@ import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/profile/profile_state.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/groups/group_chat_screen.dart';
-import 'package:talk_it_out/core/ui/empty_state.dart';
 import 'package:talk_it_out/features/invites/join_with_link.dart';
 import 'package:talk_it_out/features/groups/data/group_invitation.dart';
 import 'package:talk_it_out/app/repository_providers.dart';
@@ -116,7 +115,9 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
             ),
         ],
       ),
-      floatingActionButton: sidebar
+      // No floating button before the first group: the empty screen's own
+      // choices are the next step, and the button covered them.
+      floatingActionButton: sidebar || allGroups.isEmpty
           ? null
           : FloatingActionButton.extended(
               heroTag: 'groups-fab',
@@ -964,59 +965,269 @@ class _EmptyGroupsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final empty = EmptyState(
-      inList: true,
-      key: const ValueKey('groups-empty'),
-      icon: PhosphorIconsRegular.usersThree,
-      title: 'Start your first safe space',
-      body: AppStrings.groupsEmpty,
-      points: const [
-        (
-          Icons.visibility_off_outlined,
-          'Members can write anonymously. Only the controller sees who sent it.',
-        ),
-        (
-          PhosphorIconsRegular.sparkle,
-          'Every message is rewritten in a calm tone.',
-        ),
-        (
-          PhosphorIconsRegular.shieldCheck,
-          'The controller reviews each message before the group sees it.',
-        ),
-      ],
-      actions: [
-        EmptyAction(
-          'Create a group',
-          () => context.push('/groups/new'),
-          icon: PhosphorIconsRegular.plus,
-          key: const ValueKey('groups-empty-create'),
-        ),
-        EmptyAction(
-          'Join with an invite link',
-          () => showJoinWithLinkDialog(context),
-          icon: PhosphorIconsRegular.link,
-          key: const ValueKey('groups-empty-join'),
-        ),
-        EmptyAction(
-          'Explore questions',
-          () => context.go('/feed'),
-          icon: PhosphorIconsRegular.compass,
-        ),
-      ],
-    );
-    // Premium stays easy to find before the first group exists.
+    // Layout from the Stitch project "Talk It Out — First-time experience":
+    // two clear choices (joining first: most people arrive through a team's
+    // link), a quiet link to explore, and how it works. No upsell before the
+    // first group.
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 8, 24, 96),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [empty, const PremiumPromoCard()],
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: Column(
+            key: const ValueKey('groups-empty'),
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: _border),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: const BoxDecoration(
+                        color: Brand.muted,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        PhosphorIconsRegular.chatsCircle,
+                        size: 26,
+                        color: _ink,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Your first group',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: _ink,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Groups are where your team talks it out. Join one with '
+                      'an invite link or start your own.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        height: 1.45,
+                        color: Brand.inkSoft,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              _FirstStepCard(
+                key: const ValueKey('groups-empty-join'),
+                icon: PhosphorIconsRegular.link,
+                title: 'Join with an invite link',
+                body: 'Paste a link from your team',
+                primary: true,
+                onTap: () => showJoinWithLinkDialog(context),
+              ),
+              const SizedBox(height: 10),
+              _FirstStepCard(
+                key: const ValueKey('groups-empty-create'),
+                icon: PhosphorIconsRegular.plus,
+                title: 'Start a group',
+                body:
+                    'For a team, project or retro. You become its controller.',
+                onTap: () => context.push('/groups/new'),
+              ),
+              const SizedBox(height: 6),
+              TextButton.icon(
+                key: const ValueKey('groups-empty-explore'),
+                onPressed: () => context.go('/feed'),
+                iconAlignment: IconAlignment.end,
+                icon: const Icon(
+                  PhosphorIconsRegular.arrowRight,
+                  size: 15,
+                  color: Brand.inkSoft,
+                ),
+                label: const Text(
+                  'Or explore community questions',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: Brand.inkSoft,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              const _HowItWorksStrip(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FirstStepCard extends StatelessWidget {
+  const _FirstStepCard({
+    required this.icon,
+    required this.title,
+    required this.body,
+    required this.onTap,
+    this.primary = false,
+    super.key,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+  final bool primary;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = primary ? Colors.white : _ink;
+    final sub = primary ? const Color(0xFFD4D4D8) : Brand.inkSoft;
+    return Semantics(
+      button: true,
+      label: '$title. $body',
+      excludeSemantics: true,
+      child: PressScale(
+        child: Material(
+          color: primary ? _ink : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 76),
+              padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: primary ? null : Border.all(color: _border),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: primary
+                          ? Colors.white.withValues(alpha: 0.12)
+                          : Brand.muted,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: 19, color: fg),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: fg,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          body,
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.35,
+                            color: sub,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(PhosphorIconsRegular.caretRight, size: 18, color: fg),
+                ],
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _HowItWorksStrip extends StatelessWidget {
+  const _HowItWorksStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    // The anonymity wording stays exact: the controller can see senders.
+    const items = [
+      (Icons.visibility_off_outlined, 'Anonymous if you want'),
+      (PhosphorIconsRegular.sparkle, 'AI calms the tone'),
+      (PhosphorIconsRegular.shieldCheck, 'Controller reviews first'),
+    ];
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'HOW TALK IT OUT WORKS',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1,
+              color: Brand.inkSoft,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final (icon, label) in items)
+                Expanded(
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: const BoxDecoration(
+                          color: Brand.muted,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(icon, size: 16, color: _ink),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          height: 1.3,
+                          fontWeight: FontWeight.w600,
+                          color: _ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            AppStrings.anonymousDisclosure,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 11.5, color: Brand.inkSoft),
+          ),
+        ],
       ),
     );
   }

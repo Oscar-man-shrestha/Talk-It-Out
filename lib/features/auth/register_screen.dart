@@ -27,6 +27,9 @@ class RegisterScreen extends ConsumerStatefulWidget {
   ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
+bool _looksLikeEmail(String value) =>
+    RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$').hasMatch(value.trim());
+
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _name = TextEditingController();
   final _email = TextEditingController();
@@ -274,21 +277,25 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           child: TextField(
                             controller: _email,
                             keyboardType: TextInputType.emailAddress,
+                            onChanged: (_) => setState(() {}),
                             style: const TextStyle(
                               fontSize: 13,
                               color: _kTextPrimary,
                             ),
-                            decoration: const InputDecoration(
-                              prefixIcon: Icon(
+                            decoration: InputDecoration(
+                              prefixIcon: const Icon(
                                 PhosphorIconsRegular.at,
                                 size: 18,
                                 color: _kTextTertiary,
                               ),
-                              suffixIcon: Icon(
-                                PhosphorIconsFill.checkCircle,
-                                size: 16,
-                                color: _kTextPrimary,
-                              ),
+                              // Only once the address looks like an email.
+                              suffixIcon: _looksLikeEmail(_email.text)
+                                  ? const Icon(
+                                      PhosphorIconsFill.checkCircle,
+                                      size: 16,
+                                      color: _kTextPrimary,
+                                    )
+                                  : null,
                               hintText: 'you@example.com',
                               hintStyle: TextStyle(
                                 fontSize: 13,
@@ -357,7 +364,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   () => _obscurePassword = !_obscurePassword,
                                 ),
                               ),
-                              hintText: '••••••••••••',
+                              hintText: 'At least 8 characters',
                               hintStyle: const TextStyle(
                                 fontSize: 13,
                                 color: _kTextTertiary,
@@ -413,7 +420,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   () => _obscureConfirm = !_obscureConfirm,
                                 ),
                               ),
-                              hintText: '••••••••••••',
+                              hintText: 'Type it again',
                               hintStyle: const TextStyle(
                                 fontSize: 13,
                                 color: _kTextTertiary,

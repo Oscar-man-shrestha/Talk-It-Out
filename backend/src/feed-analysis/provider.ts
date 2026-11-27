@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { moderationFlags } from '../nlp/moderation';
 
 /**
  * OUR internal feed-analysis boundary contract — contract_version: 1.
@@ -102,10 +103,36 @@ export function createFakeFeedProvider(mode: FakeProviderMode = 'normal'): FeedA
   };
 }
 
+/**
+ * Real, local moderation for the public feed (FEED_PROVIDER=lexicon): hate
+ * speech, threats, insults, profanity and self-harm signals, with the same
+ * rules as the rewrite worker (src/nlp/moderation.ts). Flagged content is
+ * marked for readers ("Flagged"); nothing is removed automatically.
+ */
+export function createLexiconFeedProvider(): FeedAnalysisProvider {
+  return {
+    async analyze(request) {
+      const flags = moderationFlags(request.text);
+      // Self-harm is a reason to care, not a reason to warn readers.
+      const flagged = flags.some((f) => f !== 'self_harm');
+      return {
+        request_id: request.request_id,
+        content_id: request.content_id,
+        content_revision: request.content_revision,
+        outcome: 'ok',
+        nsfw: flagged,
+        flags: Object.fromEntries(flags.map((f) => [f, true])),
+        provider_version: 'lexicon-1',
+      };
+    },
+  };
+}
+
 /** Maps FEED_PROVIDER to a provider instance; unknown names fail loudly. */
 export function createFeedProvider(name: string): FeedAnalysisProvider {
   if (name === 'fake') return createFakeFeedProvider();
+  if (name === 'lexicon') return createLexiconFeedProvider();
   throw new Error(
-    `Unknown FEED_PROVIDER "${name}". Supported providers: fake.`,
+    `Unknown FEED_PROVIDER "${name}". Supported providers: fake, lexicon.`,
   );
 }

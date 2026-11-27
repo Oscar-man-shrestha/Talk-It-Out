@@ -88,6 +88,13 @@ export function createMessagesRouter(pool: Pool, requireAuth: RequireAuth): Rout
          WHERE id = $1`,
         [raw.id, published[0].id, req.user!.id],
       );
+      // The sender learns it was published (only they get this, so it
+      // never reveals who wrote an anonymous message).
+      await client.query(
+        `INSERT INTO notifications (recipient_id, type, ref_id, group_id)
+         VALUES ($1, 'message_published', $2, $3)`,
+        [raw.author_id, raw.id, raw.group_id],
+      );
       return published[0].id as string;
     });
     res.json({ id: messageId, status: 'accepted', published_message_id: publishedId });

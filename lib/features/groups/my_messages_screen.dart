@@ -7,6 +7,8 @@ import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/groups/data/my_message_status.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/core/ui/empty_state.dart';
+import 'package:talk_it_out/core/ui/page_padding.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 /// Status-only ledger for the signed-in member's submissions.
 ///
@@ -22,7 +24,7 @@ class MyMessagesScreen extends ConsumerWidget {
     final messages = ref.watch(myMessagesProvider(groupId));
     final items = messages.asData?.value ?? const <MyMessageStatus>[];
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final hPad = screenWidth > 860 ? (screenWidth - 800) / 2 : 16.0;
+    final hPad = pageHPad(screenWidth);
 
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.myMessages)),
@@ -42,7 +44,7 @@ class MyMessagesScreen extends ConsumerWidget {
             EmptyAction(
               'Write a message',
               () => Navigator.of(context).maybePop(),
-              icon: Icons.edit_outlined,
+              icon: PhosphorIconsRegular.pencilSimple,
             ),
           ],
         ),
@@ -126,7 +128,7 @@ class _StatusIcon extends StatelessWidget {
     final (icon, color) = switch (status) {
       MessageStatus.pending => (Icons.schedule_outlined, colorScheme.primary),
       MessageStatus.accepted => (
-        Icons.check_circle_outline,
+        PhosphorIconsRegular.checkCircle,
         colorScheme.primary,
       ),
       MessageStatus.rejected => (

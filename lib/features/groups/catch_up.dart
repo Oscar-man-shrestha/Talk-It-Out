@@ -8,6 +8,7 @@ import 'package:talk_it_out/core/api/api_guard.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/groups/data/group_repository.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 /// "Catch up": a summary of what a group has been saying (`API.md` 63).
 /// Built from approved messages only, and never names anyone.
@@ -140,7 +141,7 @@ class CatchUpSheet extends ConsumerWidget {
           children: [
             const Row(
               children: [
-                Icon(Icons.auto_awesome, size: 20, color: Brand.ink),
+                Icon(PhosphorIconsRegular.sparkle, size: 20, color: Brand.ink),
                 SizedBox(width: 8),
                 Text(
                   'Catch up',
@@ -204,7 +205,7 @@ class CatchUpSheet extends ConsumerWidget {
                           ),
                           const SizedBox(height: 6),
                           for (final q in s.openQuestions)
-                            _Bullet(q, icon: Icons.help_outline),
+                            _Bullet(q, icon: PhosphorIconsRegular.question),
                         ],
                         if (s.keyTopics.isNotEmpty || s.themes.isNotEmpty) ...[
                           const SizedBox(height: 12),

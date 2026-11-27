@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 /// The fixed feed topics (`API.md` 42). [id] is what the API stores.
 class PostTopic {
@@ -12,37 +13,37 @@ class PostTopic {
   final List<String> keywords;
 
   static const all = <PostTopic>[
-    PostTopic('workplace_policy', 'Workplace Policy', Icons.policy_outlined, [
-      'policy',
-      'workplace',
-      'remote',
-    ]),
-    PostTopic('engineering', 'Engineering & Tech', Icons.terminal_rounded, [
-      'engineer',
-      'tech',
-      'dashboard',
-      'estimate',
-      'nlp',
-    ]),
+    PostTopic(
+      'workplace_policy',
+      'Workplace Policy',
+      PhosphorIconsRegular.scales,
+      ['policy', 'workplace', 'remote'],
+    ),
+    PostTopic(
+      'engineering',
+      'Engineering & Tech',
+      PhosphorIconsRegular.terminalWindow,
+      ['engineer', 'tech', 'dashboard', 'estimate', 'nlp'],
+    ),
     PostTopic(
       'leadership',
       'Leadership & Exec',
-      Icons.supervisor_account_outlined,
+      PhosphorIconsRegular.usersFour,
       ['lead', 'exec'],
     ),
     PostTopic(
       'compensation',
       'Compensation & Equity',
-      Icons.monetization_on_outlined,
+      PhosphorIconsRegular.coins,
       ['pay', 'equity', 'compensation'],
     ),
     PostTopic(
       'safety',
       'Psychological Safety',
-      Icons.health_and_safety_outlined,
+      PhosphorIconsRegular.firstAidKit,
       ['safety', 'retro', 'psych'],
     ),
-    PostTopic('culture', 'Ethics & Culture', Icons.diversity_3_outlined, [
+    PostTopic('culture', 'Ethics & Culture', PhosphorIconsRegular.usersThree, [
       'ethic',
       'culture',
       'offsite',

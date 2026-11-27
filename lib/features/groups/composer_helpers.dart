@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talk_it_out/core/models/group_member.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
@@ -160,6 +161,45 @@ class _MentionSuggestionsState extends ConsumerState<MentionSuggestions> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Enter sends, Shift+Enter starts a new line (like WhatsApp Web and
+/// Slack). Text still being composed by an input method (for example
+/// Hindi or accented letters) is never sent early.
+class EnterToSend extends StatelessWidget {
+  const EnterToSend({
+    required this.controller,
+    required this.onSend,
+    required this.child,
+    super.key,
+  });
+
+  final TextEditingController controller;
+
+  /// Null while sending is not possible (busy): Enter then does nothing.
+  final VoidCallback? onSend;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        final enter =
+            event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.numpadEnter;
+        if (!enter || HardwareKeyboard.instance.isShiftPressed) {
+          return KeyEventResult.ignored;
+        }
+        if (controller.value.composing.isValid) return KeyEventResult.ignored;
+        if (controller.text.trim().isNotEmpty) onSend?.call();
+        return KeyEventResult.handled;
+      },
+      child: child,
     );
   }
 }

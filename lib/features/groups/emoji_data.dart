@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 /// One emoji with the words people search for it by.
 typedef EmojiEntry = ({String emoji, String keywords});
@@ -18,7 +19,7 @@ List<EmojiEntry> _parse(String data) => [
 final List<EmojiCategory> kEmojiCategories = [
   (
     name: 'Smileys',
-    icon: Icons.emoji_emotions_outlined,
+    icon: PhosphorIconsRegular.smiley,
     emojis: _parse('''
 😀 grinning smile happy
 😃 smiley happy joy
@@ -441,7 +442,7 @@ final List<EmojiCategory> kEmojiCategories = [
   ),
   (
     name: 'Objects',
-    icon: Icons.lightbulb_outline,
+    icon: PhosphorIconsRegular.lightbulb,
     emojis: _parse('''
 💡 light bulb idea
 🔦 flashlight

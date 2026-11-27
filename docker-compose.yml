@@ -39,7 +39,7 @@ services:
       PIPELINE_MODE: ${PIPELINE_MODE:-stub}
       RUN_STUB_WORKER: ${RUN_STUB_WORKER:-true}
       RUN_FEED_WORKER: "true"
-      FEED_PROVIDER: fake
+      FEED_PROVIDER: lexicon
       CORS_ORIGINS: ${WEB_ORIGIN:-http://localhost:8080}
       MAIL_TRANSPORT: ${MAIL_TRANSPORT:-disabled}
       SMTP_HOST: ${SMTP_HOST:-}

@@ -16,9 +16,13 @@ intent_preservation_score
     do, and the number is not lost. Clamped to [0, 1], rounded to 2 decimals.
 
 relevance_score
-    The fraction of the group agenda's word stems that appear in the
-    rewrite (bag-of-words overlap). Label: >= 0.50 relevant,
-    >= 0.15 borderline, else off_topic. Uncalibrated by design.
+    The fraction of the group agenda's content-word stems that appear in
+    the rewrite (bag-of-words overlap). Filler words ("the", "and",
+    "making", ...) are ignored, and words are reduced to a crude stem so
+    "improvements" matches "improve" and "dashboards" matches
+    "dashboard". Label: >= 0.50 relevant, >= 0.15 borderline, else
+    off_topic. Uncalibrated by design: a message that is on topic but
+    shares no words with the agenda still scores 0 (advisory only).
 """
 
 from __future__ import annotations
@@ -77,10 +81,34 @@ def intent_preservation_score(original: str, rewrite: str) -> float:
     return round(max(0.0, min(1.0, score)), 2)
 
 
+_STOPWORDS = frozenset(
+    "a an and are as at be by for from in into is it its of on or our the "
+    "their this to we with about all any new more make making made get".split()
+)
+_SUFFIXES = ("ments", "ment", "ations", "ation", "ings", "ing", "ions", "ion",
+             "ers", "er", "ies", "ed", "ly", "s")
+
+
+def stem(word: str) -> str:
+    """Crude suffix stripping; deterministic, no dependency."""
+    w = word.lower().strip("'")
+    for suffix in _SUFFIXES:
+        if w.endswith(suffix) and len(w) - len(suffix) >= 3 and not w.endswith("ss"):
+            w = w[: -len(suffix)] + ("y" if suffix == "ies" else "")
+            break
+    if len(w) >= 5 and w.endswith("e"):
+        w = w[:-1]
+    return w
+
+
+def _content_stems(text: str) -> set[str]:
+    return {stem(w) for w in _WORD_RE.findall(text.lower()) if w not in _STOPWORDS}
+
+
 def relevance(original: str, agenda: str) -> tuple[float, str]:
     """Returns (score, label). Advisory only — see module docstring."""
-    agenda_words = set(_WORD_RE.findall(agenda.lower()))
-    rewrite_words = set(_WORD_RE.findall(original.lower()))
+    agenda_words = _content_stems(agenda)
+    rewrite_words = _content_stems(original)
     if not agenda_words:
         # An empty agenda carries no signal; do not guess off_topic.
         return 0.5, "borderline"

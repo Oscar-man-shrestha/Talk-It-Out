@@ -9,6 +9,7 @@ import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 // Stitch Monochrome Precision design tokens (same as the login screen).
 const _kPrimary = Brand.accent;
@@ -370,7 +371,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           _Field(
             key: const ValueKey('reset-email'),
             controller: _email,
-            icon: Icons.alternate_email,
+            icon: PhosphorIconsRegular.at,
             hint: 'alex@example.com',
             enabled: !_busy,
             keyboardType: TextInputType.emailAddress,
@@ -394,9 +395,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           tooltip: _obscure ? 'Show password' : 'Hide password',
           onPressed: () => setState(() => _obscure = !_obscure),
           icon: Icon(
-            _obscure
-                ? Icons.visibility_outlined
-                : Icons.visibility_off_outlined,
+            _obscure ? PhosphorIconsRegular.eye : Icons.visibility_off_outlined,
             size: 18,
             color: _kTextTertiary,
           ),
@@ -406,7 +405,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           _Field(
             key: const ValueKey('reset-password'),
             controller: _password,
-            icon: Icons.lock_outline,
+            icon: PhosphorIconsRegular.lockSimple,
             hint: '••••••••',
             enabled: !_busy,
             obscure: _obscure,
@@ -421,7 +420,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           _Field(
             key: const ValueKey('reset-password-confirm'),
             controller: _confirm,
-            icon: Icons.lock_outline,
+            icon: PhosphorIconsRegular.lockSimple,
             hint: '••••••••',
             enabled: !_busy,
             obscure: _obscure,
@@ -474,7 +473,7 @@ class _PasswordHint extends StatelessWidget {
     return Row(
       children: [
         Icon(
-          ok ? Icons.check_circle : Icons.radio_button_unchecked,
+          ok ? PhosphorIconsFill.checkCircle : PhosphorIconsRegular.circle,
           size: 14,
           color: ok ? _kTextPrimary : _kTextTertiary,
         ),
@@ -565,7 +564,6 @@ class _CodeBoxesState extends State<_CodeBoxes> {
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w700,
-                          fontFamily: 'monospace',
                           color: _kTextPrimary,
                         ),
                       ),

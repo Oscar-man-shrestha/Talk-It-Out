@@ -27,6 +27,7 @@ import 'package:talk_it_out/features/review/data/mock_review_repository.dart';
 import 'package:talk_it_out/features/review/data/review_repository.dart';
 import 'package:talk_it_out/core/mock/mock_ids.dart';
 import 'package:talk_it_out/features/invites/invite_repository.dart';
+import 'package:talk_it_out/features/premium/data/billing_repository.dart';
 
 final mockControlsProvider = Provider<MockControls>((ref) => MockControls());
 
@@ -117,6 +118,14 @@ final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
     );
   }
   return ApiProfileRepository(ref.watch(dioProvider));
+});
+
+/// Premium state and Premium-only data (`API.md` 71).
+final billingRepositoryProvider = Provider<BillingRepository>((ref) {
+  if (_useMock(ref)) {
+    return MockBillingRepository(ref.watch(mockControlsProvider));
+  }
+  return ApiBillingRepository(ref.watch(dioProvider));
 });
 
 bool _useMock(Ref ref) => ref.watch(appConfigProvider).useMock;

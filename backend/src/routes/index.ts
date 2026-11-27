@@ -21,6 +21,8 @@ import { createNotificationsReadAllRouter, createReactionsRouter } from './react
 import { createRefreshRouter } from './refresh';
 import '../types';
 import { createGroupInvitesRouter, createInvitesRouter } from './invites';
+import { createBillingRouter } from './billing';
+import { createInsightsRouter } from './insights';
 import { createGroupSummaryRouter } from './groupSummary';
 import { createInvitationsRouter } from './invitations';
 
@@ -96,6 +98,19 @@ export function createApiRouter(
   router.use('/invites', createInvitesRouter(pool, requireAuth));
   router.use('/invitations', createInvitationsRouter(pool, requireAuth));
   router.use('/groups/:groupId/summary', createGroupSummaryRouter(pool, requireAuth));
+  router.use('/groups/:groupId/insights', createInsightsRouter(pool, requireAuth));
+  router.use(
+    '/billing',
+    createBillingRouter(pool, requireAuth, {
+      revenuecatWebhookSecret: appConfig.revenuecatWebhookSecret,
+      revenuecatSecretKey: appConfig.revenuecatSecretKey,
+      premiumEntitlementId: appConfig.premiumEntitlementId,
+      razorpayKeyId: appConfig.razorpayKeyId,
+      razorpayKeySecret: appConfig.razorpayKeySecret,
+      razorpayWebhookSecret: appConfig.razorpayWebhookSecret,
+      razorpayPlanId: appConfig.razorpayPlanId,
+    }),
+  );
   router.use('/users', createPeopleRouter(pool, requireAuth));
   router.use('/users', createProfilesRouter(pool, requireAuth));
   router.use('/users', createAccountRouter(pool, requireAuth));

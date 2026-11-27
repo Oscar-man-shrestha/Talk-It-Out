@@ -57,6 +57,19 @@ export interface Config {
   mailFrom: string;
   /** OAuth client ids whose Google ID tokens are accepted (GOOGLE_CLIENT_ID, comma-separated). */
   googleClientIds: string[];
+  /** RevenueCat webhook Authorization value (API.md 71). Empty: webhook off. */
+  revenuecatWebhookSecret: string;
+  /** RevenueCat secret API key for POST /billing/sync. Empty: sync reads only our table. */
+  revenuecatSecretKey: string;
+  /** Razorpay (web payments, API.md 75). Empty key id or secret: off (503). */
+  razorpayKeyId: string;
+  razorpayKeySecret: string;
+  /** Razorpay dashboard -> Webhooks -> Secret. Empty: webhook 503. */
+  razorpayWebhookSecret: string;
+  /** The ₹99 monthly plan created in the Razorpay dashboard (plan_...). */
+  razorpayPlanId: string;
+  /** RevenueCat entitlement id that means Premium. */
+  premiumEntitlementId: string;
 }
 
 function parseMailTransport(env: NodeJS.ProcessEnv): Config['mailTransport'] {
@@ -180,6 +193,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     pgStatementTimeoutMillis: positiveInt(env, 'PG_STATEMENT_TIMEOUT_MS', 15000),
     pgConnectionTimeoutMillis: positiveInt(env, 'PG_CONNECT_TIMEOUT_MS', 5000),
     mailTransport: parseMailTransport(env),
+    revenuecatWebhookSecret: (env.REVENUECAT_WEBHOOK_SECRET ?? '').trim(),
+    revenuecatSecretKey: (env.REVENUECAT_SECRET_KEY ?? '').trim(),
+    razorpayKeyId: (env.RAZORPAY_KEY_ID ?? '').trim(),
+    razorpayKeySecret: (env.RAZORPAY_KEY_SECRET ?? '').trim(),
+    razorpayWebhookSecret: (env.RAZORPAY_WEBHOOK_SECRET ?? '').trim(),
+    razorpayPlanId: (env.RAZORPAY_PLAN_ID ?? '').trim(),
+    premiumEntitlementId: (env.PREMIUM_ENTITLEMENT_ID ?? '').trim() || 'premium',
     googleClientIds: (env.GOOGLE_CLIENT_ID ?? '')
       .split(',')
       .map((id) => id.trim())

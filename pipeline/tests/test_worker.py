@@ -59,9 +59,11 @@ class ProcessJobTests(unittest.TestCase):
         self.assertEqual(sorted(result.keys()), sorted([
             "job_id", "raw_message_id", "rewritten_text",
             "intent_preservation_score", "relevance_score",
-            "relevance_label", "pipeline_version",
+            "relevance_label", "pipeline_version", "moderation_flags",
         ]))
         self.assertEqual(result["pipeline_version"], "test-worker 1.0.0")
+        # Advisory codes only; the HTTP client leaves the field out when empty.
+        self.assertEqual(result["moderation_flags"], [])
         self.assertEqual(backend.errors, [])
         self.assertEqual(backend.failures, [])
 

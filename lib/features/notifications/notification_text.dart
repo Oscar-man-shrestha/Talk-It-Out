@@ -22,6 +22,12 @@ String notificationText(AppNotification item) {
       return AppStrings.questionAnswered(_short(item.post?.title));
     case NotificationType.answerBest:
       return AppStrings.answerBest(_short(item.post?.title));
+    case NotificationType.messagePublished:
+      return AppStrings.messagePublished(item.group?.agenda ?? 'a group');
+    case NotificationType.memberJoined:
+      return AppStrings.memberJoined(item.group?.agenda ?? 'your group');
+    case NotificationType.questionLiked:
+      return AppStrings.questionLiked(_short(item.post?.title));
     case NotificationType.unknown:
       return AppStrings.notificationGeneric;
   }

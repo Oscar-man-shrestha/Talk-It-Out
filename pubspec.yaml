@@ -45,7 +45,8 @@ dependencies:
   web: ^1.1.1
   share_plus: ^13.3.1
   qr_flutter: ^4.1.0
-
+  phosphor_flutter: ^2.1.0
+  purchases_flutter: ^11.0.4
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -74,6 +75,19 @@ flutter:
   # Privacy policy, terms and account deletion (also served by the backend).
   assets:
     - assets/legal/
+
+  # Inter (SIL OFL 1.1), bundled: assets/fonts/inter/LICENSE.md.
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/inter/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/inter/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/inter/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/inter/Inter-Bold.ttf
+          weight: 700
 
   # To add assets to your application, add an assets section, like this:
   # assets:

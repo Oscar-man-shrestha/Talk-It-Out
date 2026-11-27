@@ -181,6 +181,10 @@ describe('migrations', () => {
       '023_answers_follows_groups.sql',
       '024_group_invitations.sql',
       '025_invitation_live_updates.sql',
+      '026_premium.sql',
+      '027_rewrite_reasons.sql',
+      '028_more_notifications.sql',
+      '029_razorpay.sql',
     ]);
   });
 });

@@ -4,6 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
 import 'package:talk_it_out/features/invites/join_with_link.dart';
+import 'package:talk_it_out/core/ui/motion.dart';
+import 'package:talk_it_out/core/ui/floating_emblem.dart';
+import 'package:talk_it_out/core/ui/ambient_background.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 class _Page {
   const _Page(this.icon, this.title, this.body);
@@ -22,19 +26,19 @@ const _pages = [
         'are hidden from the group but visible to the controller who reviews them.',
   ),
   _Page(
-    Icons.auto_awesome,
+    PhosphorIconsRegular.sparkle,
     'Calm words, same point',
     'Before anyone reads it, an AI rewrites your message in a calm tone. Preview '
         'the wording first, and get a gentle hint while you type.',
   ),
   _Page(
-    Icons.verified_user_outlined,
+    PhosphorIconsRegular.shieldCheck,
     'Nothing goes out unchecked',
     "The group's controller sees your original next to the rewrite and decides "
         'what is published. Other members never see your original words.',
   ),
   _Page(
-    Icons.forum_outlined,
+    PhosphorIconsRegular.chatsCircle,
     'Ask the community',
     'A public Q&A for work questions: pay, managers, burnout and more. Your name is '
         'always shown there. For You learns what you care about.',
@@ -76,84 +80,88 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     final name = ref.watch(sessionProvider).value?.name.split(' ').first ?? '';
     return Scaffold(
       backgroundColor: Brand.canvas,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Column(
-              children: [
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    key: const ValueKey('welcome-skip'),
-                    onPressed: () => _done('/groups'),
-                    child: const Text(
-                      'Skip',
-                      style: TextStyle(color: Brand.inkSoft),
+      body: AmbientBackground(
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Column(
+                children: [
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      key: const ValueKey('welcome-skip'),
+                      onPressed: () => _done('/groups'),
+                      child: const Text(
+                        'Skip',
+                        style: TextStyle(color: Brand.inkSoft),
+                      ),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: PageView(
-                    controller: _pager,
-                    onPageChanged: (i) => setState(() => _index = i),
-                    children: [
-                      for (final (i, p) in _pages.indexed)
-                        _PageView(
-                          page: p,
-                          greeting: i == 0 && name.isNotEmpty
-                              ? 'Welcome, $name'
-                              : null,
+                  Expanded(
+                    child: PageView(
+                      controller: _pager,
+                      onPageChanged: (i) => setState(() => _index = i),
+                      children: [
+                        for (final (i, p) in _pages.indexed)
+                          _PageView(
+                            page: p,
+                            greeting: i == 0 && name.isNotEmpty
+                                ? 'Welcome, $name'
+                                : null,
+                          ),
+                        _StartView(
+                          onCreate: () => _done('/groups/new'),
+                          onJoin: () {
+                            ref
+                                .read(justRegisteredProvider.notifier)
+                                .mark(false);
+                            showJoinWithLinkDialog(context);
+                          },
+                          onExplore: () => _done('/feed'),
                         ),
-                      _StartView(
-                        onCreate: () => _done('/groups/new'),
-                        onJoin: () {
-                          ref.read(justRegisteredProvider.notifier).mark(false);
-                          showJoinWithLinkDialog(context);
-                        },
-                        onExplore: () => _done('/feed'),
-                      ),
+                      ],
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      for (var i = 0; i <= _pages.length; i++)
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          width: i == _index ? 18 : 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            color: i == _index ? Brand.ink : Brand.border,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
                     ],
                   ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (var i = 0; i <= _pages.length; i++)
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        width: i == _index ? 18 : 7,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          color: i == _index ? Brand.ink : Brand.border,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
-                  child: _last
-                      ? const SizedBox(height: 48)
-                      : FilledButton(
-                          key: const ValueKey('welcome-next'),
-                          onPressed: _next,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Brand.ink,
-                            minimumSize: const Size.fromHeight(48),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+                    child: _last
+                        ? const SizedBox(height: 48)
+                        : FilledButton(
+                            key: const ValueKey('welcome-next'),
+                            onPressed: _next,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Brand.ink,
+                              minimumSize: const Size.fromHeight(48),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text(
+                              _index == _pages.length - 1
+                                  ? 'Get started'
+                                  : 'Next',
                             ),
                           ),
-                          child: Text(
-                            _index == _pages.length - 1
-                                ? 'Get started'
-                                : 'Next',
-                          ),
-                        ),
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -175,16 +183,8 @@ class _PageView extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 24),
-          Container(
-            width: 112,
-            height: 112,
-            decoration: const BoxDecoration(
-              color: Brand.ink,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(page.icon, size: 50, color: Colors.white),
-          ),
-          const SizedBox(height: 28),
+          Reveal(child: FloatingEmblem(icon: page.icon)),
+          const SizedBox(height: 12),
           if (greeting != null) ...[
             Text(
               greeting!,
@@ -192,24 +192,30 @@ class _PageView extends StatelessWidget {
             ),
             const SizedBox(height: 6),
           ],
-          Text(
-            page.title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              height: 1.15,
-              color: Brand.ink,
+          Reveal(
+            index: 1,
+            child: Text(
+              page.title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                height: 1.15,
+                color: Brand.ink,
+              ),
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            page.body,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 15.5,
-              height: 1.5,
-              color: Brand.inkSoft,
+          Reveal(
+            index: 2,
+            child: Text(
+              page.body,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 15.5,
+                height: 1.5,
+                color: Brand.inkSoft,
+              ),
             ),
           ),
         ],
@@ -281,7 +287,10 @@ class _StartView extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right, color: Brand.inkSoft),
+                  const Icon(
+                    PhosphorIconsRegular.caretRight,
+                    color: Brand.inkSoft,
+                  ),
                 ],
               ),
             ),
@@ -315,14 +324,14 @@ class _StartView extends StatelessWidget {
           ),
           option(
             const ValueKey('welcome-join'),
-            Icons.link,
+            PhosphorIconsRegular.link,
             'Join with an invite link',
             'Someone sent you a link? Paste it here.',
             onJoin,
           ),
           option(
             const ValueKey('welcome-explore'),
-            Icons.explore_outlined,
+            PhosphorIconsRegular.compass,
             'Explore questions',
             'Read what people ask about work, and pick your interests.',
             onExplore,

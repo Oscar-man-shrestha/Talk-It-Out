@@ -126,6 +126,12 @@ export async function seedGroup(
   }
   // Adding invites (API.md 69); the contributor joins by accepting.
   await acceptInvites(app, contributor.token);
+  // The seeded join is setup, not an event under test: start every test
+  // with an empty inbox (member_joined, API.md 73).
+  await testPool().query(
+    `DELETE FROM notifications WHERE type = 'member_joined' AND group_id = $1`,
+    [created.body.id],
+  );
   return { controller, contributor, contributorUsername, groupId: created.body.id };
 }
 

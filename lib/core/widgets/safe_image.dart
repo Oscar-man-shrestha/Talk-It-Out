@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 class SafeImage extends StatelessWidget {
   const SafeImage({
@@ -10,7 +11,7 @@ class SafeImage extends StatelessWidget {
     this.fit = BoxFit.cover,
     this.width,
     this.height,
-    this.fallbackIcon = Icons.image_outlined,
+    this.fallbackIcon = PhosphorIconsRegular.image,
     this.fallbackColor,
     super.key,
   });

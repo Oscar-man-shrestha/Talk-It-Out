@@ -12,6 +12,8 @@ import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/review/data/raw_message.dart';
 import 'package:talk_it_out/features/review/review_providers.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
+import 'package:talk_it_out/features/review/moderation_notes.dart';
 
 // Stitch Monochrome Precision tokens
 const _kPrimary = Brand.accent;
@@ -69,7 +71,11 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.tune, size: 18, color: _kTextPrimary),
+                          Icon(
+                            PhosphorIconsRegular.slidersHorizontal,
+                            size: 18,
+                            color: _kTextPrimary,
+                          ),
                           SizedBox(width: 8),
                           Text(
                             'Review Queue Filters',
@@ -83,7 +89,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                       ),
                       IconButton(
                         icon: const Icon(
-                          Icons.close,
+                          PhosphorIconsRegular.x,
                           size: 20,
                           color: _kTextSecondary,
                         ),
@@ -118,7 +124,6 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                         child: Text(
                           '> ${tempThreshold.toInt()}%',
                           style: const TextStyle(
-                            fontFamily: 'monospace',
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: _kTextPrimary,
@@ -226,7 +231,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                           color: _kTextPrimary,
                         ),
                         icon: const Icon(
-                          Icons.expand_more,
+                          PhosphorIconsRegular.caretDown,
                           size: 18,
                           color: _kTextSecondary,
                         ),
@@ -416,8 +421,8 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
         preferredSize: const Size.fromHeight(56),
         child: Container(
           decoration: const BoxDecoration(
-            color: _kSurface,
-            border: Border(bottom: BorderSide(color: _kBorderSubtle)),
+            color: Color(0xFF0A0A0A),
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
           ),
           child: SafeArea(
             bottom: false,
@@ -429,9 +434,9 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                 children: [
                   IconButton(
                     icon: const Icon(
-                      Icons.arrow_back_ios_new,
+                      PhosphorIconsRegular.caretLeft,
                       size: 18,
-                      color: _kTextPrimary,
+                      color: Colors.white,
                     ),
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
@@ -446,7 +451,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.8,
-                          color: _kTextSecondary,
+                          color: Colors.white70,
                         ),
                       ),
                       Text(
@@ -455,7 +460,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           letterSpacing: -0.2,
-                          color: _kTextPrimary,
+                          color: Colors.white,
                         ),
                       ),
                     ],
@@ -464,9 +469,9 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                   PopupMenuButton<String>(
                     tooltip: 'Queue options',
                     icon: const Icon(
-                      Icons.more_vert,
+                      PhosphorIconsRegular.dotsThreeVertical,
                       size: 20,
-                      color: _kTextSecondary,
+                      color: Colors.white70,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -544,7 +549,6 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                           groupAgenda.toUpperCase(),
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontFamily: 'monospace',
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.6,
@@ -573,7 +577,6 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                         'LIVE',
                         style: TextStyle(
                           fontSize: 10,
-                          fontFamily: 'monospace',
                           fontWeight: FontWeight.w700,
                           color: _kTextPrimary,
                         ),
@@ -596,72 +599,81 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            '${pending.length} awaiting moderation',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 1.5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _kPrimary,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'ACTIVE',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontFamily: 'monospace',
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                '${pending.length} awaiting moderation',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: _kTextPrimary,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 3),
-                      Row(
-                        children: [
-                          Text(
-                            ready == 1
-                                ? '1 rewrite ready'
-                                : '$ready rewrites ready',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _kTextSecondary,
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 1.5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _kPrimary,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'ACTIVE',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Text(
-                            '•',
-                            style: TextStyle(color: _kTextTertiary),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            unavailable == 0
-                                ? '$rewriting rewriting'
-                                : '$rewriting rewriting • '
-                                      '$unavailable not available',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _kTextSecondary,
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                ready == 1
+                                    ? '1 rewrite ready'
+                                    : '$ready rewrites ready',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: _kTextSecondary,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: const Text(
+                                '•',
+                                style: TextStyle(color: _kTextTertiary),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                unavailable == 0
+                                    ? '$rewriting rewriting'
+                                    : '$rewriting rewriting • '
+                                          '$unavailable not available',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: _kTextSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                   InkWell(
                     onTap: _openFilterModal,
@@ -687,7 +699,7 @@ class _ReviewQueueScreenState extends ConsumerState<ReviewQueueScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.tune,
+                            PhosphorIconsRegular.slidersHorizontal,
                             size: 16,
                             color:
                                 _relevanceThreshold != 70.0 ||
@@ -914,7 +926,6 @@ class _FilterPill extends StatelessWidget {
                 count,
                 style: TextStyle(
                   fontSize: 10,
-                  fontFamily: 'monospace',
                   fontWeight: FontWeight.w700,
                   color: selected ? Colors.white : _kTextSecondary,
                 ),
@@ -976,10 +987,14 @@ class _QueueCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Metadata Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
                     width: 24,
@@ -1007,21 +1022,24 @@ class _QueueCard extends StatelessWidget {
                           ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    senderTitle,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: _kTextPrimary,
+                  Flexible(
+                    child: Text(
+                      senderTitle,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: _kTextPrimary,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    formatWhen(message.createdAt),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontFamily: 'monospace',
-                      color: _kTextTertiary,
+                  Flexible(
+                    child: Text(
+                      formatWhen(message.createdAt),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: _kTextTertiary,
+                      ),
                     ),
                   ),
                 ],
@@ -1037,7 +1055,6 @@ class _QueueCard extends StatelessWidget {
                   relevance,
                   style: const TextStyle(
                     fontSize: 10,
-                    fontFamily: 'monospace',
                     fontWeight: FontWeight.w600,
                     color: _kTextPrimary,
                   ),
@@ -1078,7 +1095,11 @@ class _QueueCard extends StatelessWidget {
             Row(
               key: ValueKey('queue-image-${message.id}'),
               children: const [
-                Icon(Icons.image_outlined, size: 14, color: _kTextSecondary),
+                Icon(
+                  PhosphorIconsRegular.image,
+                  size: 14,
+                  color: _kTextSecondary,
+                ),
                 SizedBox(width: 4),
                 Text(
                   'Photo attached',
@@ -1108,7 +1129,6 @@ class _QueueCard extends StatelessWidget {
                       'ORIGINAL',
                       style: TextStyle(
                         fontSize: 9,
-                        fontFamily: 'monospace',
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.6,
                         color: _kTextTertiary,
@@ -1142,13 +1162,17 @@ class _QueueCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 6,
                     children: [
                       const Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.auto_fix_high,
+                            PhosphorIconsRegular.magicWand,
                             size: 13,
                             color: _kTextSecondary,
                           ),
@@ -1170,7 +1194,6 @@ class _QueueCard extends StatelessWidget {
                             : 'Meaning kept ${(intent * 100).round()}%',
                         style: const TextStyle(
                           fontSize: 9,
-                          fontFamily: 'monospace',
                           color: _kTextTertiary,
                         ),
                       ),
@@ -1191,12 +1214,12 @@ class _QueueCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
           ],
+          if (message.moderationFlags.isNotEmpty) ...[
+            ModerationFlagChips(message: message),
+            const SizedBox(height: 10),
+          ],
           if (message.rewrittenText == null && message.rewriteUnavailable) ...[
-            Text(
-              '${AppStrings.rewriteUnavailable}. Use the retry button to '
-              'try a new rewrite.',
-              style: TextStyle(fontSize: 12, color: _kTextSecondary),
-            ),
+            RewriteReasonNote(message: message),
             const SizedBox(height: 10),
           ],
 
@@ -1205,10 +1228,14 @@ class _QueueCard extends StatelessWidget {
             _DecidedRow(message: message, groupId: groupId)
           else
             // Action Row (Reject / Rerun / Review & Decide)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
               children: [
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     InkWell(
                       onTap: onReject,
@@ -1222,7 +1249,7 @@ class _QueueCard extends StatelessWidget {
                           border: Border.all(color: _kBorderSubtle),
                         ),
                         child: const Icon(
-                          Icons.close,
+                          PhosphorIconsRegular.x,
                           size: 18,
                           color: _kTextSecondary,
                         ),
@@ -1275,7 +1302,7 @@ class _QueueCard extends StatelessWidget {
                         ),
                       ),
                       SizedBox(width: 5),
-                      Icon(Icons.arrow_forward, size: 14),
+                      Icon(PhosphorIconsRegular.arrowRight, size: 14),
                     ],
                   ),
                 ),
@@ -1313,7 +1340,9 @@ class _DecidedRow extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  accepted ? Icons.check : Icons.close,
+                  accepted
+                      ? PhosphorIconsRegular.check
+                      : PhosphorIconsRegular.x,
                   size: 13,
                   color: accepted ? Colors.white : _kTextSecondary,
                 ),
@@ -1325,7 +1354,6 @@ class _DecidedRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 10,
-                      fontFamily: 'monospace',
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.4,
                       color: accepted ? Colors.white : _kTextPrimary,

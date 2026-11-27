@@ -8,6 +8,7 @@ import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/core/utils/image_picker_helper.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 /// Largest image the server accepts (API.md 49).
 const maxChatImageBytes = 5 * 1024 * 1024;
@@ -125,7 +126,7 @@ class ChatImage extends ConsumerWidget {
                 tooltip: 'Close',
                 style: IconButton.styleFrom(backgroundColor: Colors.black54),
                 onPressed: () => Navigator.of(ctx).pop(),
-                icon: const Icon(Icons.close, color: Colors.white),
+                icon: const Icon(PhosphorIconsRegular.x, color: Colors.white),
               ),
             ),
           ],
@@ -198,7 +199,7 @@ class PendingImagePreview extends StatelessWidget {
               errorBuilder: (_, _, _) => const SizedBox(
                 width: 56,
                 height: 56,
-                child: Icon(Icons.image_outlined, color: Brand.inkSoft),
+                child: Icon(PhosphorIconsRegular.image, color: Brand.inkSoft),
               ),
             ),
           ),
@@ -234,7 +235,11 @@ class PendingImagePreview extends StatelessWidget {
             tooltip: AppStrings.removeImage,
             visualDensity: VisualDensity.compact,
             onPressed: onRemove,
-            icon: const Icon(Icons.close, size: 18, color: Brand.accentInk),
+            icon: const Icon(
+              PhosphorIconsRegular.x,
+              size: 18,
+              color: Brand.accentInk,
+            ),
           ),
         ],
       ),

@@ -7,7 +7,6 @@ import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/core/ui/screen_async.dart';
-import 'package:talk_it_out/core/ui/stitch_chrome.dart';
 import 'package:talk_it_out/core/widgets/async_body.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
 import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
@@ -21,12 +20,21 @@ import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
 import 'package:talk_it_out/features/discovery/safety_actions.dart';
 import 'package:talk_it_out/features/discovery/interest_icons.dart';
+import 'package:talk_it_out/core/ui/motion.dart';
+import 'package:talk_it_out/core/ui/surfaces.dart';
+import 'package:talk_it_out/core/ui/double_tap_like.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
+import 'package:talk_it_out/core/ui/large_title_header.dart';
+import 'package:talk_it_out/app/side_nav.dart';
+import 'package:talk_it_out/core/ui/premium_badge.dart';
 
 const _border = Brand.border;
 const _ink = Brand.ink;
 const _muted = Brand.inkSoft;
 const _faint = Brand.inkFaint;
 const _chip = Brand.muted;
+// The liked heart, the same red as on the question page.
+const _likedRed = Color(0xFFBA1A1A);
 const _low = Brand.canvas;
 
 /// "All Topics" plus the fixed feed topics (`API.md` 42).
@@ -47,6 +55,10 @@ const _statuses = [
   'Active debate',
   'Saved',
 ];
+
+/// The server filter for each entry of [_statuses] (`API.md` 70); "All
+/// questions" and "Saved" (index 4, on this device) send none.
+const _serverFilters = <String?>[null, 'unanswered', 'answered', 'discussed'];
 
 class FeedScreen extends ConsumerStatefulWidget {
   const FeedScreen({super.key});
@@ -74,6 +86,12 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   @override
   void initState() {
     super.initState();
+    // The server-side filter outlives this screen; start from it.
+    final filter = ref.read(feedFilterProvider);
+    final topicIndex = _topics.indexWhere((t) => t.$3?.id == filter.topic);
+    _topic = topicIndex < 0 ? 0 : topicIndex;
+    final statusIndex = _serverFilters.indexOf(filter.filter);
+    _status = statusIndex < 0 ? 0 : statusIndex;
     // First visit: ask for interests once, like Pinterest.
     ref.listenManual(
       interestsProvider,
@@ -250,7 +268,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               ListTile(
                 key: const ValueKey('why-report'),
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.flag_outlined, color: Colors.red.shade800),
+                leading: Icon(
+                  PhosphorIconsRegular.flag,
+                  color: Colors.red.shade800,
+                ),
                 title: Text(
                   'Report question',
                   style: TextStyle(color: Colors.red.shade800),
@@ -262,7 +283,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.tune),
+                leading: const Icon(PhosphorIconsRegular.slidersHorizontal),
                 title: const Text('Edit your interests'),
                 onTap: () {
                   Navigator.of(ctx).pop();
@@ -349,8 +370,16 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       }
       ref.invalidate(feedProvider);
       ref.invalidate(forYouProvider);
-    } on RepositoryException {
-      // The list stays as it was. A later refresh can retry.
+      ref.invalidate(postDetailProvider(post.id));
+      // Search results are a separate list: fetch them again so the new
+      // count and heart show there too.
+      final query = _search.text.trim();
+      if (_searchResult != null && query.isNotEmpty) await _runSearch(query);
+    } on RepositoryException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
     }
   }
 
@@ -379,6 +408,19 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       duration: const Duration(milliseconds: 250),
       alignment: 0.1,
     );
+  }
+
+  /// Topic and status filters run on the server (`API.md` 70), so older
+  /// matching questions are found too. "Saved" stays on this device.
+  void _syncFilter() {
+    ref
+        .read(feedFilterProvider.notifier)
+        .set(
+          topic: _topics[_topic].$3?.id,
+          filter: _status < _serverFilters.length
+              ? _serverFilters[_status]
+              : null,
+        );
   }
 
   var _loadingMore = false;
@@ -421,8 +463,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
     return Scaffold(
       backgroundColor: _low,
-      appBar: StitchPageHeader(
-        title: 'Community Q&A Feed',
+      appBar: LargeTitleHeader(
+        title: AppStrings.navFeed,
+        subtitle: 'Questions from the community',
+        background: _low,
         actions: [
           Container(
             height: 32,
@@ -432,14 +476,18 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 : null,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: _chip,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: _border),
+              color: HeroInk.fill,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: HeroInk.line),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.verified_user_rounded, size: 16, color: _ink),
+                const Icon(
+                  PhosphorIconsFill.shieldCheck,
+                  size: 16,
+                  color: Colors.white,
+                ),
                 if (!compactHeader) ...[
                   const SizedBox(width: 6),
                   const Text(
@@ -447,7 +495,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: _ink,
+                      color: Colors.white,
                     ),
                   ),
                 ],
@@ -455,42 +503,23 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          Material(
-            color: Brand.accent,
-            shape: const CircleBorder(),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              customBorder: const CircleBorder(),
+          if (!SidebarScope.visible(context))
+            HeroAvatarButton(
               onTap: () => context.go('/profile'),
-              child: SizedBox(
-                width: 32,
-                height: 32,
-                child: userProfile.avatarUrl != null
-                    ? Image.network(
-                        userProfile.avatarUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(
-                              Icons.person,
-                              size: 17,
-                              color: Colors.white,
-                            ),
-                      )
-                    : const Icon(Icons.person, size: 17, color: Colors.white),
-              ),
+              avatarUrl: userProfile.avatarUrl,
             ),
-          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'feed-fab',
         onPressed: () => context.push('/feed/new'),
         backgroundColor: Brand.accent,
         foregroundColor: Colors.white,
         elevation: 6,
         shape: const StadiumBorder(),
-        icon: const Icon(Icons.help_outline, size: 18),
+        icon: const Icon(PhosphorIconsRegular.question, size: 18),
         label: const Text(
-          '+ ASK QUESTION',
+          'Ask a question',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
@@ -521,7 +550,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.forum_outlined,
+                    PhosphorIconsRegular.chatsCircle,
                     size: 32,
                     color: scheme.primary,
                   ),
@@ -538,7 +567,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 const SizedBox(height: 20),
                 FilledButton.icon(
                   onPressed: () => context.push('/feed/new'),
-                  icon: const Icon(Icons.add_rounded),
+                  icon: const Icon(PhosphorIconsRegular.plus),
                   label: const Text(AppStrings.newPost),
                 ),
               ],
@@ -586,7 +615,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(vertical: 12),
                     prefixIcon: const Icon(
-                      Icons.search,
+                      PhosphorIconsRegular.magnifyingGlass,
                       size: 19,
                       color: _faint,
                     ),
@@ -594,7 +623,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         ? IconButton(
                             tooltip: 'Clear search',
                             icon: const Icon(
-                              Icons.close,
+                              PhosphorIconsRegular.x,
                               size: 18,
                               color: _muted,
                             ),
@@ -646,9 +675,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       title: 'No questions match "${_search.text.trim()}"',
                       body: 'Try other words, or ask it yourself.',
                     ),
-                  for (final post
-                      in _searchResult?.items ?? const <Post>[]) ...[
+                  for (final (i, post)
+                      in (_searchResult?.items ?? const <Post>[]).indexed) ...[
                     PostCard(
+                      index: i,
                       post: post,
                       onOpen: () => _openPost(post),
                       onToggleLike: () => _toggleLike(post),
@@ -674,12 +704,14 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       title: 'Nothing here yet',
                       body: 'Be the first to ask a question, or check Latest.',
                     ),
-                  for (final item in forYou?.value ?? const <RankedPost>[]) ...[
+                  for (final (i, item)
+                      in (forYou?.value ?? const <RankedPost>[]).indexed) ...[
                     _ReasonLine(
                       item: item,
                       onMore: () => _whyThisPost(item, interests),
                     ),
                     PostCard(
+                      index: i,
                       post: item.post,
                       onOpen: () => _openPost(item.post),
                       onToggleLike: () => _toggleLike(item.post),
@@ -716,7 +748,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                             icon: _topics[i].$1,
                             label: _topics[i].$2,
                             active: _topic == i,
-                            onTap: () => setState(() => _topic = i),
+                            onTap: () {
+                              setState(() => _topic = i);
+                              _syncFilter();
+                            },
                           ),
                         ],
                       ],
@@ -737,7 +772,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         child: _MenuPill(
                           value: _status,
                           options: _statuses,
-                          onChanged: (value) => setState(() => _status = value),
+                          onChanged: (value) {
+                            setState(() => _status = value);
+                            _syncFilter();
+                          },
                         ),
                       ),
                     ],
@@ -757,8 +795,9 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       body: 'Try another topic, or clear the search to see the full feed.',
                     )
                   else
-                    for (final post in visible) ...[
+                    for (final (i, post) in visible.indexed) ...[
                       PostCard(
+                        index: i,
                         post: post,
                         onOpen: () => _openPost(post),
                         onToggleLike: () => _toggleLike(post),
@@ -819,10 +858,13 @@ String _ago(DateTime value) {
     final days = delta.inDays;
     return days == 1 ? '1 day ago' : '$days days ago';
   }
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', //
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
   final local = value.toLocal();
-  final month = local.month.toString().padLeft(2, '0');
-  final day = local.day.toString().padLeft(2, '0');
-  return '${local.year}-$month-$day';
+  final day = '${local.day} ${months[local.month - 1]}';
+  return local.year == DateTime.now().year ? day : '$day ${local.year}';
 }
 
 OutlineInputBorder _fieldBorder(Color color) {
@@ -914,8 +956,8 @@ class _Hero extends StatelessWidget {
                       letterSpacing: 0.8,
                     ),
                   ),
-                  icon: const Icon(Icons.help_outline, size: 17),
-                  label: const Text('ASK YOUR QUESTION'),
+                  icon: const Icon(PhosphorIconsRegular.question, size: 17),
+                  label: const Text('Ask your question'),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1069,7 +1111,11 @@ class _MenuPill extends StatelessWidget {
           value: value,
           isExpanded: true,
           isDense: true,
-          icon: const Icon(Icons.expand_more, size: 15, color: _muted),
+          icon: const Icon(
+            PhosphorIconsRegular.caretDown,
+            size: 15,
+            color: _muted,
+          ),
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
@@ -1129,7 +1175,7 @@ class _Leaderboard extends StatelessWidget {
               const SizedBox(width: 6),
               const Expanded(
                 child: Text(
-                  'MOST ACTIVE AUTHORS',
+                  'Most active authors',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -1316,7 +1362,11 @@ class _CaughtUp extends StatelessWidget {
               color: _chip,
               borderRadius: BorderRadius.circular(4),
             ),
-            child: const Icon(Icons.auto_awesome, size: 18, color: _ink),
+            child: const Icon(
+              PhosphorIconsRegular.sparkle,
+              size: 18,
+              color: _ink,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
@@ -1349,11 +1399,15 @@ class PostCard extends StatelessWidget {
     this.creatingGroup = false,
     this.showAnswer = true,
     this.onAuthor,
+    this.index = 0,
     super.key,
   });
 
   /// Opens the author's profile.
   final VoidCallback? onAuthor;
+
+  /// Position in its list, for the staggered entrance.
+  final int index;
 
   final Post post;
   final VoidCallback onOpen;
@@ -1374,294 +1428,273 @@ class PostCard extends StatelessWidget {
               .map((part) => part[0].toUpperCase())
               .join();
 
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onOpen,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: _border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  GestureDetector(
-                    key: ValueKey('post-author-${post.id}'),
-                    onTap: onAuthor,
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: Brand.accent,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        letters,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
+    return Reveal(
+      index: index,
+      child: PressScale(
+        scale: 0.985,
+        child: SoftShadow(
+          radius: 14,
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              onTap: onOpen,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: GestureDetector(
-                                onTap: onAuthor,
-                                child: Text(
-                                  post.author.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: _ink,
-                                  ),
-                                ),
+                        GestureDetector(
+                          key: ValueKey('post-author-${post.id}'),
+                          onTap: onAuthor,
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Brand.accent,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              letters,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
                               ),
                             ),
-                            if (post.nsfwFlag) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _chip,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: _border),
-                                ),
-                                child: Text(
-                                  AppStrings.flagged,
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFFBA1A1A),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: GestureDetector(
+                                      onTap: onAuthor,
+                                      child: Text(
+                                        post.author.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: _ink,
+                                        ),
+                                      ),
+                                    ),
                                   ),
+                                  if (post.author.premium) ...[
+                                    const SizedBox(width: 4),
+                                    const PremiumBadge(),
+                                  ],
+                                  if (post.nsfwFlag) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _chip,
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: _border),
+                                      ),
+                                      child: Text(
+                                        AppStrings.flagged,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFFBA1A1A),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _ago(post.createdAt),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: _muted,
                                 ),
                               ),
                             ],
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _ago(post.createdAt),
-                          style: const TextStyle(fontSize: 11, color: _muted),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _chip,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: _border),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.favorite_border,
-                          size: 12,
-                          color: _ink,
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          '${post.reactionCount}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: _ink,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (PostTopic.byId(post.topic) case final topic?) ...[
-                Row(
-                  children: [
-                    Icon(topic.icon, size: 13, color: _muted),
-                    const SizedBox(width: 4),
-                    Text(
-                      topic.label,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: _muted,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-              ],
-              if (post.title != null) ...[
-                Text(
-                  post.title!,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    height: 1.3,
-                    color: _ink,
-                  ),
-                ),
-                const SizedBox(height: 4),
-              ],
-              Text(
-                post.content,
-                maxLines: post.title != null ? 4 : null,
-                overflow: post.title != null ? TextOverflow.ellipsis : null,
-                style: TextStyle(
-                  fontSize: post.title != null ? 13.5 : 14,
-                  fontWeight: post.title != null
-                      ? FontWeight.w400
-                      : FontWeight.w700,
-                  height: 1.4,
-                  color: post.title != null ? _muted : _ink,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: _low,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: _border),
-                ),
-                child: const Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.auto_awesome, size: 15, color: _ink),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 8),
+                    if (PostTopic.byId(post.topic) case final topic?) ...[
+                      Row(
                         children: [
+                          Icon(topic.icon, size: 13, color: _muted),
+                          const SizedBox(width: 4),
                           Text(
-                            'NOT REWRITTEN BY AI',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.6,
-                              color: _ink,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Shown as the author wrote it.',
-                            style: TextStyle(
-                              fontSize: 11,
-                              height: 1.3,
+                            topic.label,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
                               color: _muted,
                             ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 4),
+                    ],
+                    // Double-tap the question to like it (the text
+                    // only, so buttons on the card answer at once).
+                    DoubleTapLike(
+                      liked: liked,
+                      onLike: onToggleLike,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (post.title != null) ...[
+                            Text(
+                              post.title!,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                height: 1.3,
+                                color: _ink,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                          ],
+                          Text(
+                            post.content,
+                            maxLines: post.title != null ? 4 : null,
+                            overflow: post.title != null
+                                ? TextOverflow.ellipsis
+                                : null,
+                            style: TextStyle(
+                              fontSize: post.title != null ? 13.5 : 14,
+                              fontWeight: post.title != null
+                                  ? FontWeight.w400
+                                  : FontWeight.w700,
+                              height: 1.4,
+                              color: post.title != null ? _muted : _ink,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Row(
+                      children: [
+                        Icon(
+                          PhosphorIconsRegular.quotes,
+                          size: 13,
+                          color: _faint,
+                        ),
+                        SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            'In the author\'s own words',
+                            style: TextStyle(fontSize: 11.5, color: _faint),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(
+                          PhosphorIconsRegular.chartBar,
+                          size: 14,
+                          color: _muted,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          post.commentCount == 0
+                              ? 'Awaiting first answer'
+                              : AppStrings.commentCount(post.commentCount),
+                          style: const TextStyle(fontSize: 11, color: _muted),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Container(height: 1, color: _border),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        // One like per question, in the action bar like
+                        // Reddit; answers are upvoted as "Helpful".
+                        _LikePill(
+                          key: ValueKey('card-like-${post.id}'),
+                          liked: liked,
+                          count: post.reactionCount,
+                          onTap: onToggleLike,
+                        ),
+                        const SizedBox(width: 6),
+                        _CountButton(
+                          icon: PhosphorIconsRegular.chatCircle,
+                          count: post.commentCount,
+                          onTap: onOpen,
+                        ),
+                        if (onCreateGroup != null) ...[
+                          const SizedBox(width: 6),
+                          _CountButton(
+                            icon: Icons.group_add,
+                            label: creatingGroup ? '…' : 'Group',
+                            tinted: true,
+                            onTap: creatingGroup ? () {} : onCreateGroup!,
+                          ),
+                        ],
+                        const Spacer(),
+                        if (showAnswer)
+                          Material(
+                            color: Brand.accent,
+                            borderRadius: BorderRadius.circular(4),
+                            child: InkWell(
+                              onTap: onOpen,
+                              borderRadius: BorderRadius.circular(4),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 6,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      PhosphorIconsRegular.notePencil,
+                                      size: 14,
+                                      color: Colors.white,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Answer',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.6,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.poll_outlined, size: 14, color: _muted),
-                  const SizedBox(width: 4),
-                  Text(
-                    post.commentCount == 0
-                        ? 'Awaiting first answer'
-                        : AppStrings.commentCount(post.commentCount),
-                    style: const TextStyle(fontSize: 11, color: _muted),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Container(height: 1, color: _border),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  _CountButton(
-                    icon: Icons.arrow_upward_rounded,
-                    count: post.reactionCount,
-                    filled: liked,
-                    onTap: onToggleLike,
-                  ),
-                  const SizedBox(width: 6),
-                  _CountButton(
-                    icon: Icons.chat_bubble_outline,
-                    count: post.commentCount,
-                    onTap: onOpen,
-                  ),
-                  if (onCreateGroup != null) ...[
-                    const SizedBox(width: 6),
-                    _CountButton(
-                      icon: Icons.group_add,
-                      label: creatingGroup ? '…' : 'Group',
-                      tinted: true,
-                      onTap: creatingGroup ? () {} : onCreateGroup!,
-                    ),
-                  ],
-                  const Spacer(),
-                  if (showAnswer)
-                    Material(
-                      color: Brand.accent,
-                      borderRadius: BorderRadius.circular(4),
-                      child: InkWell(
-                        onTap: onOpen,
-                        borderRadius: BorderRadius.circular(4),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 6,
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.edit_note,
-                                size: 14,
-                                color: Colors.white,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'ANSWER',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.6,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1675,7 +1708,6 @@ class _CountButton extends StatelessWidget {
     required this.onTap,
     this.count,
     this.label,
-    this.filled = false,
     this.tinted = false,
   });
 
@@ -1683,14 +1715,13 @@ class _CountButton extends StatelessWidget {
   final VoidCallback onTap;
   final int? count;
   final String? label;
-  final bool filled;
   final bool tinted;
 
   @override
   Widget build(BuildContext context) {
-    final foreground = filled ? Colors.white : (tinted ? _ink : _muted);
+    final foreground = tinted ? _ink : _muted;
     return Material(
-      color: filled ? Brand.accent : (tinted ? _chip : Colors.white),
+      color: tinted ? _chip : Colors.white,
       borderRadius: BorderRadius.circular(4),
       child: InkWell(
         onTap: onTap,
@@ -1700,7 +1731,7 @@ class _CountButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: filled ? Brand.accent : _border),
+            border: Border.all(color: _border),
           ),
           child: Row(
             children: [
@@ -1852,7 +1883,7 @@ class _InterestBar extends StatelessWidget {
             ),
             child: const Row(
               children: [
-                Icon(Icons.auto_awesome, size: 22, color: Brand.ink),
+                Icon(PhosphorIconsRegular.sparkle, size: 22, color: Brand.ink),
                 SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -1874,7 +1905,7 @@ class _InterestBar extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, color: _muted),
+                Icon(PhosphorIconsRegular.caretRight, color: _muted),
               ],
             ),
           ),
@@ -1894,7 +1925,11 @@ class _InterestBar extends StatelessWidget {
               ),
           ActionChip(
             key: const ValueKey('edit-interests'),
-            avatar: const Icon(Icons.tune, size: 15, color: _ink),
+            avatar: const Icon(
+              PhosphorIconsRegular.slidersHorizontal,
+              size: 15,
+              color: _ink,
+            ),
             label: const Text('Edit'),
             onPressed: onEdit,
             backgroundColor: Colors.white,
@@ -1917,11 +1952,11 @@ class _ReasonLine extends StatelessWidget {
 
   IconData get _icon => switch (item.reason?.kind) {
     'interest' || 'learned' => Icons.favorite_border,
-    'similar' => Icons.auto_awesome_outlined,
-    'network' => Icons.groups_2_outlined,
+    'similar' => PhosphorIconsRegular.sparkle,
+    'network' => PhosphorIconsRegular.usersThree,
     'popular' => Icons.local_fire_department_outlined,
-    'explore' => Icons.explore_outlined,
-    'yours' => Icons.check_circle_outline,
+    'explore' => PhosphorIconsRegular.compass,
+    'yours' => PhosphorIconsRegular.checkCircle,
     _ => Icons.fiber_new_outlined,
   };
 
@@ -1950,10 +1985,73 @@ class _ReasonLine extends StatelessWidget {
             tooltip: 'More',
             visualDensity: VisualDensity.compact,
             iconSize: 18,
-            icon: const Icon(Icons.more_horiz, color: _muted),
+            icon: const Icon(PhosphorIconsRegular.dotsThree, color: _muted),
             onPressed: onMore,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The question's like control in the card's action bar: a heart and the
+/// count in one rounded pill, red once you like it.
+class _LikePill extends StatelessWidget {
+  const _LikePill({
+    required this.liked,
+    required this.count,
+    required this.onTap,
+    super.key,
+  });
+
+  final bool liked;
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: liked ? AppStrings.unlikePost : AppStrings.likePost,
+      child: Material(
+        color: liked ? const Color(0xFFFDECEE) : Colors.white,
+        shape: StadiumBorder(
+          side: BorderSide(color: liked ? const Color(0xFFF5C2C9) : _border),
+        ),
+        child: InkWell(
+          onTap: () {
+            tapFeedback();
+            onTap();
+          },
+          customBorder: const StadiumBorder(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedScale(
+                  scale: liked ? 1.15 : 1,
+                  duration: Motion.medium,
+                  curve: Curves.elasticOut,
+                  child: Icon(
+                    liked ? Icons.favorite : Icons.favorite_border,
+                    size: 17,
+                    color: liked ? _likedRed : _ink,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                AnimatedCount(
+                  count,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: liked ? _likedRed : _ink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

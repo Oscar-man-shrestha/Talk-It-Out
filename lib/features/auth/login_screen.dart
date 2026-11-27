@@ -1,23 +1,21 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:talk_it_out/app/providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
 import 'package:talk_it_out/features/auth/saved_accounts.dart';
-import 'package:talk_it_out/features/auth/google/google_button.dart';
-import 'package:talk_it_out/features/auth/google/google_sign_in_service.dart';
+import 'package:talk_it_out/features/auth/google/google_sign_in_section.dart';
 import 'package:talk_it_out/features/auth/session_controller.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/features/auth/auth_frame.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 // Stitch Monochrome Precision design tokens
 const _kPrimary = Brand.accent;
 const _kSurfaceMuted = Brand.muted;
 const _kBorderSubtle = Brand.border;
-const _kBorderStrong = Brand.borderStrong;
 const _kTextPrimary = Brand.ink;
 const _kTextSecondary = Brand.inkSoft;
 const _kTextTertiary = Brand.inkFaint;
@@ -48,14 +46,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  /// "Continue as...": fills the email and asks only for the password.
+  final _googleKey = GlobalKey<GoogleSignInSectionState>();
+
+  /// What "Continue as" is waiting for, shown under the chosen account.
+  String? _continueHint;
+
+  /// "Continue as...". A Google account goes through Google (it may have
+  /// no password); a password account fills the email and asks for the
+  /// password.
   void _choose(SavedAccount account) {
     setState(() {
       _email.text = account.email;
       _password.clear();
       _error = null;
+      _continueHint = account.google
+          ? AppStrings.continueWithGoogleHint(account.name)
+          : AppStrings.continuePasswordHint(account.name);
     });
-    _passwordFocus.requestFocus();
+    if (!account.google) {
+      _passwordFocus.requestFocus();
+      return;
+    }
+    final section = _googleKey.currentState;
+    // Phones (and the demo) can open Google's sign-in at once. On the web
+    // Google only accepts its own button, so bring that button into view.
+    if (section != null && section.startDirectly()) return;
+    final target = _googleKey.currentContext;
+    if (target != null) {
+      Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+        alignment: 0.4,
+      );
+    }
   }
 
   Future<void> _submit() async {
@@ -85,533 +109,445 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final isDesktopOrTablet = screenWidth > 540;
-    final hPad = isDesktopOrTablet ? (screenWidth - 420) / 2 : 20.0;
-
     return Scaffold(
       backgroundColor: Brand.canvas,
-      body: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(hPad, 28, hPad, 32),
-          children: [
-            // Accessible test helper for widget_test.dart
-            const SizedBox(
-              height: 0,
-              child: Center(
-                child: Text(
-                  AppStrings.loginTitle,
-                  style: TextStyle(fontSize: 0, color: Colors.transparent),
-                ),
-              ),
-            ),
-
-            // Header / Brand Identifier
-            Center(
-              child: Container(
-                width: 48,
-                height: 48,
-                decoration: const BoxDecoration(
-                  color: _kPrimary,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.forum, color: Colors.white, size: 24),
-              ),
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              'Talk It Out',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.5,
-                color: _kTextPrimary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Center(
-              child: SizedBox(
-                width: 250,
-                child: Text(
-                  'Thoughtful conversations, refined together.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: _kTextSecondary,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 22),
-            _SavedAccounts(
-              chosenEmail: _email.text.trim(),
-              onChoose: _busy ? null : _choose,
-              onUseAnother: () => setState(() {
-                _email.clear();
-                _password.clear();
-              }),
-            ),
-
-            // Email Label Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Flexible(
-                  child: Text(
-                    'Work or Personal Email',
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: _kTextPrimary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-
-            // Email Input Box
-            Container(
-              decoration: BoxDecoration(
-                color: _kSurfaceMuted,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: _kBorderStrong, width: 1),
-              ),
-              child: TextField(
-                controller: _email,
-                keyboardType: TextInputType.emailAddress,
-                style: const TextStyle(fontSize: 13, color: _kTextPrimary),
-                decoration: const InputDecoration(
-                  hintText: 'alex@example.com',
-                  hintStyle: TextStyle(fontSize: 13, color: _kTextTertiary),
-                  prefixIcon: Icon(
-                    Icons.alternate_email,
-                    size: 18,
-                    color: _kTextTertiary,
-                  ),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 11,
-                  ),
-                  isDense: true,
-                ),
-                textInputAction: TextInputAction.next,
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Password Label Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Password',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: _kTextPrimary,
-                  ),
-                ),
-                GestureDetector(
-                  onTap: _busy ? null : () => context.push('/forgot-password'),
-                  child: const Text(
-                    'Forgot?',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: _kTextSecondary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-
-            // Password Input Box
-            Container(
-              decoration: BoxDecoration(
-                color: _kSurfaceMuted,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: _kBorderStrong, width: 1),
-              ),
-              child: Row(
+      body: AuthFrame(
+        form: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, box) {
+              // Centred 420 px column in the space the form has.
+              final hPad = box.maxWidth > 560 ? (box.maxWidth - 460) / 2 : 6.0;
+              return ListView(
+                padding: EdgeInsets.fromLTRB(hPad, 28, hPad, 32),
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 10),
-                    child: Icon(
-                      Icons.lock_outline,
-                      size: 18,
-                      color: _kTextTertiary,
-                    ),
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _password,
-                      focusNode: _passwordFocus,
-                      obscureText: _obscure,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: _kTextPrimary,
-                        letterSpacing: 2,
-                      ),
-                      decoration: const InputDecoration(
-                        hintText: 'Enter your security passkey',
-                        hintStyle: TextStyle(
-                          fontSize: 13,
-                          color: _kTextTertiary,
-                          letterSpacing: 0,
-                        ),
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(vertical: 11),
-                        isDense: true,
-                      ),
-                      onSubmitted: (_) => _busy ? null : _submit(),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: _obscure ? 'Show password' : 'Hide password',
-                    onPressed: () => setState(() => _obscure = !_obscure),
-                    icon: Icon(
-                      _obscure
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      size: 18,
-                      color: _kTextTertiary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Keep session toggle & Vault v2.4 row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                GestureDetector(
-                  onTap: () => setState(() => _keepSession = !_keepSession),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _MinimalSwitch(value: _keepSession),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Keep active session',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: _kTextSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 5,
-                      height: 5,
-                      decoration: const BoxDecoration(
-                        color: _kPrimary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    const Text(
-                      'v1.0',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontFamily: 'monospace',
-                        color: _kTextSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-
-            if (_error != null) ...[
-              const SizedBox(height: 10),
-              Text(
-                _error!,
-                style: const TextStyle(
-                  color: Color(0xFFBA1A1A),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-            const SizedBox(height: 16),
-
-            // Submit Button
-            SizedBox(
-              height: 44,
-              child: FilledButton(
-                onPressed: _busy ? null : _submit,
-                style: FilledButton.styleFrom(
-                  backgroundColor: _kPrimary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  padding: EdgeInsets.zero,
-                ),
-                child: _busy
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Sign In to Talk It Out',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                          SizedBox(width: 6),
-                          Icon(
-                            Icons.arrow_forward,
-                            size: 16,
-                            color: Colors.white,
-                          ),
-                          // Hidden text for test assertion match
-                          SizedBox(
-                            width: 0,
-                            height: 0,
-                            child: OverflowBox(
-                              maxWidth: 0,
-                              maxHeight: 0,
-                              child: Text(
-                                AppStrings.loginAction,
-                                style: TextStyle(fontSize: 0),
+                  AuthCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Accessible test helper for widget_test.dart
+                        const SizedBox(
+                          height: 0,
+                          child: Center(
+                            child: Text(
+                              AppStrings.loginTitle,
+                              style: TextStyle(
+                                fontSize: 0,
+                                color: Colors.transparent,
                               ),
                             ),
                           ),
-                        ],
-                      ),
-              ),
-            ),
-            _GoogleSignInSection(keepSession: _keepSession, disabled: _busy),
-            const SizedBox(height: 14),
-            // Sign up: easy to find, right under the sign-in options.
-            Row(
-              children: [
-                const Expanded(child: Divider(color: _kBorderSubtle)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Text(
-                    'New to Talk It Out?',
-                    style: TextStyle(fontSize: 12, color: _kTextSecondary),
-                  ),
-                ),
-                const Expanded(child: Divider(color: _kBorderSubtle)),
-              ],
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: OutlinedButton(
-                key: const ValueKey('login-create-account'),
-                onPressed: _busy ? null : () => context.go('/register'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _kTextPrimary,
-                  side: const BorderSide(color: _kTextPrimary, width: 1.2),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  'Create an account',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-            const SizedBox(height: 22),
+                        ),
 
-            // Protocol Notice Card: Zero-Knowledge Moderation
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _kSurfaceMuted,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.only(top: 1),
-                    child: Icon(
-                      Icons.verified_user_outlined,
-                      size: 18,
-                      color: _kPrimary,
-                    ),
-                  ),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Reviewed before it is shared',
+                        // Header / Brand Identifier
+                        Center(
+                          child: Container(
+                            width: 48,
+                            height: 48,
+                            decoration: const BoxDecoration(
+                              color: _kPrimary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              PhosphorIconsFill.chatsCircle,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Talk It Out',
+                          textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 24,
                             fontWeight: FontWeight.w700,
+                            letterSpacing: -0.5,
                             color: _kTextPrimary,
                           ),
                         ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Every message is rewritten for tone and checked by the group controller before anyone sees it. Anonymous messages hide your name from the group.',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            height: 1.4,
-                            color: _kTextSecondary,
+                        const SizedBox(height: 4),
+                        const Center(
+                          child: SizedBox(
+                            width: 250,
+                            child: Text(
+                              'Thoughtful conversations, refined together.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: _kTextSecondary,
+                                height: 1.35,
+                              ),
+                            ),
                           ),
                         ),
+                        const SizedBox(height: 22),
+                        _SavedAccounts(
+                          chosenEmail: _email.text.trim(),
+                          hint: _continueHint,
+                          onChoose: _busy ? null : _choose,
+                          onUseAnother: () => setState(() {
+                            _email.clear();
+                            _password.clear();
+                            _continueHint = null;
+                          }),
+                        ),
+
+                        // Email Label Row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Flexible(
+                              child: Text(
+                                'Email',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: _kTextPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Email Input Box
+                        _FieldFrame(
+                          child: TextField(
+                            controller: _email,
+                            keyboardType: TextInputType.emailAddress,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: _kTextPrimary,
+                            ),
+                            decoration: const InputDecoration(
+                              filled: false,
+                              hintText: 'you@example.com',
+                              hintStyle: TextStyle(
+                                fontSize: 13,
+                                color: _kTextTertiary,
+                              ),
+                              prefixIcon: Icon(
+                                PhosphorIconsRegular.at,
+                                size: 18,
+                                color: _kTextTertiary,
+                              ),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 11,
+                              ),
+                              isDense: true,
+                            ),
+                            textInputAction: TextInputAction.next,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Password Label Row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Password',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: _kTextPrimary,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: _busy
+                                  ? null
+                                  : () => context.push('/forgot-password'),
+                              child: const Text(
+                                'Forgot?',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  color: _kTextSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Password Input Box
+                        _FieldFrame(
+                          child: Row(
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 10),
+                                child: Icon(
+                                  PhosphorIconsRegular.lockSimple,
+                                  size: 18,
+                                  color: _kTextTertiary,
+                                ),
+                              ),
+                              Expanded(
+                                child: TextField(
+                                  controller: _password,
+                                  focusNode: _passwordFocus,
+                                  obscureText: _obscure,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: _kTextPrimary,
+                                    letterSpacing: 2,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    filled: false,
+                                    hintText: 'Your password',
+                                    hintStyle: TextStyle(
+                                      fontSize: 13,
+                                      color: _kTextTertiary,
+                                      letterSpacing: 0,
+                                    ),
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      vertical: 11,
+                                    ),
+                                    isDense: true,
+                                  ),
+                                  onSubmitted: (_) => _busy ? null : _submit(),
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: _obscure
+                                    ? 'Show password'
+                                    : 'Hide password',
+                                onPressed: () =>
+                                    setState(() => _obscure = !_obscure),
+                                icon: Icon(
+                                  _obscure
+                                      ? PhosphorIconsRegular.eye
+                                      : Icons.visibility_off_outlined,
+                                  size: 18,
+                                  color: _kTextTertiary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Keep session toggle & Vault v2.4 row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            GestureDetector(
+                              onTap: () =>
+                                  setState(() => _keepSession = !_keepSession),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _MinimalSwitch(value: _keepSession),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'Keep me signed in',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      color: _kTextSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        if (_error != null) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            _error!,
+                            style: const TextStyle(
+                              color: Color(0xFFBA1A1A),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+
+                        // Submit Button
+                        SizedBox(
+                          height: 44,
+                          child: FilledButton(
+                            onPressed: _busy ? null : _submit,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: _kPrimary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding: EdgeInsets.zero,
+                            ),
+                            child: _busy
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          'Sign In to Talk It Out',
+                                          style: TextStyle(
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(width: 6),
+                                      Icon(
+                                        PhosphorIconsRegular.arrowRight,
+                                        size: 16,
+                                        color: Colors.white,
+                                      ),
+                                      // Hidden text for test assertion match
+                                      SizedBox(
+                                        width: 0,
+                                        height: 0,
+                                        child: OverflowBox(
+                                          maxWidth: 0,
+                                          maxHeight: 0,
+                                          child: Text(
+                                            AppStrings.loginAction,
+                                            style: TextStyle(fontSize: 0),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                        GoogleSignInSection(
+                          key: _googleKey,
+                          keepSession: _keepSession,
+                          disabled: _busy,
+                        ),
+                        const SizedBox(height: 14),
+                        // Sign up: easy to find, right under the sign-in options.
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Divider(color: _kBorderSubtle),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
+                              child: Text(
+                                'New to Talk It Out?',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: _kTextSecondary,
+                                ),
+                              ),
+                            ),
+                            const Expanded(
+                              child: Divider(color: _kBorderSubtle),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: OutlinedButton(
+                            key: const ValueKey('login-create-account'),
+                            onPressed: _busy
+                                ? null
+                                : () => context.go('/register'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _kTextPrimary,
+                              side: const BorderSide(
+                                color: _kTextPrimary,
+                                width: 1.2,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              'Create an account',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+
+                        // Protocol Notice Card: Zero-Knowledge Moderation
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: _kSurfaceMuted,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: EdgeInsets.only(top: 1),
+                                child: Icon(
+                                  PhosphorIconsRegular.shieldCheck,
+                                  size: 18,
+                                  color: _kPrimary,
+                                ),
+                              ),
+                              SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Reviewed before it is shared',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: _kTextPrimary,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'Every message is rewritten for tone and checked by the group controller before anyone sees it. Anonymous messages hide your name from the group.',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        height: 1.4,
+                                        color: _kTextSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+
+                        // How it works: three short steps.
+                        const _HowItWorks(),
+                        const SizedBox(height: 8),
                       ],
                     ),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 18),
-
-            // Active Collective Activity Preview
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'HOW IT WORKS',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: _kTextTertiary,
-                      ),
-                    ),
-                    Text(
-                      '● 3 steps',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontFamily: 'monospace',
-                        color: _kTextSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _kSurfaceMuted,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: const [
-                            BoxShadow(color: Color(0x0A000000), blurRadius: 3),
-                          ],
-                        ),
-                        alignment: Alignment.center,
-                        child: const Text(
-                          '#08',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            fontFamily: 'monospace',
-                            color: _kTextPrimary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Write, rewrite, review',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: _kTextPrimary,
-                              ),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              'Nothing is published without the controller',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                color: _kTextSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(
-                        Icons.lock_open_outlined,
-                        size: 18,
-                        color: _kTextTertiary,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Footer
-            Center(
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  const Text(
-                    "Don't have an account?",
-                    style: TextStyle(fontSize: 12, color: _kTextSecondary),
-                  ),
-                  const SizedBox(width: 4),
-                  GestureDetector(
-                    onTap: _busy ? null : () => context.go('/register'),
-                    child: const Text(
-                      'Sign up',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _kTextPrimary,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -647,173 +583,6 @@ class _MinimalSwitch extends StatelessWidget {
   }
 }
 
-/// "or" divider plus Sign in with Google (`API.md` 40). Web shows Google's
-/// own button; mobile draws one that opens Google's sign-in sheet. Shown
-/// only when the build has a `GOOGLE_CLIENT_ID`. In the demo, Google's
-/// token only supplies your name and email for the in-browser demo.
-class _GoogleSignInSection extends ConsumerStatefulWidget {
-  const _GoogleSignInSection({
-    required this.keepSession,
-    required this.disabled,
-  });
-
-  final bool keepSession;
-  final bool disabled;
-
-  @override
-  ConsumerState<_GoogleSignInSection> createState() =>
-      _GoogleSignInSectionState();
-}
-
-class _GoogleSignInSectionState extends ConsumerState<_GoogleSignInSection> {
-  StreamSubscription<String>? _tokens;
-  var _ready = false;
-  var _busy = false;
-  String? _error;
-
-  bool get _useMock => ref.read(appConfigProvider).useMock;
-  GoogleSignInService get _google => ref.read(googleSignInServiceProvider);
-
-  @override
-  void initState() {
-    super.initState();
-    if (_google.configured) _setUp();
-  }
-
-  Future<void> _setUp() async {
-    try {
-      await _google.ensureInitialized();
-      _tokens = _google.idTokens.listen(
-        _signIn,
-        onError: (Object _) {
-          if (mounted) setState(() => _error = AppStrings.googleFailed);
-        },
-      );
-      if (mounted) setState(() => _ready = true);
-    } catch (_) {
-      if (mounted) setState(() => _error = AppStrings.googleFailed);
-    }
-  }
-
-  @override
-  void dispose() {
-    _tokens?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _signIn(String idToken) async {
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      await ref
-          .read(sessionProvider.notifier)
-          .loginWithGoogle(idToken: idToken, keepSession: widget.keepSession);
-    } on RepositoryException catch (error) {
-      if (mounted) setState(() => _error = error.message);
-    } catch (_) {
-      if (mounted) setState(() => _error = AppStrings.googleFailed);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _tap() async {
-    if (_useMock) {
-      await _signIn('mock-google-id-token');
-      return;
-    }
-    try {
-      await _google.authenticate();
-      // The ID token arrives on the idTokens stream.
-    } catch (_) {
-      // Closing Google's sheet is not an error worth showing.
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_google.configured) return const SizedBox.shrink();
-    final webButton = kIsWeb && _ready ? renderGoogleButton() : null;
-    final showOwnButton = !kIsWeb && _ready;
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Row(
-            children: [
-              Expanded(child: Divider(color: _kBorderSubtle)),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10),
-                child: Text(
-                  AppStrings.orDivider,
-                  style: TextStyle(fontSize: 12, color: _kTextTertiary),
-                ),
-              ),
-              Expanded(child: Divider(color: _kBorderSubtle)),
-            ],
-          ),
-          const SizedBox(height: 14),
-          if (webButton != null)
-            Center(child: SizedBox(height: 44, child: webButton))
-          else if (showOwnButton)
-            SizedBox(
-              height: 44,
-              child: OutlinedButton(
-                onPressed: widget.disabled || _busy ? null : _tap,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _kTextPrimary,
-                  side: const BorderSide(color: _kBorderSubtle),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: _busy
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'G',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                          SizedBox(width: 10),
-                          Text(
-                            AppStrings.continueWithGoogle,
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-          if (_error != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              _error!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFFBA1A1A), fontSize: 12),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 /// Accounts used on this device, newest first, like Instagram's login
 /// screen. Choosing one fills the email; the password is always typed.
 class _SavedAccounts extends ConsumerWidget {
@@ -821,9 +590,11 @@ class _SavedAccounts extends ConsumerWidget {
     required this.chosenEmail,
     required this.onChoose,
     required this.onUseAnother,
+    this.hint,
   });
 
   final String chosenEmail;
+  final String? hint;
   final ValueChanged<SavedAccount>? onChoose;
   final VoidCallback onUseAnother;
 
@@ -895,7 +666,9 @@ class _SavedAccounts extends ConsumerWidget {
                                 ),
                               ),
                               Text(
-                                a.maskedEmail,
+                                a.google
+                                    ? '${a.maskedEmail} · Google'
+                                    : a.maskedEmail,
                                 style: const TextStyle(
                                   fontSize: 11.5,
                                   color: _kTextSecondary,
@@ -908,7 +681,7 @@ class _SavedAccounts extends ConsumerWidget {
                           key: ValueKey('forget-account-${a.email}'),
                           tooltip: 'Remove from this device',
                           icon: const Icon(
-                            Icons.close,
+                            PhosphorIconsRegular.x,
                             size: 18,
                             color: _kTextSecondary,
                           ),
@@ -925,6 +698,22 @@ class _SavedAccounts extends ConsumerWidget {
                 ),
               ),
             ),
+          if (hint != null)
+            Container(
+              key: const ValueKey('continue-hint'),
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: 2, bottom: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: Brand.accentSoft,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Brand.accentBorder),
+              ),
+              child: Text(
+                hint!,
+                style: const TextStyle(fontSize: 12.5, color: Brand.accentInk),
+              ),
+            ),
           TextButton(
             key: const ValueKey('use-another-account'),
             onPressed: onUseAnother,
@@ -932,6 +721,107 @@ class _SavedAccounts extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Rounded input frame: hairline border, dark ring while focused.
+class _FieldFrame extends StatefulWidget {
+  const _FieldFrame({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_FieldFrame> createState() => _FieldFrameState();
+}
+
+class _FieldFrameState extends State<_FieldFrame> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      skipTraversal: true,
+      onFocusChange: (f) => setState(() => _focused = f),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: _focused ? Colors.white : _kSurfaceMuted,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _focused ? _kTextPrimary : Brand.border,
+            width: _focused ? 1.5 : 1,
+          ),
+          boxShadow: _focused
+              ? const [
+                  BoxShadow(
+                    color: Color(0x14000000),
+                    blurRadius: 0,
+                    spreadRadius: 3,
+                  ),
+                ]
+              : const [],
+        ),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// Write → calm rewrite → controller approves.
+class _HowItWorks extends StatelessWidget {
+  const _HowItWorks();
+
+  static const _steps = [
+    (PhosphorIconsRegular.pencilSimple, 'You write'),
+    (PhosphorIconsRegular.sparkle, 'AI calms the tone'),
+    (PhosphorIconsRegular.shieldCheck, 'Controller approves'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (var i = 0; i < _steps.length; i++) ...[
+          if (i > 0)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 2),
+              child: Icon(
+                PhosphorIconsRegular.caretRight,
+                size: 12,
+                color: _kTextTertiary,
+              ),
+            ),
+          Expanded(
+            child: Column(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Brand.border),
+                  ),
+                  child: Icon(_steps[i].$1, size: 16, color: _kTextPrimary),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _steps[i].$2,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    height: 1.25,
+                    fontWeight: FontWeight.w500,
+                    color: _kTextSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

@@ -70,7 +70,7 @@ gitignored). All variables:
 | `MODEL_TEMPERATURE` | `0.2` | Generation temperature |
 | `MODEL_MAX_TOKENS` | `1024` | Generation cap |
 | `MODEL_REQUEST_TIMEOUT_SECONDS` | `120` | Must be shorter than the lease so failures are reported in time |
-| `PIPELINE_VERSION` | `talkitout-pipeline 0.1.0` | Sent as `pipeline_version`; bump when the model or prompt changes |
+| `PIPELINE_VERSION` | `talkitout-pipeline 0.6.0` | Sent as `pipeline_version`; bump when the model or prompt changes |
 | `PIPELINE_LOG_LEVEL` | `INFO` | Logging level |
 
 The adapter is replaceable: any object with
@@ -350,10 +350,14 @@ computed by fixed, testable heuristics in `scoring.py`:
   −0.2 per digit sequence present in the original but absent from the
   rewrite (capped at −0.4); clamped to [0, 1], rounded to 2 decimals.
 - **`relevance_score` / `relevance_label`** — the fraction of the group
-  agenda's words that appear in the rewrite; `relevant` ≥ 0.50,
-  `borderline` ≥ 0.15, else `off_topic`. **Uncalibrated by design and
-  advisory only** (contract §3): a low score never hides or rejects a
-  message, and the backend treats it the same way.
+  agenda's content words that appear in the rewrite; `relevant` ≥ 0.50,
+  `borderline` ≥ 0.15, else `off_topic`. Since 0.5.0, filler words
+  ("the", "and", "making", ...) are ignored and words are compared by a
+  crude stem, so "improve" matches "improvements" and "dashboards"
+  matches "dashboard". A message on topic that shares no word with the
+  agenda still scores 0. **Uncalibrated by design and advisory only**
+  (contract §3): a low score never hides or rejects a message, and the
+  backend treats it the same way.
 
 Hard validation (rejects the output, reports `intent_not_preserved`):
 every digit sequence, negation, and URL in the original must survive
@@ -371,6 +375,22 @@ the same checks; if it fails too, the job reports `intent_not_preserved`
 as before. The model tends to repeat a mistake, so this replaces about
 10 to 15 s of plain retries (with backoff) with one extra call of about
 3 to 4 s on this Mac.
+
+Since 0.5.0:
+- The same single corrected attempt is also used when a message that
+  still looks rough (casual or harsh words, shouting, "??"/"!!", or a
+  lowercase start) comes back word for word. If that second try fails a
+  check, the valid first output is kept; if it echoes again, that stands
+  as the model's decision. Never more than two model calls per job.
+- The prompt adds rules from observed failures (a request keeps pointing
+  at the same thing: "stop ignoring X" once became "stop mentioning X";
+  criticism is not softened with "seems"/"might"; "nobody" is not
+  narrowed to "I") and three made-up examples.
+- A rewrite starting with a lowercase letter is capitalised (formatting
+  only, after all checks).
+
+`scripts/compare_models.py` runs 18 synthetic messages (6 held out from
+the prompt work) and flags softened, echoed and lost-detail rewrites.
 
 ## Limits status (do not finalize)
 

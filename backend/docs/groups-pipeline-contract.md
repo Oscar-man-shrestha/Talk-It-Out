@@ -110,6 +110,7 @@ Field rules (enforced with strict schema validation):
 | `relevance_label` | required, one of `relevant`, `borderline`, `off_topic` | absent |
 | `pipeline_version` | required, non-empty string | absent |
 | `error_code` | absent | required, non-empty string (e.g. `model_timeout`) |
+| `moderation_flags` | optional array of `hate_speech`, `threat`, `abusive_language`, `profanity`, `self_harm` (advisory, about the original message; unknown codes are `422`) | absent |
 
 **Relevance is advisory only.** Scores and labels are shown to the group
 controller to help review. They never hide, reject, or auto-approve a
@@ -169,6 +170,8 @@ via `/result` is equivalent.
   attempts, so a crash-looping worker eventually fails the job.
 - Retry backoff after a failed attempt is `2s × attempts` (server-side).
 - `error_code` is recorded in logs (job id + code only); no text is logged.
+- The latest `error_code` is stored on the message (`raw_messages.pipeline_error_code`, a short code, never text) and shown to the controller, and to the sender of a preview, as a plain reason. `unsupported_language` and `input_too_long` fail the job at once (a retry cannot change them); other codes retry as before.
+- Moderation flags never reject, hide or delay a message: the controller decides.
 
 ## 7. Failure semantics (end state)
 

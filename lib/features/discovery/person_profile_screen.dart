@@ -10,6 +10,8 @@ import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
 import 'package:talk_it_out/features/discovery/safety_actions.dart';
 import 'package:talk_it_out/features/feed/data/post.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
+import 'package:talk_it_out/core/ui/page_padding.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 /// Someone's profile (`API.md` 59).
 final personProvider = FutureProvider.autoDispose.family<PersonProfile, String>(
@@ -47,12 +49,10 @@ class PersonProfileScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Brand.canvas,
       appBar: AppBar(
-        backgroundColor: Brand.canvas,
-        surfaceTintColor: Colors.transparent,
         // Opened from a link there is nothing to pop: go somewhere useful.
         leading: IconButton(
           tooltip: 'Back',
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(PhosphorIconsRegular.arrowLeft),
           onPressed: () =>
               context.canPop() ? context.pop() : context.go('/feed'),
         ),
@@ -60,18 +60,14 @@ class PersonProfileScreen extends ConsumerWidget {
           data == null
               ? ''
               : (data.handle != null ? '@${data.handle}' : data.profile.name),
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Brand.ink,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         actions: [
           if (data != null)
             PopupMenuButton<String>(
               key: const ValueKey('person-menu'),
               tooltip: 'More',
-              icon: const Icon(Icons.more_horiz),
+              icon: const Icon(PhosphorIconsRegular.dotsThree),
               onSelected: (value) async {
                 if (value == 'block') {
                   await confirmAndBlock(
@@ -287,7 +283,7 @@ class _ProfileBody extends ConsumerWidget {
             ),
             for (final g in groups)
               ListTile(
-                leading: const Icon(Icons.groups_2_outlined),
+                leading: const Icon(PhosphorIconsRegular.usersThree),
                 title: Text(
                   g.agenda,
                   maxLines: 1,
@@ -327,7 +323,7 @@ class _ProfileBody extends ConsumerWidget {
     final p = person.profile;
     final posts = ref.watch(personPostsProvider(userId));
     final width = MediaQuery.sizeOf(context).width;
-    final hPad = width > 860 ? (width - 760) / 2 : 16.0;
+    final hPad = pageHPad(width);
     return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(personProvider(userId));
@@ -375,7 +371,7 @@ class _ProfileBody extends ConsumerWidget {
                       Row(
                         children: [
                           const Icon(
-                            Icons.location_on_outlined,
+                            PhosphorIconsRegular.mapPin,
                             size: 14,
                             color: Brand.inkFaint,
                           ),
@@ -402,7 +398,7 @@ class _ProfileBody extends ConsumerWidget {
             Row(
               children: [
                 const Icon(
-                  Icons.groups_2_outlined,
+                  PhosphorIconsRegular.usersThree,
                   size: 16,
                   color: Brand.inkSoft,
                 ),
@@ -433,7 +429,7 @@ class _ProfileBody extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              icon: const Icon(Icons.person_add_alt_1, size: 18),
+              icon: const Icon(PhosphorIconsRegular.userPlus, size: 18),
               label: const Text('Invite to group'),
             ),
           ),

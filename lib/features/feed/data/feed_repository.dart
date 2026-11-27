@@ -13,7 +13,14 @@ class CommentVote {
 }
 
 abstract class FeedRepository {
-  Future<PageResult<Post>> listPosts({int? limit, String? cursor});
+  /// [topic] (a `PostTopic` id) and [filter] (`unanswered`, `answered`
+  /// or `discussed`) are applied by the server (`API.md` 70).
+  Future<PageResult<Post>> listPosts({
+    int? limit,
+    String? cursor,
+    String? topic,
+    String? filter,
+  });
 
   /// [title] and [topic] are optional (`API.md` 42).
   Future<Post> createPost({

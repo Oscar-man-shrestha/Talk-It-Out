@@ -138,20 +138,22 @@ class BackendClient:
         relevance_score: float,
         relevance_label: str,
         pipeline_version: str,
+        moderation_flags: list[str] | None = None,
     ) -> dict:
-        return self._post(
-            "/internal/pipeline/result",
-            {
-                "job_id": job_id,
-                "raw_message_id": raw_message_id,
-                "outcome": "ok",
-                "rewritten_text": rewritten_text,
-                "intent_preservation_score": intent_preservation_score,
-                "relevance_score": relevance_score,
-                "relevance_label": relevance_label,
-                "pipeline_version": pipeline_version,
-            },
-        )
+        payload = {
+            "job_id": job_id,
+            "raw_message_id": raw_message_id,
+            "outcome": "ok",
+            "rewritten_text": rewritten_text,
+            "intent_preservation_score": intent_preservation_score,
+            "relevance_score": relevance_score,
+            "relevance_label": relevance_label,
+            "pipeline_version": pipeline_version,
+        }
+        # Advisory codes only (moderation.py); omitted when none apply.
+        if moderation_flags:
+            payload["moderation_flags"] = list(moderation_flags)
+        return self._post("/internal/pipeline/result", payload)
 
     def report_error(
         self, *, job_id: str, raw_message_id: str, error_code: str

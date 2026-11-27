@@ -12,11 +12,11 @@ Rules for this file:
 
 ## Status Snapshot
 
-**Last updated:** 2026-11-22 (IST)
+**Last updated:** 2026-11-27 (IST, Run 127 Razorpay web payments; Instagram-style reactions)
 **Current phase:** Complete; all four test suites green. Run 105's fixes are pushed and `stack-ci` is green; `backend-ci` is green again as of `b6758f8` (Run 107; confirmed in Run 108), including the Docker smoke test. Verified end to end in Run 101: Postgres, Express backend, Python worker with a local Qwen2.5-3B model (Ollama), and the Flutter web app all run together, now with live updates. Every visible control does something real, including review history, comment moderation and photos in chat. `npm run check:live` passes 75/75 including real AI rewrites. Branch `temp/project-completion-run070`.
 **Overall status:**
 The repo is a three-layer product: Flutter client (`lib/`), Express/PostgreSQL backend (`backend/`), and a Python rewrite worker (`pipeline/`). Feature-first Flutter structure, Riverpod repositories (mock vs API via `USE_MOCK`), GoRouter review-route guards, and `RawMessage` isolation remain intact. Screens are wired to the backend (Run 071 onward). Rewrites run on a local Qwen2.5-3B model through Ollama (Run 081). Run 110 made rewrites faster and more reliable (model kept warm while the worker runs; one corrected attempt when a rewrite drops meaning) and fixed three review/profile display bugs. Latest gates are in Run 110: Flutter 170, pipeline 167, live check 84/84 (backend source unchanged since Run 105: 300).
-**Next step:** Commit and push Runs 110 and 111 (not committed yet; waiting on the user). Then review and merge PR #3 (`temp/project-completion-run070` into `main`, opened in Run 109); the user decides when (nothing merges into `main` without them). Open decisions D23 to D26 still need the user's answer. Optional: a larger model on a bigger machine for better rewrites.
+**Next step:** Review and commit Runs 110 to 119 (none committed yet; waiting on the user). Premium (approved, docs/PREMIUM_PLAN.md): backend done (Run 120); next is the Flutter side (entitlements provider, paywall, store purchase via RevenueCat, Group Insights screen, chat themes, feed badge, templates, starred messages). Then review and merge PR #3 (`temp/project-completion-run070` into `main`, opened in Run 109); the user decides when (nothing merges into `main` without them). Open decisions D23 to D26 still need the user's answer. Optional: a larger model on a bigger machine for better rewrites.
 **Blockers:** None. Reset codes are emailed through Gmail SMTP from the project's own account, talkitoutapp.mail@gmail.com (verified 2026-11-14 with `npm run mail:test`).
 6. Run 039 restored the My Messages status-only privacy contract: the screen now renders only `MyMessageStatus` records and permitted timestamp/anonymity metadata. Focused widget coverage verifies all three statuses, the loading/empty/error states, and absence of the previous content, review metadata, rejection feedback, and unsupported actions.
 7. Run 059 diagnosed post-overhaul frontend regressions: Alerts renders fixed demo cards rather than notification records and exposes prohibited rewrite/rejection-detail actions; Profile is seeded, local-only demo state; authentication contains demo personas and mock credential substitution; and the visible Groups chrome includes static promotional copy. The profile/feed share affordances are not implemented.
@@ -3485,3 +3485,426 @@ After writing the entry, also update the **Status Snapshot** (phase table, curre
   - [x] No "show original" UI anywhere
   - [x] Anonymity disclosure unchanged (composer not touched)
   - [x] Live invitation events carry no identity to other members
+
+### Run 112: Codex usage inquiry
+- **Date/time:** 2026-11-25 (IST)
+- **Agent/tool:** Codex
+- **Phase:** Support
+- **Prompt / task:** Explain an unexpected usage limit.
+- **Result:** Checked the account’s usage windows and reset availability. The totals do not identify which task consumed the allowance.
+- **Files modified:** `LOGS.md` only. No files created or deleted and no dependencies added.
+- **Commands run and results:** Read project status and checked Codex limits. No code changed or tests ran.
+- **Assumptions / decisions:** Interpreted “token” as Codex usage. No product decision required.
+- **Issues / blockers / known bugs:** Per-task attribution unavailable from the account limit check.
+- **Hard-rules check:** No application or data-access changes.
+
+### Run 113: Pull check and local live stack with Google sign-in
+- **Date/time:** 2026-11-25 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Support (local run)
+- **Prompt / task:** "Browse the local host Talk It Out", "pull all latest commits", then "signup with google is not there and all make everything ready".
+- **Result:** Completed. No code changed.
+- **Summary:**
+  - **Pull:** `git fetch --all --prune`. `temp/project-completion-run070` already matched its remote; `origin/main` has nothing this branch lacks. `origin/gh-pages` was force-updated (demo build of `d919231`). `origin/fix/backend-auth-ui-cleanup` has 3 commits from a teammate (2026-11-20 to 22, 17 files) not in this branch; not merged (user's call).
+  - **Why Google was missing:** the page first opened was the mock build (`:52000`), which has no `GOOGLE_CLIENT_ID`. The button appears only in a build made with that define.
+  - **Started locally:** backend on `:3000` (`npm run dev`, `PIPELINE_MODE=external`), Python worker (`python3.12 -m talkitout_pipeline`, Ollama `qwen2.5:3b`, model warm in 0.9 s), live web build rebuilt with `USE_MOCK=false`, `API_BASE_URL=http://localhost:3000` and the Client ID from `backend/.env`, served on `:52001`. Postgres and Ollama were already running.
+- **Files created:** none (local only: `build/web-live` rebuilt)
+- **Files modified:** `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `flutter build web --release ... -o build/web-live` -> built
+  - `GET http://localhost:3000/health` -> 200
+  - `http://localhost:52001/#/login` in the browser pane: "Continue with Google" shows; no console errors
+  - Quality gates not run (no code changed)
+- **Assumptions / decisions:** `npm run migrate` was blocked by the agent's permission check; not run. Migrations were applied through 025 in Run 111 and no new migration has landed since.
+- **Issues / blockers / known bugs:**
+  - The system `python3` is 3.9 and cannot run the worker (`str | None` syntax); use Homebrew `python3.12`.
+  - The mock build on `http://localhost:52000` stayed blank; `http://127.0.0.1:52000` rendered. Not investigated.
+  - Not done by the agent: signing in with a real Google account (the user's own sign-in).
+- **Hard-rules check:**
+  - [x] No app, backend or pipeline code changed
+  - [x] No secrets written to the repo or logs
+
+### Run 114: Pipeline 0.5.0: fewer meaning changes, echo retry, stemmed relevance
+- **Date/time:** 2026-11-25 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Fix / Improve (pipeline only)
+- **Prompt / task:** "Improve pipeline"
+- **Result:** Completed (not committed or pushed)
+- **Summary:**
+  - **Measured first** (`scripts/compare_models.py`, qwen2.5:3b via Ollama, synthetic text only). Problems the validator let through: "stop ignoring the export bug" became "stop mentioning the export bug" (request flipped); "honestly the loading spinner takes 30 seconds, it's unusable" came back word for word; "useless and nobody asked for them" was softened to "seem unnecessary and I did not request". `scoring.relevance` claimed to compare word stems but compared exact words, filler words included.
+  - **Prompt** (`rewrite.py`): rules that requests keep pointing at the same thing, criticism is not softened ("seems", "might"), "nobody" is not narrowed to "I"; casual openers and harsh words always need rewriting; three made-up examples. Every corrective note now also says to use the model's own words rather than copy a rough original.
+  - **Echo retry:** if a rough-looking message (harsh or casual words, shouting of 5+ capitals, "??"/"!!", lowercase start; `looks_unpolished`) comes back unchanged, the existing single corrected attempt is used. A failed second try keeps the valid first output; a second echo stands as the model's decision. Still at most two model calls per job.
+  - **Formatting:** a rewrite starting in lowercase is capitalised after all checks (no word changes).
+  - **Relevance:** filler words ignored and words compared by a crude stem ("improve" = "improvements"). Still lexical: an on-topic message with no shared word scores 0 (D18, advisory only).
+  - **Benchmark:** 18 samples now (6 held out from the prompt work), with a "lost detail" check (must-keep words) and wider hedge detection.
+  - `pipeline_version` -> `talkitout-pipeline 0.5.0`.
+  - **Worker processes:** a stale worker from Run 110 (PID 17383, started 2026-11-22, old code) was still running beside this session's worker and competing for jobs. Both were stopped; one worker on the new code runs now (Homebrew `python3.12`).
+- **Files created:** `pipeline/tests/test_rewrite_quality.py` (16 tests)
+- **Files modified:** `pipeline/talkitout_pipeline/{rewrite,scoring,config}.py`, `pipeline/scripts/compare_models.py`, `pipeline/README.md`, `pipeline/.env.example`, `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - pipeline `python3.12 -m unittest discover -s tests -t .` -> 183 passed; `compileall` -> ok
+  - `compare_models.py qwen2.5:3b`, same 18 samples: old code 16/18 usable (1 flipped request, 1 echo; its second "lost" flag was a false alarm, "no one" for "nobody", since fixed in the check), probes 2 pass / 1 suspected / 1 echo, 4.9 s average. New code 17/18 (1 echo), probes 3 pass / 1 echo, 4.9 s average, 11.4 s max. Single runs; the model varies run to run at temperature 0.2.
+  - backend `npm run check:live` -> 84/84 with the new worker
+  - Flutter and backend gates not run (no Flutter or backend code changed)
+- **Assumptions / decisions:** keep the one-extra-call ceiling rather than add a third call: the tested third attempts either echoed again or changed "30 seconds" into "more than 30 seconds".
+- **Issues / blockers / known bugs:**
+  - The spinner sample still echoes: the first try drops "30", the number fix copies the original. A 3B model limit; the controller sees it and can reject.
+  - `content_override` probe echoes (already well written, so no retry; the original reaches the controller unchanged, never acted on).
+  - Worker start-up log prints the package version `0.1.0` (`__init__.py`), not `pipeline_version`; unchanged.
+- **Hard-rules check:**
+  - [x] Worker talks to the backend only through the internal HTTP contract; no database access
+  - [x] No message text in logs, errors or corrective notes (the echo note is fixed text; tested)
+  - [x] Relevance stays advisory; nothing is hidden or rejected by it
+  - [x] An unchanged result only ever comes from a successful model call
+
+### Run 115: Layout fits every device; feed filters on the server; all comments load
+- **Date/time:** 2026-11-26 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Fix / Improve (Flutter layout, feed, backend)
+- **Prompt / task:** "make it device adjustment also make many more changes". User chose: app layout for every device; work on the feed and the backend.
+- **Result:** Completed (not committed or pushed). Design, colours and copy unchanged except one invented sentence (below).
+- **Summary:**
+  - **Found with a new test** (`test/responsive_layout_test.dart`): every main screen (17 signed in, 3 signed out) at small phone 320x568, phone 390x844, phone with 1.5x text, tablet 768x1024, tablet landscape 1024x768 and desktop 1440x900, with real Roboto metrics (the default test font exaggerates widths). Before: rows overflowing on post detail, review queue, group chat, notifications, create group, login and register buttons, the loading line and the shared top bar; plus "multiple heroes share the same tag" on every tab switch (Groups and Feed floating buttons share the default tag while both tabs stay alive). After: all 6 sizes pass.
+  - **Fixes (no restyling):** left/right rows wrap to a second line only when they do not fit; text in rows shrinks or wraps instead of overflowing; top bar: app name can shrink, the logo tile hides below 360 px when there is a back button, text scaling capped at 1.3x inside its fixed 56 px height; unique `heroTag`s for the Groups and Feed buttons.
+  - **Alignment:** new `lib/core/ui/page_padding.dart` (`pageHPad`: 12 on phones, 20 on tablets, a centred 860 px column on wide screens, no jump at the breakpoint). Used by the top bar (tablet 16 -> 20) and the six screens that used 800/760 columns (post detail, new post, my messages, person profile, group info, legal), so content lines up under the bar. Still applied as padding (AGENTS.md section 0).
+  - **Feed bugs fixed:**
+    - Topic and status filters (Unanswered, Peer solved, Active debate) only searched questions already loaded, so older matches were missed. Now the server filters: `GET /posts?topic=&filter=` (API.md 70), cursor paging works within the filter; untagged older posts match by the same keywords the app used. "Saved" stays on the device. The chosen filter is kept in `feedFilterProvider`.
+    - A question's comments loaded only the first page (50); later answers were silently missing. `commentsProvider` now loads every page (capped at 20 pages).
+    - The create-group card on your own question said the same invented sentence on every post ("Spin up an anonymous real-time room to draft formal Q&A policy guidelines with team leads"). Replaced with `AppStrings.createGroupFromPostBody` (what actually happens).
+  - **Not changed:** sorting by likes or comments still sorts loaded questions (documented in API.md 70). The comment "Post Publicly" switch is the consent control from an earlier run; kept.
+- **Files created:** `lib/core/ui/page_padding.dart`, `test/responsive_layout_test.dart` (13 tests), `test/feed_filters_test.dart` (4 tests)
+- **Files modified:** `lib/core/ui/stitch_chrome.dart`, `lib/core/widgets/async_body.dart`, `lib/core/strings/app_strings.dart`, `lib/features/feed/{feed_screen,post_detail_screen,new_post_screen,feed_providers}.dart`, `lib/features/feed/data/{feed_repository,api_feed_repository,mock_feed_repository}.dart`, `lib/features/review/review_queue_screen.dart`, `lib/features/groups/{group_chat_screen,groups_screen,create_group_screen,my_messages_screen,group_info_screen}.dart`, `lib/features/notifications/notifications_screen.dart`, `lib/features/auth/{login_screen,register_screen}.dart`, `lib/features/discovery/person_profile_screen.dart`, `lib/features/legal/legal_screen.dart`, `test/feed_paging_test.dart`, `backend/src/routes/feed.ts`, `backend/test/feed.test.ts` (2 tests), `API.md` (section 70), `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `dart format .` -> 0 changed; `flutter analyze` -> 0 issues; `flutter test --concurrency=2` -> 189 passed
+  - backend `tsc --noEmit` clean, `eslint .` clean, `vitest run` -> 303 passed (43 files)
+  - Running local backend: `GET /posts?topic=engineering` 200, `?filter=unanswered` 200, `?filter=bogus` 422
+  - `flutter build web` (live) -> built. **Not done:** the in-browser check of the new build: a Google sign-in popup was open in the browser pane, which blocks navigation; left for the user.
+- **Docs updated:** `API.md` 70
+- **Assumptions / decisions:** an unknown `topic`/`filter` is `422 validation` like other bad input. Header text capped at 1.3x (larger text still applies everywhere else). A throwaway local account `feedwalk-…@example.test` was registered on the local database for the walk-through (local only).
+- **Issues / blockers / known bugs:** the post comment send button is 32x32, under the 48 dp tap-target rule; not changed (design). D23 to D26 still open.
+- **Hard-rules check:**
+  - [x] Group-facing code uses only PublishedMessage (no RawMessage import); review changes stay inside `features/review`
+  - [x] No "show original" UI; anonymity disclosure and checkbox untouched
+  - [x] Feed stays named (no anonymity added)
+  - [x] No NavigationBar change; ListViews not wrapped in width constraints
+
+### Run 116: Run 115's live build checked at four sizes
+- **Date/time:** 2026-11-26 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Verification
+- **Prompt / task:** "Closed it, check" (check Run 115's build in the browser).
+- **Result:** Completed. No code changed.
+- **Summary:**
+  - The browser pane stayed blocked by an open Google sign-in popup (`accounts.google.com`), which the agent may not close. Checked instead with Playwright's already-downloaded headless Chrome (`~/Library/Caches/ms-playwright/chromium_headless_shell-1255`), driven over the DevTools protocol from a Node script in the session scratchpad (no download, no new dependency).
+  - Signed in to `http://localhost:52001` with the Run 115 throwaway account and captured the feed, a question with comments, groups, alerts and profile at 390x844, 320x568, 768x1024 and 1440x900 (23 screenshots).
+  - Results: nothing spills over at any size; on a 320 px phone the question page drops the logo tile beside the back button and the like/comment row fits; on tablet and desktop the top bar lines up with the content column (desktop: centred 860 px). Latest -> "Engineering & Tech" loads a server-filtered list. No app errors in the console.
+  - The throwaway account was deleted afterwards (`DELETE /users/me` 204; login now 401).
+- **Files modified:** `LOGS.md`
+- **Commands run and results:** headless walk -> as above. Gates not run (no code changed; Run 115: Flutter 189, backend 303).
+- **Issues / blockers / known bugs:**
+  - Google's sign-in script logged "The given origin is not allowed for the given client ID" on `http://localhost:52001` in headless Chrome. Not investigated; the button renders. If Google sign-in fails locally, check the client's authorised JavaScript origins in Google Cloud (user's account).
+  - The question page uses its own full-width top bar, so on desktop its back button is not inside the 860 px column. Unchanged from before.
+- **Hard-rules check:** [x] no code, privacy or anonymity changes
+
+### Run 117: Feed likes and answer upvotes: the heart likes, own-answer votes explain
+- **Date/time:** 2026-11-26 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5), side session handed off from the main session
+- **Phase:** Fix (feed)
+- **Prompt / task:** "why cant i like or upvote cmt and all see if all the feqtuers in the feed is working properly"
+- **Result:** Completed (not committed). Small, no-restyle changes.
+- **Summary:**
+  - **Backend checked first:** 31/31 feed actions pass end to end with two throwaway accounts (like/unlike, liked-by, comment, upvote/remove, best answer, follow, edit question and comment, search, topic + answered filters, report comment and question, withdraw, group from question, delete comment and question). Upvoting your own answer is refused by design (`422`, "You cannot upvote your own answer.").
+  - **Reproduced in the live build** (headless Chrome over the DevTools protocol, phone size):
+    - The ♡ badge at the top right of each feed card looked like a like button but was decoration: tapping it opened the question, and it always showed an outline heart. The real like was the small ↑ button at the bottom.
+    - Tapping "Helpful" on your own answer did nothing at all (no button, no message).
+    - Liking from search results did not refresh those results, and like errors were swallowed silently.
+    - Working already: the heart on the question page, upvoting someone else's answer, the ↑ button's filled state.
+  - **Fixes:**
+    - `feed_screen.dart`: the card's heart is now a like toggle (same style; filled red when liked, labelled Like/Unlike for screen readers, key `card-like-<id>`). `_toggleLike` also refreshes the question page and re-runs an active search, and shows the server's message in a SnackBar on failure.
+    - `post_detail_screen.dart`: tapping Helpful on your own answer shows "You can't upvote your own answer." (`onVoteBlocked`); nothing is sent.
+    - `app_strings.dart`: `likePost`, `unlikePost`, `cannotUpvoteOwnAnswer`.
+  - Checked every sign-in path (password, Google, sign-up, restored session) sets the session user, so votes are never disabled by a missing user id.
+- **Files created:** `test/feed_like_test.dart` (2 tests)
+- **Files modified:** `lib/features/feed/feed_screen.dart`, `lib/features/feed/post_detail_screen.dart`, `lib/core/strings/app_strings.dart`, `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `dart format .` -> 0 changed; `flutter test --concurrency=2` -> 191 passed. `flutter analyze` on my files -> 0 issues; a whole-project run once showed a syntax error in `groups_screen.dart` while the main session was mid-edit (its restyle), then 0 errors on the next run.
+  - `flutter build web` (live) -> built (includes the main session's in-progress restyle at that moment).
+  - Live recheck: feed heart 0 -> 1 and shows "Unlike"/red heart; own-answer Helpful shows the message; upvoting the other answer 0 -> 1. Throwaway accounts deleted (`DELETE /users/me`).
+- **Assumptions / decisions:** none new.
+- **Issues / blockers / known bugs:** the main session is restyling the feed files (`feed_screen.dart`, `post_detail_screen.dart`) after this run; it should keep the `card-like-<id>` heart toggle and `onVoteBlocked` (covered by `test/feed_like_test.dart`).
+- **Hard-rules check:**
+  - [x] Feed stays named (no anonymity added)
+  - [x] No RawMessage import outside `features/review`
+
+### Run 118: Premium UI pass, Inter font, motion kit, go-to-market playbook
+- **Date/time:** 2026-11-26 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** UI/UX (user asked for a premium, "top class" mobile app for iOS and Android) and business
+- **Prompt / task:** "work on the full uiux and frontend ... make it professional and wonderful use any tech stack like gsap three js a bit ... remember this is application", "make it premium ... This is my startup ... help me to get users that pays", "remember this is application for mobile ios and android", "keep working ... i am going to sleep".
+- **Result:** Completed (not committed or pushed). Palette kept (black, white, light cream; Run 089). Feed like/upvote fixes from Run 117 kept and their tests pass.
+- **Summary:**
+  - **Stack decision:** GSAP and three.js are JavaScript web libraries and do not run in a Flutter iOS/Android app. Equivalent effects are built with Flutter's own animation engine, `Matrix4` 3D transforms and `CustomPainter` (no WebGL, smooth on phones). No new package dependency.
+  - **Typeface:** Inter (SIL OFL 1.1) bundled in `assets/fonts/inter/` (Regular, Medium, SemiBold, Bold), set as the theme font. Downloaded from Google Fonts' CDN (`fonts.gstatic.com`); each file's SHA-256 matched the value listed in the `google_fonts` 6.3.3 package. GitHub release downloads are blocked on this machine. No font request at runtime.
+  - **Design kit (`lib/core/ui/`):** `motion.dart` (timing tokens; `Reveal` staggered entrance with the stagger inside the animation; `PressScale`; `AnimatedCount`; haptic `tapFeedback`); `surfaces.dart` (soft layered card shadow, 16 px radius); `skeleton.dart` (shimmering placeholder cards); `ambient_background.dart` (slow 3D scene: perspective grid floor, soft light, turning chat bubbles); `floating_emblem.dart` (glossy emblem that floats and tilts); `double_tap_like.dart` (double-tap heart burst; a double tap only ever likes).
+  - **App-wide (theme):** Inter; fade-and-rise page transitions (Cupertino swipe-back kept on iOS/macOS); floating rounded snackbars; rounded bottom sheets with drag handle; rounded dialogs, menus, tooltips and chips. Bottom navigation: cream pill indicator that slides, a haptic tick on tab change (still a `NavigationBar`).
+  - **Screens:**
+    - Sign in and register: new `AuthFrame`. Wide screens (1000 px and up) get a dark brand panel with the animated scene, headline "Say what matters. Keep it safe.", three promises and a privacy footnote (copy in `AppStrings.hero*`, all describing real behaviour). Phones get the scene behind a floating white form card. Form widths kept as before.
+    - Welcome tour: animated scene behind; floating 3D emblem; title and text cascade in.
+    - Loading everywhere (`AsyncBody`): shimmering skeleton cards instead of the spinner and its overstated "SECURE BUFFER SYNCING..." line.
+    - Groups and Alerts: cards cascade in, shrink slightly on press; group cards get the soft shadow.
+    - Group chat: bubbles with 18 px corners and a tail on the sender's side, a quiet ink gradient on your own messages, softer shadows; Send button presses in, with a haptic tick and a smooth busy crossfade. On phones the top bar drops the logo tile when there is a back button, so the group name has room.
+    - Feed: cards cascade in, press in, soft shadow, 14 px corners; **double-tap the question text to like** (heart burst), on the feed and the question page. The double tap is on the text only, so buttons on the card respond at once and a like-then-unlike on the heart is never read as a double tap (found by Run 117's `feed_like_test`). Answers cascade in.
+  - **Business:** new `docs/GO_TO_MARKET.md`: who pays and why, free/Team/Business/Enterprise plans (prices are hypotheses), features worth paying for (Insights with k-anonymity, weekly digest, admin console, workspace sign-in, templates), payments (web billing for team seats; check current App Store 3.1 and Google Play rules before launch), founder-led plan for the first 10 paying teams, trust and store-page polish, metrics, a 90-day plan. Builds on `docs/STARTUP_PLAN.md`.
+  - **Fixes found on the way:** two new overflows with Inter's wider metrics (register header row, profile header) fixed; `Reveal` used a timer that test clocks (and paused frames) never advanced, now part of the animation; skeletons animate while loading like the old spinner did, so retrying requests still settle in tests (`my_messages_screen_test`).
+- **Files created:** `lib/core/ui/{motion,surfaces,skeleton,ambient_background,floating_emblem,double_tap_like}.dart`, `lib/features/auth/auth_frame.dart`, `assets/fonts/inter/{Inter-Regular,Inter-Medium,Inter-SemiBold,Inter-Bold}.ttf`, `assets/fonts/inter/LICENSE.md`, `test/premium_ui_test.dart` (6 tests), `docs/GO_TO_MARKET.md`
+- **Files modified:** `pubspec.yaml` (font), `lib/app/{theme,shell}.dart`, `lib/core/ui/stitch_chrome.dart`, `lib/core/widgets/async_body.dart`, `lib/core/strings/app_strings.dart`, `lib/features/auth/{login_screen,register_screen}.dart`, `lib/features/onboarding/welcome_screen.dart`, `lib/features/groups/{groups_screen,group_chat_screen}.dart`, `lib/features/notifications/notifications_screen.dart`, `lib/features/feed/{feed_screen,post_detail_screen}.dart`, `lib/features/profile/profile_screen.dart`, `test/responsive_layout_test.dart` (loads Inter), `AGENTS.md` (design-kit note, `pageHPad`), `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** none (Inter is an asset, not a package)
+- **Commands run and results:**
+  - `dart format .` -> 0 changed; `flutter analyze` -> 0 issues; `flutter test --concurrency=2` -> 197 passed
+  - backend `tsc --noEmit` clean; `vitest run` -> 303 passed (no backend change)
+  - `flutter build web` (live) -> built; headless Chrome check (scratchpad `cdp/walk2.mjs`, throwaway account deleted after: 204): sign-in at 390 and 1440 px, register, groups, chat, feed, question, alerts at phone and desktop; 0 app console errors
+- **Docs updated:** `AGENTS.md`, `docs/GO_TO_MARKET.md`
+- **Assumptions / decisions:** keep the user's chosen palette and make it feel premium through type, depth, motion and spacing rather than new colours; decorative motion pauses for "reduce motion"; double tap likes only (unlike stays on the button).
+- **Issues / blockers / known bugs:**
+  - Not run on a real iPhone or Android device (no emulator, Xcode incomplete on this Mac); checked as a web build at phone sizes. Haptics only work on devices.
+  - Profile and review screens got the app-wide polish only (theme, skeletons, font), not a screen-specific pass.
+  - Ideas not built yet (need product or backend work): Insights dashboard, weekly digest, voice notes (a voice can identify an anonymous sender, so it would be blocked for anonymous messages), link previews, starred messages, optional dark mode.
+- **Hard-rules check:**
+  - [x] Group-facing code uses only PublishedMessage; chat changes are styling only
+  - [x] Anonymity disclosure and checkbox unchanged and still before Send (`privacy_ui_test` passes)
+  - [x] No "show original" UI; feed stays named
+  - [x] Shell still a `NavigationBar`; ListViews not wrapped in width constraints
+
+### Run 119: Desktop layout, inbox-style groups, premium chat, "Continue as" fixed
+- **Date/time:** 2026-11-26 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Fix / UI/UX
+- **Prompt / task:** (1) "in sign in continue as is not working"; (2) Groups on a laptop had huge side gaps and boxy cards ("make it unique ... you can change any layout"); (3) the chat "is also not good"; then "looking like some kid made that ... Download any plugins necessary any packages ... make it ultra premium"; "keep in mind this is application for android and ios".
+- **Result:** Completed (not committed or pushed).
+- **Summary:**
+  - **"Continue as" fixed:** saved accounts now remember whether they signed in with Google (`SavedAccount.google`, stored as `via: google`). Choosing a Google account starts Google sign-in at once where the platform allows (phones, mock build); on the web, where Google only accepts its own button, it scrolls to that button and says so. Choosing a password account shows "Enter the password for …". Before, every saved account only filled the email and waited for a password, which Google-only accounts do not have.
+  - **Icons:** Phosphor icon set (307 Material icons swapped). `phosphor_flutter` 2.1.0 (its latest) subclasses `IconData`, which Flutter 3.47 forbids, so its Dart classes do not compile; the package is kept only for its bundled fonts and `lib/core/ui/app_icons.dart` defines the 87 icons used (code points from the package). `flutter_animate` was tried and removed (not needed). Hearts and the "hidden" eye stay Material (tests look for them).
+  - **Calmer type:** monospace text removed app-wide; shouty all-caps labels turned to sentence case on groups and feed ("All / Controlling / Contributing", "Member", "Ask a question", "Top answers", "Most active authors"); the chat "CONTROLLER" badge kept its text (a test checks it) but is now a soft cream tag.
+  - **Desktop:** at 1000 px and wider a sidebar (`lib/app/side_nav.dart`: brand, sections with counts, "New group", who is signed in) replaces the tab bar (phones keep the `NavigationBar`). Screens get the real content width through `MediaQuery`, so nothing leaves empty sides; `SidebarScope.visible` lets screens drop the duplicate avatar.
+  - **Groups:** large title header ("Groups", "2 groups"); inbox rows instead of bordered cards (gradient group avatar, name, last message, time on the right, unread count, a soft role tag, "Review →" for controllers, all wrapping on small phones); slim safety banner; sort as an icon button. With 900 px of content or more, the list (400 px) and the chosen group's chat sit side by side, each pane sized as its own screen.
+  - **Chat:** new header (group avatar, name, "2 members · You're the controller/contributor", opens members); dotted cream wallpaper; the duplicate group card and agenda pin removed (the card returns only while your message waits for review); compact bubbles with time and ticks tucked after the last line, rounded with a tail, emoji-only messages without a bubble, photos rounded inside; reactions sit on the bubble's edge; react/reply/copy/pin/delete moved off the bubble into a long-press sheet (phones) or hover buttons (desktop); consecutive messages from one named sender are grouped (name once, avatar once). **Anonymous messages are never grouped**, so nobody can tell two came from one person (`continuesRun`, tested). Composer: rounder, one quiet caption; the anonymity checkbox and disclosure stay just before Send.
+  - **Feed and Alerts:** large title headers; the "NOT REWRITTEN BY AI" box on every card is now one quiet line; Alerts keeps its "N new" count in the header.
+- **Files created:** `lib/app/side_nav.dart`, `lib/core/ui/{app_icons,large_title_header}.dart`, `lib/features/groups/chat_header.dart`, `test/chat_runs_test.dart`
+- **Files modified:** `pubspec.yaml` (+`phosphor_flutter` for fonts), `lib/app/shell.dart`, `lib/features/auth/{login_screen,saved_accounts,session_controller}.dart`, `lib/features/groups/{groups_screen,group_chat_screen}.dart`, `lib/features/feed/{feed_screen,post_detail_screen}.dart`, `lib/features/notifications/notifications_screen.dart`, 39 files for the icon swap, `lib/core/strings/app_strings.dart`, `test/saved_accounts_test.dart` (+2 tests, hint check), `test/feed_like_test.dart` (waits for the card before tapping), `AGENTS.md` (icons, sidebar), `LOGS.md`
+- **Files deleted:** none
+- **Dependencies added:** `phosphor_flutter` ^2.1.0 (icon fonts only; reason above)
+- **Commands run and results:**
+  - `dart format .` -> 0 changed; `flutter analyze` -> 0 issues; `flutter test --concurrency=2` -> 202 passed
+  - Live build and headless check with two throwaway accounts (one leads a group and posts, one joins; both deleted after, 204): phone and desktop groups, chat, feed; 0 app console errors
+- **Assumptions / decisions:** split view from 900 px of content; anonymous messages never grouped; double-tap and long-press are touch-first (iOS/Android), hover buttons only on wide screens.
+- **Issues / blockers / known bugs:** not run on a physical iPhone or Android phone (no emulator; checked as a web build at phone sizes). Profile and review screens have the app-wide changes (font, icons, no monospace) but no screen-specific redesign yet.
+- **Hard-rules check:**
+  - [x] Anonymity disclosure and checkbox still before Send (`privacy_ui_test` passes)
+  - [x] Anonymous messages never grouped or otherwise linked
+  - [x] Shell keeps a `NavigationBar` below 1000 px; ListViews not wrapped in width constraints
+  - [x] No RawMessage outside `features/review`; feed stays named
+
+### Run 120: Premium subscription: research, approved plan, backend foundation
+- **Date/time:** 2026-11-26 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Business / Feature (Premium)
+- **Prompt / task:** "add some premium subscription ... DO a deep research about that and get approval and proceed" (Android and iOS first).
+- **Result:** Partial (stopped at the usage limit). Not committed.
+- **Summary:**
+  - **Research** (four sourced tracks plus a synthesis): `reports/Talk It Out premium subscription plan.md` and notes in `research_notes/Talk It Out premium subscription plan/`. It recommended teams first; key facts: India/SEA earns about $0.11 per install, personal subscriptions in iOS/Android apps must use Apple/Google billing (15% with Apple's Small Business Program and Google's subscription rate), RevenueCat's web checkout does not serve India or B2B, and per-user perks must never show on anonymous messages.
+  - **Founder's decision:** two offers only. **Free = everything today, no new limits**; **Premium = ₹99 a month for anyone**, adding new features. Approved "Phase 1 foundation". Written up in `docs/PREMIUM_PLAN.md` (features: Group Insights, chat themes, feed-only Premium badge, group templates, starred messages; never for sale: anonymity, rewrite, moderation, anything about anonymous authors).
+  - **Backend built:** migration `026_premium.sql` (`subscriptions`, `billing_events`; no message text); `src/premium.ts` (entitlement rules: active, grace, cancelled-until-end, manual without end date); `src/routes/billing.ts` (`GET /billing/entitlements`, `POST /billing/sync` via the RevenueCat REST API, `POST /billing/webhooks/revenuecat` with a shared secret, each event once); `src/routes/insights.ts` (`GET /groups/:id/insights`, controller only, Premium only (402), published text and counts, breakdowns only for groups of 5+); config `REVENUECAT_WEBHOOK_SECRET`, `REVENUECAT_SECRET_KEY`, `PREMIUM_ENTITLEMENT_ID`; `npm run premium -- grant|revoke|status <email> [days]`. API.md section 71.
+  - **App:** `purchases_flutter` ^11.0.4 added (supports iOS, Android and web) but **not used yet**.
+- **Files created:** `docs/PREMIUM_PLAN.md`, `reports/...`, `research_notes/...`, `backend/migrations/026_premium.sql`, `backend/src/{premium,premium-cli}.ts`, `backend/src/routes/{billing,insights}.ts`, `backend/test/premium.test.ts` (9 tests)
+- **Files modified:** `backend/src/config.ts`, `backend/src/routes/index.ts`, `backend/package.json` (script), `backend/.env.example`, `backend/test/validation-sweep.test.ts` (migration list), `API.md` (71), `pubspec.yaml` (`purchases_flutter`), `LOGS.md`
+- **Dependencies added:** `purchases_flutter` ^11.0.4 (RevenueCat; App Store / Google Play subscriptions, chosen in the research).
+- **Commands run and results:** backend `tsc --noEmit` clean, `eslint src` clean, `vitest run test/premium.test.ts test/validation-sweep.test.ts` -> 14 passed; `npm run migrate` -> applied 026 locally; `flutter analyze` -> 0 issues. Full backend and Flutter suites **not re-run** after these changes.
+- **Not done (next run):** Flutter entitlements repository/provider (mock + API), paywall screen and store purchase (RevenueCat keys via `--dart-define`), Group Insights screen, chat themes, feed Premium badge (needs `author.premium` in post JSON), group templates, starred messages; full test suites; native iOS/Android builds (no Android SDK or full Xcode on this Mac); store setup by the founder (Apple Paid Apps Agreement, Small Business Program, Play payments profile, products, RevenueCat project and webhook).
+- **Hard-rules check:** [x] nothing about anonymity, rewrite or moderation is paid; [x] insights expose no names or per-author data, breakdowns only for 5+ members; [x] billing tables hold no message text
+
+### Run 121: Stronger moderation, reasons for missing rewrites, more notifications, Enter to send
+- **Date/time:** 2026-11-26 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Fix / NLP / Backend
+- **Prompt / task:** "make sure hate speech and retone ... is implemented properly while rephrasing ... if not rephrased say why ... when I press enter the message should go ... either like only or upvote only ... notification is properly working for every notification event ... NLP used wherever needed."
+- **Result:** Completed (not committed). The Premium app work moved to its own session in parallel (its own run entry, if written, follows).
+- **Summary:**
+  - **Enter to send** in both chat composers (`EnterToSend` in `composer_helpers.dart`): Enter sends, Shift+Enter adds a line, text still being typed with an input method is never sent early; the phone keyboard's action key is Send. Double sends are impossible (empty and busy guards).
+  - **One action per item:** the duplicate ↑ button on question cards (it also liked) is gone; questions are liked with the heart, answers upvoted as "Helpful".
+  - **Pipeline 0.6.0 moderation** (`pipeline/talkitout_pipeline/moderation.py`): advisory flags on the original (`hate_speech`, `threat`, `abusive_language`, `profanity`, `self_harm`), tolerant of disguises ("f.u.c.k", "1d10t", masked "f***"); criticism of things is not abuse. Prompt rules: drop insults, slurs, threats and attacks on groups; keep the concern; keep that someone is struggling. Checks: a refusal or leftover abuse gets one corrected attempt, then fails (`model_refused`, `abusive_language_kept`); a rewrite of a hateful message may not mention the attacked group at all (`hate_speech_kept`); a message that is only abuse is not sent to the model (`abuse_only`), because a rewrite could only invent content; copied prompt context ("Group topic: ...") is stripped; very short messages may get a full calm sentence. Real model (qwen2.5:3b), 10 synthetic samples: insults, profanity, threats and self-harm rewritten cleanly; both hateful messages end honestly (`hate_speech_kept`) instead of publishing the claim; "you idiots" ends as `abuse_only`.
+  - **Reasons and flags stored** (backend migration 027): `raw_messages.pipeline_error_code` (code only) and `moderation_flags` (checked list); the pipeline result accepts `moderation_flags`; `unsupported_language`, `input_too_long` and `abuse_only` fail at once instead of retrying. Review items and the sender's own preview return `rewrite_error_code` (review items also `moderation_flags`). Contract doc and API.md 72 updated.
+  - **App:** review queue and detail show advisory flag chips and a plain reason when there is no rewrite (`lib/features/review/moderation_notes.dart`); "Preview AI wording" says why when there is no rewrite. My messages stays status-only; rejections still carry no reason.
+  - **Public feed moderation:** the feed analysis was a placeholder (it flagged only the word "nsfw-test"). New `FEED_PROVIDER=lexicon` (`backend/src/nlp/moderation.ts`, same rules) marks hate, threats, abuse and profanity as "Flagged" (self-harm alone is not a warning); nothing is hidden automatically. Enabled in `backend/.env`, `.env.example`, `render.yaml`, `docker-compose.yml`; `fake` stays the code default for tests.
+  - **Notifications** (migration 028, API.md 73): new `message_published` (to the sender only), `member_joined` (to the controller on invitation accept or link join; names the group only), `question_liked` (to the author, one unread per question, never for own likes). App: copy, filters, icons and destinations. The six existing events were checked.
+- **Files created:** `pipeline/talkitout_pipeline/moderation.py`, `pipeline/tests/test_moderation.py`, `backend/migrations/{027_rewrite_reasons,028_more_notifications}.sql`, `backend/src/nlp/moderation.ts`, `backend/src/notifyMembers.ts`, `backend/test/{rewrite-reasons,notification-events,feed-moderation}.test.ts`, `lib/features/review/moderation_notes.dart`, `test/messaging_nlp_test.dart`
+- **Files modified:** pipeline `rewrite.py`, `http_client.py`, `worker.py`, `config.py`, README, `.env.example`, tests (`test_worker`; `test_config` still expected 0.4.0 since Run 114's late version bump); backend `internal/pipeline.ts`, `routes/{groups,messages,feed,invitations,invites}.ts`, `feed-analysis/provider.ts`, `docs/groups-pipeline-contract.md`, tests (`contract`, `answers-groups`, `validation-sweep`; `helpers` clears the seeded join notification); app `composer_helpers.dart`, `group_chat_screen.dart`, `feed_screen.dart`, `chat_extras.dart`, review screens, `raw_message.dart` (+generated), `group_repository.dart`, `api_group_repository.dart`, `mock_group_repository.dart`, `enums.dart` (+generated), notification text and screen, `app_strings.dart`, `test/review_queue_counts_test.dart`, `test/premium_test.dart` (unneeded import); `API.md` 72-73; `render.yaml`; `docker-compose.yml`; `LOGS.md`
+- **Dependencies added:** none
+- **Commands run and results:**
+  - pipeline unit tests -> OK after the final change
+  - backend `tsc` and `eslint` clean; `vitest run` -> 323 passed (47 files) before the last two regex widenings; after them `feed-moderation` 4/4 and `tsc` clean (full suite not re-run)
+  - `dart format .` 0 changed; `flutter analyze` 0 issues; `flutter test --concurrency=2` -> 216 passed (one string added afterwards)
+  - `npm run migrate` -> 027 and 028 applied locally; `npm run check:live` -> 84/84 with the real worker
+  - Headless browser with two throwaway accounts (deleted, 204): abusive message rewritten with flags, pure abuse shows its reason, controller got review and member-joined notifications; 0 app console errors
+- **Assumptions / decisions:** flags are advisory everywhere (never reject or hide); English-only stays (non-English now says so plainly); "freshers" and "old people" are in the protected-group list, so blanket attacks on them end as `hate_speech_kept`; abuse-only messages still reach the controller with the original and the reason.
+- **Issues / blockers / known bugs:** lexicon detection is a first layer, not an ML classifier; new slurs or clever phrasing can slip through, so the controller stays the final check. Flags are stored only with a successful rewrite (an `abuse_only` message shows its reason but no chips). Not run on a physical phone.
+- **Hard-rules check:**
+  - [x] Anonymity untouched: flags and reasons go to the controller (and the sender's own preview) only; `message_published` goes only to the author; join notifications do not name the person
+  - [x] No rejection reasons; My messages status-only
+  - [x] Relevance and moderation flags advisory; nothing auto-rejected or hidden
+  - [x] No message text in logs, errors or notification data
+
+### Run 122: Premium you can find and use: plan cards, how to pay, chat themes, starred messages, feed badge; like button in the card; red heart
+- **Date/time:** 2026-11-26 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Feature / UI (Premium Phase 1, app side)
+- **Prompt / task:** "where is card to buy premium ... make sure features are v good for premium ... show some card and how they can pay ... free what they can get and premium what all ... like or upvote button should be in card only like reddit ... in react msg why the heart emoji is black"
+- **Result:** Completed (not committed). Live web build not re-checked in a browser this run (see Issues).
+- **Summary:**
+  - **Finding Premium:** a "Get Premium" button in the sidebar (wide screens), a Premium card under the group list (hidden for Premium members), the plan card and a new "Premium tools" card on Profile, and "Starred messages" in the chat menu.
+  - **Premium screen:** Free and Premium side-by-side cards (stacked on phones) with what each includes and a "Your plan" tag; a "How you pay" card (UPI, debit or credit card, net banking, Google Play or Apple ID balance; paid through the store, Talk It Out never sees card or UPI details, ₹99 monthly, cancel in the store); the "never for sale" note stays. "Coming soon" text removed.
+  - **New Premium features:** Chat themes (6 bubble colours, 4 wallpapers, live preview; on this device; a lapsed plan returns to the default look). Starred messages (long-press a published message, list per account on this device, published text only, anonymous stays "Anonymous user"; free users get a prompt to Premium). Premium badge (gold crown) next to the author on feed posts and comments only; backend adds `author.premium` (API.md 74).
+  - **Feed card:** the like is now a pill in the card's action bar next to comments (Reddit style); the separate top-right heart and the duplicate ↑ are gone.
+  - **Red heart:** on web, ❤️ came from a black-and-white symbol font. Hearts in reactions, the reaction picker, the emoji picker and emoji-only messages are now drawn as a red heart (`EmojiGlyph` / `EmojiText`).
+- **Files created:** `lib/core/ui/{emoji_text,premium_badge}.dart`, `lib/features/premium/{plan_compare,premium_promo,chat_prefs,premium_tools_screens}.dart`, `test/premium_tools_test.dart` (5 tests)
+- **Files modified:** `lib/features/feed/{feed_screen,post_detail_screen}.dart`, `lib/features/feed/data/author.dart` (+generated), `lib/features/groups/{group_chat_screen,chat_header,groups_screen}.dart`, emoji picker, `lib/features/premium/{premium_screen,premium_profile_card}.dart`, `lib/features/profile/profile_screen.dart`, `lib/app/{router,side_nav}.dart`, `lib/core/ui/app_icons.dart` (filled star), `lib/core/strings/app_strings.dart`, `test/premium_test.dart`; backend `src/routes/feed.ts`, `test/{feed,premium}.test.ts`; `API.md` 74; `docs/PREMIUM_PLAN.md`; `LOGS.md`
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `dart format .` 0 changed; `flutter analyze` 0 issues; `flutter test --concurrency=2` -> 221 passed (first run: responsive layout failed on tablet/desktop Profile, "ListTile ink may be invisible"; fixed by drawing the tools card with `Material`)
+  - backend `tsc --noEmit` and `eslint .` clean; `vitest run` -> 324 passed (47 files)
+  - pipeline `python -m unittest discover -s tests -t .` -> OK
+- **Assumptions / decisions:** themes and starred messages are stored on the device (secure storage), not on the server, so no new tables or message copies; the Premium card sits below the group list so it never pushes groups off small screens; the red heart is an icon rather than a colour-emoji font (no large font download).
+- **Issues / blockers / known bugs:** web-live not rebuilt or browser-checked this run; starred messages and themes do not sync between devices; real store purchases still need the founder's store and RevenueCat setup (Run 120); not run on a physical phone.
+- **Hard-rules check:**
+  - [x] Nothing about anonymity, rewrite or moderation is paid; no badge in group chats or on anonymous content
+  - [x] Starred keeps only published text and the group-visible sender label; no RawMessage outside review
+  - [x] Anonymity checkbox and disclosure unchanged before Send; no rejection reasons
+  - [x] NavigationBar kept below 1000px; pageHPad used; icons via app_icons.dart
+
+### Run 123: Premium checked in the browser; UI polish on login, chat, question page and review
+- **Date/time:** 2026-11-27 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Verification / UI polish
+- **Prompt / task:** "Yes, check it" (headless check of Run 122), then mid-run: "The whole interface uiux frontend needs to be improved ... make it look ultra premium and dope"
+- **Result:** Completed (not committed). This is a polish pass on what the audit found, not a redesign; a fuller visual direction is still open.
+- **Summary:**
+  - **Live check of Run 122** (local backend + `build/web-live`, two throwaway accounts, deleted 204): Premium API grant works; feed post author carries `premium: true` and shows the gold crown; like pill sits in the card's action bar; free user sees locked Starred messages with an upgrade button; Premium screen shows Free and Premium cards and "How you pay"; 0 app console errors.
+  - **Found and fixed during the check:** a user with no groups never saw the Premium card (now under the empty Groups screen); on phones the Premium cards on Profile were below the fold (moved right under the profile header).
+  - **UI audit** of the mock build (login, groups, chat, review, feed, question, alerts, profile, premium; phone and desktop), then fixes:
+    - Login: the input fill hid the rounded border (square black lines); now a rounded field with a hairline border and a dark focus ring. Copy: "Email", "Your password", "Keep me signed in"; removed "v1.0", the "#08" box and the duplicate "Sign up" link; "How it works" is a three-step strip (You write, AI calms the tone, Controller approves).
+    - Chat: the waiting card that repeated the app bar (name, role, members) is now one slim pill ("Waiting for controller review · time" + Mine); removed the second "reviewing in real-time" pill; jargon "AI Synthesizing Non-Adversarial Phrasing…" became "Only you and the controller see this until it is approved."; "Preview AI wording" now sits beside the tone note (stacked on narrow screens or large text). The anonymity checkbox and disclosure stay immediately before Send.
+    - Question page: "• • PUBLIC FEED" double dot fixed; "Write an answer…" hint; the name-consent switch reads "Answer with my name" (behaviour unchanged).
+    - Review: dates read "12 Oct, 2:30 PM" instead of "2026-10-12 14:30" (`formatWhen`).
+    - Profile: Premium tools rows have icon tiles, normal-size titles and one-line hints.
+- **Files modified:** `lib/features/auth/login_screen.dart`, `lib/features/groups/{group_chat_screen,groups_screen}.dart`, `lib/features/feed/post_detail_screen.dart`, `lib/features/premium/premium_profile_card.dart`, `lib/features/profile/profile_screen.dart`, `lib/core/ui/labels.dart`, `LOGS.md`
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `dart format .` 0 changed; `flutter analyze` 0 issues; `flutter test --concurrency=2` -> 221 passed (one intermediate failure: the merged preview row overflowed on small phones and large text; fixed by stacking it there)
+  - `flutter build web` mock and live builds; headless Chrome walkthroughs: 0 console errors
+  - Throwaway accounts: deleted (204); database checked, none left
+- **Assumptions / decisions:** kept the existing monochrome-and-cream design rules (AGENTS.md) rather than a new palette; kept the feed's name-consent switch (earlier deliberate choice) and only renamed it.
+- **Issues / blockers / known bugs:** the live web build was not rebuilt after the polish edits (checked on the mock build and in tests); the chat composer is still tall on small phones (four short rows, needed for the anonymity rule); not run on a physical phone.
+- **Hard-rules check:**
+  - [x] Anonymity checkbox and disclosure unchanged, right before Send
+  - [x] No raw text outside review; no rejection reasons; My messages status-only
+  - [x] NavigationBar kept; `responsive_layout_test` green at all six sizes
+
+### Run 124: Bold monochrome redesign; Continue with Google on sign-up
+- **Date/time:** 2026-11-27 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** UI redesign (frontend only)
+- **Prompt / task:** "Bolder redesign" (the user chose "Bold monochrome" over dark mode and a colourful brand), then mid-run: "where is signup with google and all dont remove features just work on frontend and uiux"
+- **Result:** Completed (not committed). No features removed; backend untouched.
+- **Summary:**
+  - **Hero headers:** `LargeTitleHeader` is now a deep black panel with soft cream and cool glows, a 32px white title, rounded bottom and a shadow; it lines up with the centred page column on wide screens. Used by Groups, Feed, Alerts and (new) Profile, which replaces its old "TALK IT OUT • PROFILE" bar (share and edit buttons kept). New `HeroAvatarButton` (white disc) and `HeroInk` colours for content on the hero. "Mark all read" moved into the Alerts header as a light pill (same action).
+  - **Navigation:** the selected bottom-bar tab is a black pill with a white icon and bold label (badges invert on it); the bar has a soft upward shadow. The sidebar's selected item is the same black pill.
+  - **Surfaces and type:** cards 18–20px radius with a deeper soft shadow; buttons 12px; app bar titles bolder. Feed card dates read "12 Oct" instead of "2026-10-12".
+  - **Google sign-in:** it was never removed; it shows only in builds with `GOOGLE_CLIENT_ID` (the demo deliberately hides it, see `google_sign_in_test`). The section moved to `lib/features/auth/google/google_sign_in_section.dart` and now also appears on **Sign up** ("Continue with Google" creates the account the first time). Sign-up labels: "Email", "PRIVATE BY DESIGN" (was "V2.4 SECURE").
+  - **AGENTS.md** layout note updated to describe the bolder look (it previously said 4–12px radii).
+- **Files created:** `lib/features/auth/google/google_sign_in_section.dart`
+- **Files modified:** `lib/core/ui/{large_title_header,surfaces}.dart`, `lib/app/{shell,side_nav,theme}.dart`, `lib/features/groups/groups_screen.dart`, `lib/features/feed/feed_screen.dart`, `lib/features/notifications/notifications_screen.dart`, `lib/features/profile/profile_screen.dart`, `lib/features/auth/{login_screen,register_screen}.dart`, `AGENTS.md`, `LOGS.md`
+- **Dependencies added:** none
+- **Commands run and results:**
+  - `dart format .` 0 changed; `flutter analyze` 0 issues; `flutter test --concurrency=2` -> 221 passed (an attempt to show Google in the demo failed `google_sign_in_test`'s deliberate rule and was undone)
+  - Mock and live web builds; headless Chrome screenshots of every main screen (phone and desktop) and of live Sign in / Sign up with the Google button: 0 console errors
+- **Assumptions / decisions:** gold stays for Premium only; chat screens keep their calm white app bar (a black hero there would compete with message bubbles); light mode stays.
+- **Issues / blockers / known bugs:** inner screens (chat, question page, review) still use the white app bar, so they look calmer than the tabs; not checked on a physical phone.
+- **Hard-rules check:**
+  - [x] NavigationBar kept below 1000px; `responsive_layout_test` green
+  - [x] Anonymity checkbox and disclosure unchanged before Send
+  - [x] No backend, API or data changes
+
+### Run 125: Bold look on inner screens
+- **Date/time:** 2026-11-27 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** UI redesign (frontend only)
+- **Prompt / task:** "Yes, inner screens" (carry Run 124's bold monochrome look past the main tabs)
+- **Result:** Completed (not committed). No features removed; no backend changes.
+- **Summary:**
+  - **App-wide app bar** (`theme.dart` `AppBarTheme`): black, white title and icons, rounded 20px bottom, light status bar. The per-screen cream overrides were removed from Group info, My messages, Create group, Join group, Legal, Person profile, Safety (blocked people), Interest picker, Group Insights, Starred messages and Chat theme, so they all follow it.
+  - **Custom headers made black** with white text and icons: `ChatHeader` (group chat; the avatar gets a light ring), `StitchPageHeader` (Members, Ask a question; logo tile turns white), the question page bar, the review queue bar and the review detail bar. Menus and actions are unchanged.
+  - **Premium page** keeps its light bar on purpose (it opens with its own crown header); its close icon is set dark.
+  - AGENTS.md layout note updated.
+- **Files modified:** `lib/app/theme.dart`, `lib/core/ui/stitch_chrome.dart`, `lib/features/groups/{chat_header,group_chat_screen,group_info_screen}.dart`, `lib/features/feed/post_detail_screen.dart`, `lib/features/review/{review_queue_screen,review_detail_screen}.dart`, `lib/features/discovery/{safety_actions,person_profile_screen,interest_picker_screen}.dart`, `lib/features/legal/legal_screen.dart`, `lib/features/invites/join_group_screen.dart`, `lib/features/premium/{group_insights_screen,premium_tools_screens,premium_screen}.dart`, `AGENTS.md`, `LOGS.md`
+- **Dependencies added:** none
+- **Commands run and results:** `dart format .` 0 changed; `flutter analyze` 0 issues; `flutter test --concurrency=2` -> 221 passed; mock web build and headless screenshots of chat, review, question, members, group info, My messages, Group Insights, Ask a question and Chat theme: 0 console errors.
+- **Assumptions / decisions:** message bubbles, composer and page bodies are unchanged (the anonymity checkbox and disclosure stay before Send); the live web build was not rebuilt this run.
+- **Issues / blockers / known bugs:** not checked on a physical phone; dialogs and bottom sheets keep the light style.
+- **Hard-rules check:**
+  - [x] Anonymity UI unchanged; no raw text outside review
+  - [x] NavigationBar kept; `responsive_layout_test` green
+  - [x] No backend, API or data changes
+
+### Run 126: Settings split from Profile
+- **Date/time:** 2026-11-27 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** UI / information architecture (frontend only)
+- **Prompt / task:** "profile and setting options should be different account and platform preferences and profile is different"
+- **Result:** Completed (not committed). Every option is kept; only where it lives changed.
+- **Summary:**
+  - **New Settings screen** (`/settings`, `lib/features/profile/settings_screen.dart`, a `part` of `profile_screen.dart` so it reuses the existing dialogs and tiles): your account at the top ("View profile"), then grouped sections like iOS and Instagram settings: **Premium** (plan card, Chat theme, Starred messages), **Preferences** (feed interests and personalisation, default tone target, blocked people), **Account and security** (change password, sign out everywhere, sign out, delete account), **About** (invite friends, privacy policy, terms, how deletion works).
+  - **Profile** now shows only who you are: identity card, About, Experience, Education, anonymity explainer and stats. It gets a gear button in its header and a "Settings" row under the identity card.
+  - Phosphor `gear` icon added to `app_icons.dart`. The account rows show a full-size title and optional subtitle.
+- **Files created:** `lib/features/profile/settings_screen.dart`, `test/settings_test.dart`
+- **Files modified:** `lib/features/profile/profile_screen.dart`, `lib/app/router.dart`, `lib/core/ui/app_icons.dart`, `test/responsive_layout_test.dart` (adds `/settings`, `/starred`, `/chat-theme`), `LOGS.md`
+- **Dependencies added:** none
+- **Commands run and results:** `dart format .` 0 changed; `flutter analyze` 0 issues; `flutter test --concurrency=2` -> 222 passed (new settings test; layout test green at six sizes for the new routes); mock web build and headless screenshots of Profile and Settings (phone and desktop): 0 console errors.
+- **Assumptions / decisions:** Premium sits in Settings (with its tools) rather than on the public-facing profile; the sidebar's account button still opens Profile, which links to Settings.
+- **Issues / blockers / known bugs:** not checked on a physical phone; live web build not rebuilt this run.
+- **Hard-rules check:**
+  - [x] No feature removed; delete account, sign out and password flows unchanged
+  - [x] No backend, API or data changes
+  - [x] NavigationBar kept; `responsive_layout_test` green
+
+### Run 127: Razorpay for web payments; reactions open under the message
+- **Date/time:** 2026-11-27 (IST)
+- **Agent/tool:** Claude Code (Claude Opus 5.5)
+- **Phase:** Feature (Premium billing, backend + app) / UI fix
+- **Prompt / task:** "can we add razor pay for free?" then "yeah add that"; mid-run: "why react button is up make it down like instagram"
+- **Result:** Completed (not committed). Razorpay is built and tested with signed fake payloads; it has **not** run against a real Razorpay account (no keys yet).
+- **Summary:**
+  - **Backend (user approved backend work for this):** `src/billing-razorpay.ts` adds `GET /billing/razorpay`, `POST /billing/razorpay/subscription`, `POST /billing/razorpay/verify`, `POST /billing/razorpay/cancel` and `POST /billing/webhooks/razorpay` (API.md 75). Premium turns on only after Razorpay's HMAC signature checks out and the subscription (fetched from Razorpay) belongs to the caller; webhooks are signed over the raw body (captured in `app.ts` for `/billing/webhooks/*` only) and each event id is applied once. Migration `029_razorpay.sql` adds `subscriptions.external_id`. Config `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_PLAN_ID`, `RAZORPAY_WEBHOOK_SECRET` (empty → off, 503); `.env.example` explains each. No card or UPI data stored.
+  - **App:** on the web, "Get Premium" opens Razorpay Checkout (`lib/features/premium/razorpay/`, loads `checkout.js` only when someone pays; `RazorpayWebPurchases`), then the server verifies. A "Secure checkout by Razorpay" note shows under the button on the web; web subscribers get "Cancel web subscription" (renewal stops, access to the end of the paid month); "Restore purchases" is hidden on the web. Phones are unchanged (App Store / Google Play only, no Razorpay inside the apps). "How you pay" copy updated.
+  - **Reactions (chat):** the emoji bar now opens under the message, and the React / Reply / More hover buttons sit beside the bubble, centred on it (Instagram web). Reaction badges stay on the bubble's lower edge.
+  - Docs: API.md 75; `docs/PREMIUM_PLAN.md` web line and a founder to-do for Razorpay setup (KYC, test keys, ₹99 plan, webhook).
+- **Files created:** `backend/src/billing-razorpay.ts`, `backend/migrations/029_razorpay.sql`, `backend/test/razorpay.test.ts` (5 tests), `lib/features/premium/razorpay/{razorpay_checkout,razorpay_checkout_stub,razorpay_checkout_web}.dart`
+- **Files modified:** backend `src/{app,config,premium}.ts`, `src/routes/{billing,index}.ts`, `.env.example`, `test/validation-sweep.test.ts`; app `lib/core/api/endpoints.dart`, `lib/core/strings/app_strings.dart`, `lib/features/premium/{data/billing_repository,store_purchases,premium_providers,premium_screen}.dart`, `lib/features/groups/group_chat_screen.dart`, `test/premium_test.dart` (scrolls to the last link; the longer payment copy moved it); `API.md`; `docs/PREMIUM_PLAN.md`; `LOGS.md`
+- **Dependencies added:** none (uses the existing `web` package and Razorpay's hosted `checkout.js`)
+- **Commands run and results:**
+  - backend `tsc --noEmit` clean, `eslint .` clean, `vitest run` -> 329 passed (48 files), including `razorpay.test.ts` 5/5; `npm run migrate` applied 029 locally
+  - `dart format .` 0 changed; `flutter analyze` 0 issues; `flutter test --concurrency=2` -> 222 passed
+  - Headless browser (mock build, desktop): hover shows React / Reply / More beside the bubble, the emoji bar opens under it
+- **Assumptions / decisions:** web only, to stay within Apple and Google billing rules on phones; a signed payment while Razorpay still says "authenticated" counts as the first month (the webhook corrects it); subscriptions run up to 120 monthly cycles.
+- **Issues / blockers / known bugs:** needs the founder's Razorpay account, KYC and keys before it can take money; Checkout not yet clicked through in Razorpay test mode; fees (about 2% + GST) should be checked on razorpay.com/pricing.
+- **Hard-rules check:**
+  - [x] Anonymity, rewrite and moderation are not paid features; no payment data in logs
+  - [x] No secrets in the repo (placeholders only)
+  - [x] Anonymity checkbox and disclosure unchanged before Send

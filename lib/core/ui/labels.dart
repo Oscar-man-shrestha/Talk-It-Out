@@ -29,11 +29,17 @@ String relevanceText(RelevanceLabel label) {
   }
 }
 
-String formatWhen(DateTime value) {
+/// "12 Oct, 2:30 PM" (the year is added when it is not this year).
+String formatWhen(DateTime value, {DateTime? now}) {
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', //
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
   final local = value.toLocal();
-  final month = local.month.toString().padLeft(2, '0');
-  final day = local.day.toString().padLeft(2, '0');
-  final hour = local.hour.toString().padLeft(2, '0');
+  final hour12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
   final minute = local.minute.toString().padLeft(2, '0');
-  return '${local.year}-$month-$day $hour:$minute';
+  final period = local.hour < 12 ? 'AM' : 'PM';
+  final thisYear = (now ?? DateTime.now()).toLocal().year == local.year;
+  final day = '${local.day} ${months[local.month - 1]}';
+  return '${thisYear ? day : '$day ${local.year}'}, $hour12:$minute $period';
 }

@@ -76,7 +76,17 @@ export function buildApp(pool: Pool, appConfig: Config): Express {
     app.set('trust proxy', appConfig.trustProxy === 'true' ? 1 : appConfig.trustProxy);
   }
   app.use(helmet());
-  app.use(express.json({ limit: appConfig.jsonBodyLimit }));
+  app.use(
+    express.json({
+      limit: appConfig.jsonBodyLimit,
+      // Payment webhooks are signed over the exact bytes received (API.md 75).
+      verify: (req, _res, buf) => {
+        if ((req as { url?: string }).url?.includes('/billing/webhooks/')) {
+          (req as unknown as { rawBody?: Buffer }).rawBody = Buffer.from(buf);
+        }
+      },
+    }),
+  );
 
   app.use(
     cors({

@@ -9,6 +9,7 @@ import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
 import 'package:talk_it_out/features/discovery/recent_people.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/invites/invite_sheet.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 /// Returned by the sheet when the controller picks "Invite with a link".
 const _openLinkSheet = -1;
@@ -261,7 +262,7 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
             children: [
               IconButton(
                 tooltip: 'Close',
-                icon: const Icon(Icons.close, size: 22),
+                icon: const Icon(PhosphorIconsRegular.x, size: 22),
                 onPressed: () => Navigator.of(context).pop(0),
               ),
               const Expanded(
@@ -312,7 +313,10 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
             decoration: InputDecoration(
               hintText: 'Search name or @handle',
               hintStyle: const TextStyle(color: Brand.inkFaint),
-              prefixIcon: const Icon(Icons.search, color: Brand.inkSoft),
+              prefixIcon: const Icon(
+                PhosphorIconsRegular.magnifyingGlass,
+                color: Brand.inkSoft,
+              ),
               suffixIcon: _query.isEmpty
                   ? null
                   : IconButton(
@@ -390,7 +394,11 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
                       color: Brand.muted,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.link, color: Brand.ink, size: 20),
+                    child: const Icon(
+                      PhosphorIconsRegular.link,
+                      color: Brand.ink,
+                      size: 20,
+                    ),
                   ),
                   title: const Text(
                     'Invite with a link',
@@ -405,14 +413,14 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
                     style: TextStyle(fontSize: 12.5, color: Brand.inkSoft),
                   ),
                   trailing: const Icon(
-                    Icons.chevron_right,
+                    PhosphorIconsRegular.caretRight,
                     color: Brand.inkFaint,
                   ),
                   onTap: () => Navigator.of(context).pop(_openLinkSheet),
                 ),
               if (showingSearch && (_results?.similarOnly ?? false))
                 const _Hint(
-                  icon: Icons.auto_fix_high,
+                  icon: PhosphorIconsRegular.magicWand,
                   text: 'No exact match. Showing names that look or sound similar.',
                 ),
               if (recent.isNotEmpty) ...[
@@ -710,7 +718,11 @@ class _PersonTile extends StatelessWidget {
                   ),
                 ),
                 child: selected
-                    ? const Icon(Icons.check, size: 16, color: Colors.white)
+                    ? const Icon(
+                        PhosphorIconsRegular.check,
+                        size: 16,
+                        color: Colors.white,
+                      )
                     : null,
               ),
           ],

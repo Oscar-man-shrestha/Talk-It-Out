@@ -6,6 +6,7 @@ import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/invites/invite_repository.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 final _previewProvider = FutureProvider.autoDispose
     .family<InvitePreview, String>(
@@ -51,11 +52,9 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
     return Scaffold(
       backgroundColor: Brand.canvas,
       appBar: AppBar(
-        backgroundColor: Brand.canvas,
-        surfaceTintColor: Colors.transparent,
         leading: IconButton(
           tooltip: 'Close',
-          icon: const Icon(Icons.close),
+          icon: const Icon(PhosphorIconsRegular.x),
           onPressed: () =>
               context.canPop() ? context.pop() : context.go('/groups'),
         ),
@@ -130,11 +129,11 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
                           'Send with your name or anonymously.',
                         ),
                         _Point(
-                          Icons.auto_awesome,
+                          PhosphorIconsRegular.sparkle,
                           'An AI rewrites messages in a calm tone.',
                         ),
                         _Point(
-                          Icons.verified_user_outlined,
+                          PhosphorIconsRegular.shieldCheck,
                           "The group's controller reviews every message and can see who sent anonymous ones.",
                         ),
                       ],

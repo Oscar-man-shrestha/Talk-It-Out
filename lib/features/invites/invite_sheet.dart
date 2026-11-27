@@ -7,6 +7,7 @@ import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/invites/invite_repository.dart';
 import 'package:talk_it_out/core/share/share_links.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 /// The text people send on WhatsApp, Telegram and the like.
 String inviteMessage(String agenda, InviteLink link) =>
@@ -246,7 +247,7 @@ class _InviteSheetState extends ConsumerState<InviteSheet> {
                             color: Colors.white,
                           ),
                         )
-                      : const Icon(Icons.link, size: 18),
+                      : const Icon(PhosphorIconsRegular.link, size: 18),
                   label: const Text('Create invite link'),
                 ),
               ] else ...[
@@ -260,7 +261,11 @@ class _InviteSheetState extends ConsumerState<InviteSheet> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.link, size: 18, color: Brand.inkSoft),
+                      const Icon(
+                        PhosphorIconsRegular.link,
+                        size: 18,
+                        color: Brand.inkSoft,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: SelectableText(
@@ -309,7 +314,7 @@ class _InviteSheetState extends ConsumerState<InviteSheet> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        icon: const Icon(Icons.copy, size: 16),
+                        icon: const Icon(PhosphorIconsRegular.copy, size: 16),
                         label: const Text('Copy'),
                       ),
                     ),
@@ -318,7 +323,7 @@ class _InviteSheetState extends ConsumerState<InviteSheet> {
                       key: const ValueKey('invite-qr'),
                       tooltip: _showQr ? 'Hide QR code' : 'Show QR code',
                       onPressed: () => setState(() => _showQr = !_showQr),
-                      icon: const Icon(Icons.qr_code_2),
+                      icon: const Icon(PhosphorIconsRegular.qrCode),
                     ),
                   ],
                 ),

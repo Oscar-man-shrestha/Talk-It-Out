@@ -33,6 +33,12 @@ abstract class RawMessage with _$RawMessage {
 
     /// An image sent with the message, shown to the controller in review.
     String? attachmentId,
+
+    /// Why the AI could not rephrase it (API.md 72); null once rewritten.
+    String? rewriteErrorCode,
+
+    /// Advisory moderation flags on the original (API.md 72).
+    @Default(<String>[]) List<String> moderationFlags,
   }) = _RawMessage;
 
   bool get rewriteUnavailable => pipelineStatus == PipelineStatus.failed;

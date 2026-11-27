@@ -23,11 +23,14 @@ import 'package:talk_it_out/features/groups/members_screen.dart';
 import 'package:talk_it_out/features/groups/my_messages_screen.dart';
 import 'package:talk_it_out/features/notifications/notifications_screen.dart';
 import 'package:talk_it_out/features/profile/profile_screen.dart';
+import 'package:talk_it_out/features/premium/group_insights_screen.dart';
+import 'package:talk_it_out/features/premium/premium_screen.dart';
 import 'package:talk_it_out/features/review/review_detail_screen.dart';
 import 'package:talk_it_out/features/review/review_queue_screen.dart';
 import 'package:talk_it_out/features/invites/join_group_screen.dart';
 import 'package:talk_it_out/features/onboarding/welcome_screen.dart';
 import 'package:talk_it_out/features/groups/group_info_screen.dart';
+import 'package:talk_it_out/features/premium/premium_tools_screens.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -49,6 +52,25 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/premium',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const PremiumScreen(),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/starred',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const StarredScreen(),
+      ),
+      GoRoute(
+        path: '/chat-theme',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const ChatThemeScreen(),
+      ),
       GoRoute(
         path: '/legal/:page',
         builder: (context, state) => LegalScreen(
@@ -126,6 +148,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                         path: 'mine',
                         parentNavigatorKey: rootNavigatorKey,
                         builder: (context, state) => MyMessagesScreen(
+                          groupId: state.pathParameters['groupId']!,
+                        ),
+                      ),
+                      GoRoute(
+                        path: 'insights',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) => GroupInsightsScreen(
                           groupId: state.pathParameters['groupId']!,
                         ),
                       ),
@@ -258,7 +287,9 @@ Future<String?> _redirect(Ref ref, Uri uri) async {
         (ref.read(justRegisteredProvider) ? '/welcome' : '/groups');
   }
 
-  final review = RegExp(r'^/groups/([^/]+)/review(?:/|$)').firstMatch(location);
+  // Controller-only: review and Group Insights (AGENTS.md hard rule 6).
+  final review = RegExp(r'^/groups/([^/]+)/(?:review|insights)(?:/|$)')
+      .firstMatch(location);
   if (review == null) return null;
   final groupId = review.group(1)!;
   try {

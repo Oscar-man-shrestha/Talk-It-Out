@@ -24,7 +24,7 @@ class LoadConfigTests(unittest.TestCase):
         self.assertEqual(config.max_output_chars, 8000)  # provisional backend default
         self.assertEqual(config.lease_seconds, 300)
         self.assertEqual(config.max_attempts, 3)
-        self.assertEqual(config.pipeline_version, "talkitout-pipeline 0.4.0")
+        self.assertEqual(config.pipeline_version, "talkitout-pipeline 0.6.0")
         self.assertEqual(config.model_keep_warm_seconds, 600.0)
 
     def test_keep_warm_can_be_turned_off_or_changed(self):

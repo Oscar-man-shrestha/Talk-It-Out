@@ -148,6 +148,8 @@ describe('@mentions (API 68)', () => {
       text: '@Maya please share the notes. @Controller Person will review.',
     });
     expect((await notes(app, maya.token)).map((n) => [n.type, n.group?.id])).toEqual([['mentioned', g.body.id]]);
-    expect(await notes(app, ctrl.token)).toEqual([]);
+    // The sender is never notified of their own mention (Maya's join is a
+    // separate member_joined notification, API.md 73).
+    expect((await notes(app, ctrl.token)).filter((n) => n.type === 'mentioned')).toEqual([]);
   });
 });

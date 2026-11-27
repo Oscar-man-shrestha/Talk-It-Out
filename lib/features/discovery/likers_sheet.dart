@@ -5,6 +5,7 @@ import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
 import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 final _likersProvider = FutureProvider.autoDispose.family<LikersPage, String>(
   (ref, postId) => ref.watch(discoveryRepositoryProvider).likers(postId),
@@ -118,7 +119,9 @@ class LikersSheet extends ConsumerWidget {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                              trailing: const Icon(Icons.chevron_right),
+                              trailing: const Icon(
+                                PhosphorIconsRegular.caretRight,
+                              ),
                               onTap: () {
                                 Navigator.of(context).pop();
                                 openPerson(context, ref, p.id);

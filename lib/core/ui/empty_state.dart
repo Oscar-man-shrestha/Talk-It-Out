@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 /// One action on an empty screen. The first is drawn as the main button.
 class EmptyAction {
@@ -142,7 +143,10 @@ class EmptyState extends StatelessWidget {
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                          icon: Icon(a.icon ?? Icons.arrow_forward, size: 18),
+                          icon: Icon(
+                            a.icon ?? PhosphorIconsRegular.arrowRight,
+                            size: 18,
+                          ),
                           label: Text(a.label),
                         )
                       : OutlinedButton.icon(
@@ -155,7 +159,10 @@ class EmptyState extends StatelessWidget {
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                          icon: Icon(a.icon ?? Icons.arrow_forward, size: 18),
+                          icon: Icon(
+                            a.icon ?? PhosphorIconsRegular.arrowRight,
+                            size: 18,
+                          ),
                           label: Text(a.label),
                         ),
                 ),

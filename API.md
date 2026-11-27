@@ -701,3 +701,43 @@ Plain text or several emoji in one reaction give `422`. One person can add at mo
 - **Unchanged:** invite links (section 61). Opening a link and pressing Join is already the person's own choice.
 - **Live updates (migration 025):** sending, accepting, declining or cancelling an invitation sends the invited person a `groups` event and the group's connected members a `members` event (group id only), so the Invited list and the Groups screen refresh without a reload.
 
+
+### 70. Feed filters on `GET /posts`
+- `GET /posts?topic=&filter=&limit=&cursor=` (Latest). Both filters are optional and applied by the server, so every page is complete for the filter; the cursor keeps working within it.
+- `topic`: one of the section 42 topics. Posts without a topic match by the same keywords the app uses (for example "nlp" for `engineering`). An unknown topic is `422 validation`.
+- `filter`: `unanswered` (no comments), `answered` (one or more), `discussed` (two or more). Anything else is `422 validation`.
+- "Saved" stays on the device and is filtered by the app. Sorting by likes or comments still sorts the questions loaded so far.
+
+### 71. Premium and Group Insights
+Two offers (docs/PREMIUM_PLAN.md): **Free**, everything the app does today, and **Premium**, ₹99 a month, which adds new features. Anonymity, the AI rewrite and moderation are never paid features, and Premium marks never appear on anonymous messages or in group chats.
+- `GET /billing/entitlements` (signed in) returns `{premium, status, provider, expires_at, will_renew}`. `status` is `active`, `grace` (a renewal failed, access kept while the store retries), `cancelled` (will not renew; access until `expires_at`), `expired`, or `null` (never subscribed). `provider` is `manual`, `revenuecat` or `razorpay`. The server is the only judge of Premium.
+- `POST /billing/sync` (signed in): after a store purchase, asks RevenueCat for the user's current state (when `REVENUECAT_SECRET_KEY` is set) and returns the same shape.
+- `POST /billing/webhooks/revenuecat`: RevenueCat events, authenticated by the `Authorization` value set in the RevenueCat dashboard (`REVENUECAT_WEBHOOK_SECRET`; empty: `503 billing_unconfigured`; wrong: `401`). The RevenueCat app user id is the backend user id. Each event id is applied once (`{applied:false, reason:"duplicate"}` on retries); unknown users, other entitlements and unrelated types are ignored. Purchases, renewals and uncancellations turn Premium on; cancellation keeps it until the end date; billing issues give a grace period; expiry ends it.
+- `GET /groups/:groupId/insights?tz_offset_minutes=330` (the group's controller, with Premium; members `403`; without Premium `402 premium_required`; unknown group `404`) returns `{window_days: 14, member_count, breakdowns_available, messages, daily[{date, count}], pending, accepted, rejected, review_median_minutes, participants, anonymous_messages, busiest_hours[{hour, count}], top_words[{word, count}]}`. Published text and counts only. `participants`, `anonymous_messages` and `busiest_hours` are `null` unless the group has at least 5 members; `review_median_minutes` covers only the caller's own decisions.
+- Local testing: `npm run premium -- grant|revoke|status <email> [days]`.
+
+### 72. Why a message was not rephrased, and moderation flags
+- Review items (`GET /groups/:id/review-queue`, `GET /groups/:id/review-queue/:messageId`, controller only) carry `rewrite_error_code` (null once a rewrite exists) and `moderation_flags` (array, advisory).
+- `rewrite_error_code` values and their meaning: `unsupported_language` (only English is rephrased), `input_too_long`, `intent_not_preserved` (the AI could not keep the meaning), `abuse_only` (nothing but abusive language: nothing to rephrase; ends at once), `abusive_language_kept` (every attempt still contained abusive wording), `hate_speech_kept` (every attempt still referred to the group the original attacked), `model_refused` (the AI declined), `model_timeout` / `model_unavailable` / `model_bad_response` / `model_empty_output` (the AI service failed), `output_too_long` / `blank_output` / `prompt_scaffold_leak` (the rewrite failed safety checks), `worker_crash` / `worker_error`.
+- `moderation_flags`: `hate_speech`, `threat`, `abusive_language`, `profanity`, `self_harm`, about the ORIGINAL message. Advisory only: flags never reject, hide or delay a message.
+- The sender's own preview (`GET /groups/:id/messages/preview/:previewId`) also returns `rewrite_error_code`, so the composer can say why there is no rewrite. "My messages" stays status-only (no reason), and rejections still carry no reason.
+
+### 73. More notification events
+`GET /notifications` items can also have these types (each with no reason slot and no sender name):
+- `message_published`: to the sender only, when the controller publishes their message (named or anonymous; only the author gets it, so it reveals nothing). `group` is set.
+- `member_joined`: to the group's controller when someone accepts an invitation or joins with a link. `group` is set; the members list shows who.
+- `question_liked`: to a question's author when someone else likes it. One unread notification per question at a time (more likes, or like/unlike, do not add more until it is read). `post` is set.
+
+### 74. Premium badge on feed authors
+- Post and comment `author` objects (in `GET /posts`, `GET /posts/:id`, comments, and the create responses) now carry `premium` (boolean): true while the author has an active, grace or cancelled-but-unexpired subscription.
+- Only the public feed shows it. Group chats, published messages, review items and anything anonymous never carry it.
+- The app treats a missing `premium` as false.
+
+### 75. Razorpay on the web
+Phones keep App Store / Google Play billing (API.md 71). The website pays with Razorpay (UPI, cards, net banking, wallets). The server is still the only judge of Premium; card and UPI details never reach Talk It Out.
+- `GET /billing/razorpay` (auth) → `{enabled, key_id}`. `enabled` is false until the server has `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and `RAZORPAY_PLAN_ID`; `key_id` is Razorpay's public key for Checkout.
+- `POST /billing/razorpay/subscription` (auth) → `201 {key_id, subscription_id, name, email}`: starts a ₹99 monthly subscription (the user id goes in Razorpay `notes`). `409 already_premium` when Premium is already on; `503 billing_unconfigured` when off; `502 payment_provider_*` when Razorpay fails.
+- `POST /billing/razorpay/verify` (auth) `{razorpay_payment_id, razorpay_subscription_id, razorpay_signature}` → the entitlements object. The signature must be HMAC-SHA256 of `payment_id|subscription_id` with the key secret, and the subscription (fetched from Razorpay) must belong to the caller; otherwise `400 payment_not_verified` and nothing changes.
+- `POST /billing/razorpay/cancel` (auth) → entitlements: stops renewal at the end of the paid month (`status: cancelled`, `will_renew: false`). `404` without a web subscription.
+- `POST /billing/webhooks/razorpay` (Razorpay → server): `X-Razorpay-Signature` is HMAC-SHA256 of the raw body with `RAZORPAY_WEBHOOK_SECRET` (else `401`; `503` when unset). Each `X-Razorpay-Event-Id` is applied once. Subscription states: `active` → active, `pending` → grace, `cancelled` → cancelled until the period ends, `halted` / `completed` / `expired` → expired; `current_end` is the access end date.
+- Entitlements `provider` can now be `razorpay`. Migration `029_razorpay.sql` adds `subscriptions.external_id` (Razorpay's subscription id).

@@ -32,8 +32,9 @@ services:
         value: "false"
       - key: RUN_FEED_WORKER
         value: "true"
+      # Real local moderation for the public feed (hate, threats, abuse).
       - key: FEED_PROVIDER
-        value: fake
+        value: lexicon
       # The web app's address, for example https://<you>.github.io
       - key: CORS_ORIGINS
         sync: false

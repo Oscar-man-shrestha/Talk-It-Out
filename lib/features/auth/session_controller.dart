@@ -44,7 +44,7 @@ class SessionNotifier extends AsyncNotifier<User?> {
     final session = await ref
         .read(authRepositoryProvider)
         .signInWithGoogle(idToken: idToken);
-    await _storeSession(session, keepSession: keepSession);
+    await _storeSession(session, keepSession: keepSession, google: true);
   }
 
   Future<void> register({
@@ -70,6 +70,7 @@ class SessionNotifier extends AsyncNotifier<User?> {
   Future<void> _storeSession(
     AuthSession session, {
     bool keepSession = true,
+    bool google = false,
   }) async {
     final tokens = ref.read(tokenStoreProvider);
     await tokens.clear();
@@ -81,7 +82,9 @@ class SessionNotifier extends AsyncNotifier<User?> {
       if (refresh != null) await tokens.writeRefresh(refresh);
     }
     // Offered as "Continue as..." after signing out (name and email only).
-    ref.read(savedAccountsProvider.notifier).remember(session.user);
+    ref
+        .read(savedAccountsProvider.notifier)
+        .remember(session.user, google: google);
     state = AsyncData(session.user);
   }
 

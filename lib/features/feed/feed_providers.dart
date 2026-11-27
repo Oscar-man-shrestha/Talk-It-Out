@@ -4,6 +4,23 @@ import 'package:talk_it_out/core/realtime/realtime_client.dart';
 import 'package:talk_it_out/features/feed/data/comment.dart';
 import 'package:talk_it_out/features/feed/data/post.dart';
 
+/// The Latest tab's server-side filters (`API.md` 70). Null means all.
+typedef FeedFilter = ({String? topic, String? filter});
+
+class FeedFilterNotifier extends Notifier<FeedFilter> {
+  @override
+  FeedFilter build() => (topic: null, filter: null);
+
+  void set({String? topic, String? filter}) {
+    final next = (topic: topic, filter: filter);
+    if (next != state) state = next;
+  }
+}
+
+final feedFilterProvider = NotifierProvider<FeedFilterNotifier, FeedFilter>(
+  FeedFilterNotifier.new,
+);
+
 class FeedNotifier extends AsyncNotifier<List<Post>> {
   String? _cursor;
   var _loadingMore = false;
@@ -20,10 +37,19 @@ class FeedNotifier extends AsyncNotifier<List<Post>> {
       (e) => e.type == 'feed',
       refresh: ref.invalidateSelf,
     );
-    final page = await ref.watch(feedRepositoryProvider).listPosts();
+    final filter = ref.watch(feedFilterProvider);
+    _filter = filter;
+    // Reset first: a page still loading for the old filter must not be
+    // appended to this one.
+    _cursor = null;
+    final page = await ref
+        .watch(feedRepositoryProvider)
+        .listPosts(topic: filter.topic, filter: filter.filter);
     _cursor = page.nextCursor;
     return page.items;
   }
+
+  FeedFilter _filter = (topic: null, filter: null);
 
   /// Appends the next page (endless scrolling). Safe to call repeatedly:
   /// it does nothing while a page is loading or when there is no more.
@@ -35,7 +61,11 @@ class FeedNotifier extends AsyncNotifier<List<Post>> {
     try {
       final page = await ref
           .read(feedRepositoryProvider)
-          .listPosts(cursor: cursor);
+          .listPosts(
+            cursor: cursor,
+            topic: _filter.topic,
+            filter: _filter.filter,
+          );
       // A refresh started meanwhile: keep its fresh first page instead.
       if (_cursor != cursor) return;
       final seen = {for (final p in current) p.id};
@@ -87,10 +117,26 @@ class CommentsNotifier extends AsyncNotifier<List<Comment>> {
       (e) => e.type == 'feed' && e.postId == postId,
       refresh: ref.invalidateSelf,
     );
-    final page = await ref.watch(feedRepositoryProvider).listComments(postId);
-    return page.items;
+    // Every page: a busy question must not silently stop at the first
+    // page of answers. Capped so a runaway cursor cannot loop forever.
+    final repo = ref.watch(feedRepositoryProvider);
+    final items = <Comment>[];
+    final seen = <String>{};
+    String? cursor;
+    for (var page = 0; page < _maxCommentPages; page++) {
+      final result = await repo.listComments(postId, cursor: cursor);
+      for (final comment in result.items) {
+        if (seen.add(comment.id)) items.add(comment);
+      }
+      cursor = result.nextCursor;
+      if (cursor == null) break;
+    }
+    return items;
   }
 }
+
+/// 20 pages of 50: far more answers than any question is expected to get.
+const _maxCommentPages = 20;
 
 final commentsProvider =
     AsyncNotifierProvider.family<CommentsNotifier, List<Comment>, String>(

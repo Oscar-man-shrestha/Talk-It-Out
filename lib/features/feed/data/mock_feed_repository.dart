@@ -12,6 +12,7 @@ import 'package:talk_it_out/features/feed/data/author.dart';
 import 'package:talk_it_out/features/feed/data/comment.dart';
 import 'package:talk_it_out/features/feed/data/feed_repository.dart';
 import 'package:talk_it_out/features/feed/data/post.dart';
+import 'package:talk_it_out/features/feed/data/post_topic.dart';
 import 'package:talk_it_out/features/feed/data/reaction_result.dart';
 
 class MockFeedRepository implements FeedRepository {
@@ -45,12 +46,19 @@ class MockFeedRepository implements FeedRepository {
   final Set<String> _reported = {};
 
   @override
-  Future<PageResult<Post>> listPosts({int? limit, String? cursor}) {
+  Future<PageResult<Post>> listPosts({
+    int? limit,
+    String? cursor,
+    String? topic,
+    String? filter,
+  }) {
     return runMock(_controls, () {
       final posts = [
         for (final p in _posts)
           if (!_board.blockedUserIds.contains(p.author.id) &&
-              !_board.reportedPostIds.contains(p.id))
+              !_board.reportedPostIds.contains(p.id) &&
+              _matchesTopic(p, topic) &&
+              _matchesFilter(p, filter))
             p,
       ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return slicePage(
@@ -841,4 +849,20 @@ class MockFeedRepository implements FeedRepository {
       return next;
     });
   }
+
+  // Same rules as the server (`API.md` 70).
+  bool _matchesTopic(Post post, String? topic) {
+    if (topic == null) return true;
+    if (post.topic != null) return post.topic == topic;
+    final keywords = PostTopic.byId(topic)?.keywords ?? const <String>[];
+    final text = '${post.title ?? ''} ${post.content}'.toLowerCase();
+    return keywords.any(text.contains);
+  }
+
+  bool _matchesFilter(Post post, String? filter) => switch (filter) {
+    'unanswered' => post.commentCount == 0,
+    'answered' => post.commentCount > 0,
+    'discussed' => post.commentCount >= 2,
+    _ => true,
+  };
 }

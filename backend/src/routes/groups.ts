@@ -679,7 +679,7 @@ export function createGroupsRouter(
     const groupId = requireUuid(req.params.groupId, 'group');
     const previewId = requireUuid(req.params.previewId, 'preview');
     const { rows } = await pool.query(
-      `SELECT id, pipeline_status, rewritten_text FROM raw_messages
+      `SELECT id, pipeline_status, rewritten_text, pipeline_error_code FROM raw_messages
        WHERE id = $1 AND group_id = $2 AND author_id = $3 AND is_preview`,
       [previewId, groupId, req.user!.id],
     );
@@ -688,6 +688,9 @@ export function createGroupsRouter(
       id: rows[0].id,
       pipeline_status: rows[0].pipeline_status,
       rewritten_text: rows[0].pipeline_status === 'done' ? rows[0].rewritten_text : null,
+      // The sender's own preview: why the AI could not rephrase it.
+      rewrite_error_code:
+        rows[0].pipeline_status === 'done' ? null : (rows[0].pipeline_error_code ?? null),
     });
   });
 
@@ -876,6 +879,8 @@ export function createGroupsRouter(
     created_at: Date;
     decided_at: Date | null;
     attachment_id: string | null;
+    pipeline_error_code?: string | null;
+    moderation_flags?: string[] | null;
   }) => ({
     id: row.id,
     group_id: row.group_id,
@@ -896,6 +901,10 @@ export function createGroupsRouter(
     created_at: row.created_at.toISOString(),
     decided_at: row.decided_at ? row.decided_at.toISOString() : null,
     attachment_id: row.attachment_id,
+    // Why the AI could not rephrase it (code only; API.md 72).
+    rewrite_error_code: row.pipeline_status === 'done' ? null : (row.pipeline_error_code ?? null),
+    // Advisory: never used to reject or hide (API.md 72).
+    moderation_flags: row.moderation_flags ?? [],
   });
 
   const REVIEW_STATUSES = ['pending', 'accepted', 'rejected'] as const;
@@ -925,6 +934,7 @@ export function createGroupsRouter(
       `SELECT r.id, r.group_id, r.author_id, r.original_text, r.rewritten_text,
               r.is_anonymous, r.intent_preservation_score, r.relevance_score,
               r.relevance_label, r.pipeline_status, r.status, r.attachment_id,
+              r.pipeline_error_code, r.moderation_flags,
               date_trunc('milliseconds', r.created_at) AS created_at,
               date_trunc('milliseconds', r.decided_at) AS decided_at,
               date_trunc('milliseconds', ${sortColumn}) AS sort_at,

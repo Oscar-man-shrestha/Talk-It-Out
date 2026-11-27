@@ -8,6 +8,7 @@ import { blockedEitherWay } from '../blocks';
 import { withTransaction } from '../db';
 import { ApiError, notFound } from '../errors';
 import { RequireAuth } from '../middleware/auth';
+import { notifyMemberJoined } from '../notifyMembers';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -51,11 +52,12 @@ export function createInvitationsRouter(pool: Pool, requireAuth: RequireAuth): R
         throw new ApiError(403, 'blocked', 'You cannot join this group.');
       }
       if (accept) {
-        await client.query(
+        const joined = await client.query(
           `INSERT INTO group_members (group_id, user_id, role) VALUES ($1, $2, 'contributor')
            ON CONFLICT DO NOTHING`,
           [inv.group_id, me],
         );
+        if (joined.rowCount) await notifyMemberJoined(client, inv.group_id, me);
       }
       await client.query(
         `UPDATE group_invitations SET status = $2, decided_at = now() WHERE id = $1`,

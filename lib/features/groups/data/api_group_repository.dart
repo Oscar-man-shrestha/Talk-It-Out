@@ -195,6 +195,7 @@ class ApiGroupRepository implements GroupRepository {
         ready: status == 'done',
         failed: status == 'failed',
         rewrittenText: json['rewritten_text'] as String?,
+        failureCode: json['rewrite_error_code'] as String?,
       );
     });
   }

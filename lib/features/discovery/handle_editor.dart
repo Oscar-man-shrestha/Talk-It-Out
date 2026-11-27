@@ -7,6 +7,7 @@ import 'package:talk_it_out/app/repository_providers.dart';
 import 'package:talk_it_out/core/errors/repository_exception.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 /// The signed-in person's @handle and ideas for one (`API.md` 53).
 final handleProvider = FutureProvider<HandleState>(
@@ -180,7 +181,7 @@ class _HandleEditorState extends ConsumerState<HandleEditor> {
                   : typed.isEmpty
                   ? null
                   : Icon(
-                      ok ? Icons.check_circle : Icons.cancel,
+                      ok ? PhosphorIconsFill.checkCircle : Icons.cancel,
                       color: ok ? Colors.green.shade700 : Colors.red.shade700,
                     ),
               helperText: ok && !unchanged ? 'Available' : null,

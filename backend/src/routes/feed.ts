@@ -7,6 +7,7 @@ import { RequireAuth } from '../middleware/auth';
 import { uniqueConstraint, withTransaction } from '../db';
 import { blockedEitherWay, notBlockedSql, visiblePostSql } from '../blocks';
 import { mediaUrl } from './profiles';
+import { isPremium } from '../premium';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -33,6 +34,30 @@ const postContentSchema = z.object({
     .max(150, 'Titles can be at most 150 characters.')
     .nullish(),
   topic: z.enum(POST_TOPICS, { error: () => 'Choose one of the listed topics.' }).nullish(),
+});
+
+/**
+ * Older questions have no topic; the topic filter falls back to these words
+ * for them, the same list the app uses (lib/features/feed/data/post_topic.dart).
+ */
+const TOPIC_KEYWORDS: Record<(typeof POST_TOPICS)[number], string[]> = {
+  workplace_policy: ['policy', 'workplace', 'remote'],
+  engineering: ['engineer', 'tech', 'dashboard', 'estimate', 'nlp'],
+  leadership: ['lead', 'exec'],
+  compensation: ['pay', 'equity', 'compensation'],
+  safety: ['safety', 'retro', 'psych'],
+  culture: ['ethic', 'culture', 'offsite'],
+};
+
+// GET /posts filters (API.md 70). Applied in the database, so filtered
+// pages are complete instead of a filter over what the app has loaded.
+const postListFilterSchema = z.object({
+  topic: z.enum(POST_TOPICS, { error: () => 'Choose one of the listed topics.' }).optional(),
+  filter: z
+    .enum(['unanswered', 'answered', 'discussed'], {
+      error: () => 'Filter must be unanswered, answered or discussed.',
+    })
+    .optional(),
 });
 
 const commentContentSchema = z.object({
@@ -74,6 +99,7 @@ export interface PostRow {
   created_at: Date;
   author_id: string;
   author_name: string;
+  author_premium?: boolean;
   reaction_count: number;
   comment_count: number;
   my_reaction: boolean;
@@ -92,6 +118,7 @@ interface CommentRow {
   created_at: Date;
   author_id: string;
   author_name: string;
+  author_premium?: boolean;
   /** Only filled for the question's author; null for everyone else. */
   report_count?: number | null;
   reported_by_me?: boolean;
@@ -117,7 +144,8 @@ export function postJson(row: PostRow) {
   const flags = analysisFlags(row.analysis_status, row.analysis_nsfw, row.analysis_flags);
   return {
     id: row.id,
-    author: { id: row.author_id, name: row.author_name },
+    // Premium badge in the named public feed only (API.md 74).
+    author: { id: row.author_id, name: row.author_name, premium: row.author_premium === true },
     title: row.title ?? null,
     topic: row.topic ?? null,
     content: row.content,
@@ -138,7 +166,8 @@ function commentJson(row: CommentRow) {
   return {
     id: row.id,
     post_id: row.post_id,
-    author: { id: row.author_id, name: row.author_name },
+    // Premium badge in the named public feed only (API.md 74).
+    author: { id: row.author_id, name: row.author_name, premium: row.author_premium === true },
     content: row.content,
     nsfw_flag: flags.nsfw_flag,
     other_flags: flags.other_flags,
@@ -156,6 +185,9 @@ export const POST_SELECT = `
   SELECT p.id, p.title, p.topic, p.content, p.analysis_status, p.analysis_nsfw, p.analysis_flags,
          date_trunc('milliseconds', p.created_at) AS created_at,
          u.id AS author_id, u.name AS author_name,
+         EXISTS (SELECT 1 FROM subscriptions ps WHERE ps.user_id = u.id
+                   AND ps.status IN ('active', 'grace', 'cancelled')
+                   AND (ps.expires_at IS NULL OR ps.expires_at > now())) AS author_premium,
          (SELECT count(*)::int FROM post_likes l WHERE l.post_id = p.id) AS reaction_count,
          (SELECT count(*)::int FROM comments c WHERE c.post_id = p.id) AS comment_count,
          EXISTS (SELECT 1 FROM post_likes ml
@@ -173,6 +205,9 @@ const COMMENT_SELECT = `
   SELECT c.id, c.post_id, c.content, c.analysis_status, c.analysis_nsfw,
          c.analysis_flags, date_trunc('milliseconds', c.created_at) AS created_at,
          u.id AS author_id, u.name AS author_name,
+         EXISTS (SELECT 1 FROM subscriptions ps WHERE ps.user_id = u.id
+                   AND ps.status IN ('active', 'grace', 'cancelled')
+                   AND (ps.expires_at IS NULL OR ps.expires_at > now())) AS author_premium,
          CASE WHEN p.author_id = $5
               THEN (SELECT count(*)::int FROM comment_reports cr WHERE cr.comment_id = c.id)
          END AS report_count,
@@ -235,6 +270,7 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
         ...row,
         author_id: req.user!.id,
         author_name: req.user!.name,
+        author_premium: await isPremium(pool, req.user!.id),
         reaction_count: 0,
         comment_count: 0,
         my_reaction: false,
@@ -245,14 +281,37 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
 
   router.get('/', async (req, res) => {
     const { limit, cursor } = parseListQuery(req);
+    const { topic, filter } = parseWith(postListFilterSchema, {
+      topic: req.query.topic,
+      filter: req.query.filter,
+    });
+    const keywords = topic ? TOPIC_KEYWORDS[topic].map((k) => `%${k}%`) : null;
     const { rows } = await pool.query(
       `${POST_SELECT}
        WHERE ($2::timestamptz IS NULL
          OR (date_trunc('milliseconds', p.created_at), p.id) < ($2::timestamptz, $3::uuid))
          AND ${visiblePostSql('$1')}
+         AND ($5::text IS NULL OR p.topic = $5::text
+              OR (p.topic IS NULL
+                  AND lower(coalesce(p.title, '') || ' ' || p.content) LIKE ANY ($6::text[])))
+         AND ($7::text IS NULL
+              OR ($7::text = 'unanswered'
+                  AND NOT EXISTS (SELECT 1 FROM comments fc WHERE fc.post_id = p.id))
+              OR ($7::text = 'answered'
+                  AND EXISTS (SELECT 1 FROM comments fc WHERE fc.post_id = p.id))
+              OR ($7::text = 'discussed'
+                  AND (SELECT count(*) FROM comments fc WHERE fc.post_id = p.id) >= 2))
        ORDER BY p.created_at DESC, p.id DESC
        LIMIT $4`,
-      [req.user!.id, cursor?.t ?? null, cursor?.i ?? null, limit + 1],
+      [
+        req.user!.id,
+        cursor?.t ?? null,
+        cursor?.i ?? null,
+        limit + 1,
+        topic ?? null,
+        keywords,
+        filter ?? null,
+      ],
     );
     const page = buildPage(
       rows,
@@ -320,11 +379,25 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
     parseWith(reactionSchema, req.body);
     if ((await postAuthor(pool, postId)) === null) throw notFound();
     // Idempotent per user: a second add keeps exactly one like row.
-    await pool.query(
+    const liked = await pool.query(
       `INSERT INTO post_likes (post_id, user_id) VALUES ($1, $2)
        ON CONFLICT DO NOTHING`,
       [postId, req.user!.id],
     );
+    // The author hears about new likes once per unread batch (no spam from
+    // many likes, or from liking and unliking), never about their own.
+    if (liked.rowCount) {
+      await pool.query(
+        `INSERT INTO notifications (recipient_id, type, ref_id, post_id)
+         SELECT p.author_id, 'question_liked', p.id, p.id
+           FROM posts p
+          WHERE p.id = $1 AND p.author_id <> $2
+            AND NOT EXISTS (SELECT 1 FROM notifications n
+                             WHERE n.recipient_id = p.author_id AND n.type = 'question_liked'
+                               AND n.post_id = p.id AND n.read_at IS NULL)`,
+        [postId, req.user!.id],
+      );
+    }
     const { rows } = await pool.query(
       `SELECT (SELECT count(*)::int FROM post_likes l WHERE l.post_id = $1) AS reaction_count,
               EXISTS (SELECT 1 FROM post_likes ml
@@ -420,7 +493,12 @@ export function createFeedRouter(pool: Pool, requireAuth: RequireAuth): Router {
     });
     const row = rows[0];
     res.status(201).json(
-      commentJson({ ...row, author_id: req.user!.id, author_name: req.user!.name }),
+      commentJson({
+        ...row,
+        author_id: req.user!.id,
+        author_name: req.user!.name,
+        author_premium: await isPremium(pool, req.user!.id),
+      }),
     );
   });
 

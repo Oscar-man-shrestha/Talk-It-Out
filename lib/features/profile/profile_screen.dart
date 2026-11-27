@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:talk_it_out/core/ui/large_title_header.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talk_it_out/core/models/enums.dart';
@@ -22,6 +23,12 @@ import 'package:talk_it_out/features/discovery/handle_editor.dart';
 import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
 import 'package:talk_it_out/core/share/share_links.dart';
 import 'package:talk_it_out/features/discovery/interest_icons.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
+import 'package:talk_it_out/features/premium/premium_profile_card.dart';
+import 'package:talk_it_out/core/ui/page_padding.dart';
+import 'package:talk_it_out/core/ui/surfaces.dart';
+
+part 'settings_screen.dart';
 
 // Stitch Monochrome Precision tokens
 const _kPrimary = Brand.accent;
@@ -145,7 +152,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                         IconButton(
                           icon: const Icon(
-                            Icons.close,
+                            PhosphorIconsRegular.x,
                             size: 20,
                             color: _kTextSecondary,
                           ),
@@ -251,7 +258,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       label: 'Full Name',
                       controller: nameCtrl,
                       hint: 'Your full name',
-                      icon: Icons.person_outline,
+                      icon: PhosphorIconsRegular.user,
                     ),
                     const SizedBox(height: 12),
 
@@ -270,7 +277,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       label: 'Location',
                       controller: locationCtrl,
                       hint: 'San Francisco Bay Area • Remote',
-                      icon: Icons.location_on_outlined,
+                      icon: PhosphorIconsRegular.mapPin,
                     ),
                     const SizedBox(height: 12),
 
@@ -289,14 +296,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       label: 'LinkedIn Profile URL',
                       controller: linkedinCtrl,
                       hint: 'linkedin.com/in/username',
-                      icon: Icons.public,
+                      icon: PhosphorIconsRegular.globe,
                     ),
                     const SizedBox(height: 12),
                     _EditProfileTextField(
                       label: 'GitHub URL',
                       controller: githubCtrl,
                       hint: 'github.com/username',
-                      icon: Icons.code,
+                      icon: PhosphorIconsRegular.code,
                     ),
                     const SizedBox(height: 12),
                     _EditProfileTextField(
@@ -397,7 +404,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.image, size: 20, color: _kTextPrimary),
+                            Icon(
+                              PhosphorIconsRegular.image,
+                              size: 20,
+                              color: _kTextPrimary,
+                            ),
                             SizedBox(width: 8),
                             Text(
                               'Customize Cover Photo / Banner',
@@ -410,7 +421,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ],
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close, size: 20),
+                          icon: const Icon(PhosphorIconsRegular.x, size: 20),
                           onPressed: () => Navigator.of(ctx).pop(),
                         ),
                       ],
@@ -430,7 +441,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             });
                           }
                         },
-                        icon: const Icon(Icons.upload_file_outlined, size: 18),
+                        icon: const Icon(
+                          PhosphorIconsRegular.uploadSimple,
+                          size: 18,
+                        ),
                         label: const Text(
                           'Upload Cover File from Computer / Phone',
                         ),
@@ -676,7 +690,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, size: 20),
+                    icon: const Icon(PhosphorIconsRegular.x, size: 20),
                     onPressed: () => Navigator.of(ctx).pop(),
                   ),
                 ],
@@ -686,7 +700,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 label: 'Title / Role',
                 controller: roleCtrl,
                 hint: 'e.g. Senior Privacy Engineer',
-                icon: Icons.work_outline,
+                icon: PhosphorIconsRegular.briefcase,
               ),
               const SizedBox(height: 12),
               _EditProfileTextField(
@@ -700,14 +714,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 label: 'Dates / Duration',
                 controller: durationCtrl,
                 hint: 'e.g. 2024 - Present • 2 yrs',
-                icon: Icons.calendar_today_outlined,
+                icon: PhosphorIconsRegular.calendarBlank,
               ),
               const SizedBox(height: 12),
               _EditProfileTextField(
                 label: 'Location',
                 controller: locationCtrl,
                 hint: 'e.g. San Francisco, CA • Remote',
-                icon: Icons.location_on_outlined,
+                icon: PhosphorIconsRegular.mapPin,
               ),
               const SizedBox(height: 12),
               _EditProfileTextField(
@@ -820,7 +834,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, size: 20),
+                    icon: const Icon(PhosphorIconsRegular.x, size: 20),
                     onPressed: () => Navigator.of(ctx).pop(),
                   ),
                 ],
@@ -830,21 +844,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 label: 'School / University',
                 controller: schoolCtrl,
                 hint: 'e.g. Stanford University',
-                icon: Icons.school_outlined,
+                icon: PhosphorIconsRegular.graduationCap,
               ),
               const SizedBox(height: 12),
               _EditProfileTextField(
                 label: 'Degree & Field',
                 controller: degreeCtrl,
                 hint: 'e.g. M.S. in Computer Science',
-                icon: Icons.workspace_premium_outlined,
+                icon: PhosphorIconsRegular.crown,
               ),
               const SizedBox(height: 12),
               _EditProfileTextField(
                 label: 'Dates / Duration',
                 controller: durationCtrl,
                 hint: 'e.g. 2019 - 2021',
-                icon: Icons.calendar_today_outlined,
+                icon: PhosphorIconsRegular.calendarBlank,
               ),
               const SizedBox(height: 12),
               _EditProfileTextField(
@@ -951,32 +965,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Future<void> _openChangePassword() async {
-    final changed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => const _ChangePasswordDialog(),
-    );
-    if (changed == true && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text(AppStrings.passwordChanged)));
-    }
-  }
-
-  Future<void> _confirmLogoutAll() async {
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => const _LogoutAllDialog(),
-    );
-  }
-
-  Future<void> _confirmDeleteAccount() async {
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => const _DeleteAccountDialog(),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionProvider);
@@ -1003,122 +991,45 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return Scaffold(
       backgroundColor: _kSurface,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(56),
-        child: Container(
-          decoration: const BoxDecoration(
-            color: _kSurface,
-            border: Border(bottom: BorderSide(color: _kBorderSubtle)),
+      appBar: LargeTitleHeader(
+        title: AppStrings.navProfile,
+        subtitle: 'Talk It Out',
+        actions: [
+          IconButton(
+            color: Colors.white,
+            icon: const Icon(PhosphorIconsRegular.shareNetwork, size: 20),
+            tooltip: 'Copy profile summary',
+            onPressed: () async {
+              final summary = [
+                profile.name,
+                if (profile.headline.isNotEmpty) profile.headline,
+                if (profile.location.isNotEmpty) profile.location,
+                'on Talk It Out',
+              ].join(' · ');
+              await Clipboard.setData(ClipboardData(text: summary));
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Profile summary copied.'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+            },
           ),
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: isDesktop ? hPad : (isMobile ? 12.0 : 16.0),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: _kPrimary,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Icon(
-                      Icons.chat_bubble,
-                      size: 15,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'TALK IT OUT',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.8,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                          SizedBox(width: 4),
-                          Text('•', style: TextStyle(color: _kTextTertiary)),
-                          SizedBox(width: 4),
-                          Text(
-                            'PROFILE',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: _kTextSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.share_outlined, size: 18),
-                    tooltip: 'Copy profile summary',
-                    onPressed: () async {
-                      final summary = [
-                        profile.name,
-                        if (profile.headline.isNotEmpty) profile.headline,
-                        if (profile.location.isNotEmpty) profile.location,
-                        'on Talk It Out',
-                      ].join(' · ');
-                      await Clipboard.setData(ClipboardData(text: summary));
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Profile summary copied.'),
-                          duration: Duration(seconds: 1),
-                        ),
-                      );
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    tooltip: 'Edit Profile Details',
-                    onPressed: _openEditProfileModal,
-                  ),
-                  Material(
-                    color: Brand.accent,
-                    shape: const CircleBorder(),
-                    child: SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: ClipOval(
-                        child: profile.avatarUrl != null
-                            ? Image.network(
-                                profile.avatarUrl!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const Icon(
-                                      Icons.person,
-                                      size: 18,
-                                      color: Colors.white,
-                                    ),
-                              )
-                            : const Icon(
-                                Icons.person,
-                                size: 18,
-                                color: Colors.white,
-                              ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          IconButton(
+            color: Colors.white,
+            icon: const Icon(PhosphorIconsRegular.pencilSimple, size: 20),
+            tooltip: 'Edit Profile Details',
+            onPressed: _openEditProfileModal,
           ),
-        ),
+          IconButton(
+            key: const ValueKey('profile-settings'),
+            color: Colors.white,
+            icon: const Icon(PhosphorIconsRegular.gear, size: 21),
+            tooltip: 'Settings',
+            onPressed: () => context.push('/settings'),
+          ),
+        ],
       ),
       body: AsyncBody(
         status: asyncStatus(session, isEmpty: user == null),
@@ -1202,7 +1113,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(
-                                            Icons.upload_file_outlined,
+                                            PhosphorIconsRegular.uploadSimple,
                                             size: 13,
                                             color: _kTextPrimary,
                                           ),
@@ -1369,7 +1280,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                         minimumSize: const Size(0, 32),
                                       ),
                                       icon: const Icon(
-                                        Icons.edit_outlined,
+                                        PhosphorIconsRegular.pencilSimple,
                                         size: 13,
                                         color: _kTextPrimary,
                                       ),
@@ -1414,7 +1325,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       'MEMBER',
                                       style: TextStyle(
                                         fontSize: 9,
-                                        fontFamily: 'monospace',
                                         fontWeight: FontWeight.w700,
                                         color: _kTextSecondary,
                                       ),
@@ -1462,7 +1372,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 children: [
                                   if (profile.location.isNotEmpty) ...[
                                     const Icon(
-                                      Icons.location_on_outlined,
+                                      PhosphorIconsRegular.mapPin,
                                       size: 14,
                                       color: _kTextTertiary,
                                     ),
@@ -1482,7 +1392,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     const SizedBox(width: 8),
                                   ] else ...[
                                     const Icon(
-                                      Icons.diversity_3_outlined,
+                                      PhosphorIconsRegular.usersThree,
                                       size: 14,
                                       color: _kTextTertiary,
                                     ),
@@ -1510,11 +1420,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 children: [
                                   for (final (icon, name, url) in [
                                     (
-                                      Icons.public,
+                                      PhosphorIconsRegular.globe,
                                       'LinkedIn',
                                       profile.linkedinUrl,
                                     ),
-                                    (Icons.code, 'GitHub', profile.githubUrl),
+                                    (
+                                      PhosphorIconsRegular.code,
+                                      'GitHub',
+                                      profile.githubUrl,
+                                    ),
                                     (
                                       Icons.language,
                                       'Portfolio',
@@ -1544,115 +1458,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _FeedInterestsCard(
-                    interests: ref.watch(interestsProvider).value,
-                    onEdit: () => context.push('/feed/interests'),
-                    onPersonalized: (on) async {
-                      final messenger = ScaffoldMessenger.of(context);
-                      try {
-                        await ref
-                            .read(interestsProvider.notifier)
-                            .setPersonalized(on);
-                      } on RepositoryException catch (e) {
-                        messenger.showSnackBar(
-                          SnackBar(content: Text(e.message)),
-                        );
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Material(
-                    color: _kSurface,
-                    borderRadius: BorderRadius.circular(12),
-                    child: ListTile(
-                      key: const ValueKey('profile-blocked'),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: const BorderSide(color: _kBorderSubtle),
-                      ),
-                      leading: const Icon(Icons.block, color: _kTextSecondary),
-                      title: const Text(
-                        'Blocked people',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: const Text(
-                        'People you blocked cannot find you or see your questions.',
-                        style: TextStyle(fontSize: 11.5),
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => context.push('/blocked'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Material(
-                    color: _kPrimary,
-                    borderRadius: BorderRadius.circular(12),
-                    child: ListTile(
-                      key: const ValueKey('profile-invite-friends'),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      leading: const Icon(
-                        Icons.favorite_outline,
-                        color: Colors.white,
-                      ),
-                      title: const Text(
-                        'Invite friends to Talk It Out',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                      subtitle: const Text(
-                        'Safer conversations need more people in them.',
-                        style: TextStyle(fontSize: 11.5, color: Colors.white70),
-                      ),
-                      trailing: const Icon(
-                        Icons.ios_share,
-                        color: Colors.white,
-                      ),
-                      onTap: () async {
-                        final text = inviteFriendsText();
-                        final messenger = ScaffoldMessenger.of(context);
-                        if (!await shareText(text, subject: 'Talk It Out')) {
-                          await Clipboard.setData(ClipboardData(text: text));
-                          messenger.showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Invite copied. Paste it anywhere.',
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 4,
-                    children: [
-                      for (final (path, label) in const [
-                        ('privacy', 'Privacy policy'),
-                        ('terms', 'Terms of use'),
-                        ('delete-account', 'How deletion works'),
-                      ])
-                        TextButton(
-                          key: ValueKey('profile-legal-$path'),
-                          onPressed: () => context.push('/legal/$path'),
-                          child: Text(
-                            label,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              color: _kTextSecondary,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  // Settings live on their own screen (Run 126); the
+                  // profile shows who you are.
+                  _OpenSettingsTile(onTap: () => context.push('/settings')),
                   const SizedBox(height: 12),
 
                   // 2. LinkedIn-Style "About" Section with Dynamic Skills
@@ -1680,7 +1488,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             ),
                             IconButton(
                               icon: const Icon(
-                                Icons.edit_outlined,
+                                PhosphorIconsRegular.pencilSimple,
                                 size: 16,
                                 color: _kTextSecondary,
                               ),
@@ -1707,7 +1515,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               child: const Row(
                                 children: [
                                   Icon(
-                                    Icons.edit_note,
+                                    PhosphorIconsRegular.notePencil,
                                     size: 18,
                                     color: Brand.accentInk,
                                   ),
@@ -1758,7 +1566,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.add, size: 14, color: _kPrimary),
+                                    Icon(
+                                      PhosphorIconsRegular.plus,
+                                      size: 14,
+                                      color: _kPrimary,
+                                    ),
                                     SizedBox(width: 2),
                                     Text(
                                       'Add Skill',
@@ -1832,7 +1644,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ),
                               onPressed: () => _openExperienceDialog(),
                               icon: const Icon(
-                                Icons.add,
+                                PhosphorIconsRegular.plus,
                                 size: 14,
                                 color: _kTextPrimary,
                               ),
@@ -1925,7 +1737,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ),
                               onPressed: () => _openEducationDialog(),
                               icon: const Icon(
-                                Icons.add,
+                                PhosphorIconsRegular.plus,
                                 size: 14,
                                 color: _kTextPrimary,
                               ),
@@ -2079,7 +1891,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                       _BentoCard(
                         title: 'CONTRIBUTIONS',
-                        icon: Icons.forum_outlined,
+                        icon: PhosphorIconsRegular.chatsCircle,
                         value: '$myPosts',
                         subtitle: 'questions asked',
                       ),
@@ -2098,96 +1910,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-
-                  // 8. Account & Security Settings Card
-                  Container(
-                    decoration: BoxDecoration(
-                      color: _kSurface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _kBorderSubtle),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.fromLTRB(14, 14, 14, 6),
-                          child: Text(
-                            'ACCOUNT & PLATFORM PREFERENCES',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.6,
-                              color: _kTextTertiary,
-                            ),
-                          ),
-                        ),
-                        _PreferenceTile(
-                          icon: Icons.shield_outlined,
-                          title: 'Default Tone Target',
-                          subtitle:
-                              '${_tones[profile.toneIndex]} · named messages only',
-                          trailing: const Icon(
-                            Icons.tune,
-                            size: 16,
-                            color: _kTextSecondary,
-                          ),
-                          onTap: () {
-                            ref.read(userProfileProvider.notifier).cycleTone();
-                          },
-                        ),
-                        const Divider(height: 1, color: _kBorderSubtle),
-                        _PreferenceTile(
-                          icon: Icons.logout,
-                          title: AppStrings.logout,
-                          subtitle: 'Signs you out on this device',
-                          trailing: const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 13,
-                            color: _kTextTertiary,
-                          ),
-                          onTap: () {
-                            ref.read(sessionProvider.notifier).logout();
-                          },
-                        ),
-                        const Divider(height: 1, color: _kBorderSubtle),
-                        _PreferenceTile(
-                          icon: Icons.password,
-                          title: AppStrings.changePassword,
-                          subtitle: AppStrings.changePasswordSubtitle,
-                          trailing: const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 13,
-                            color: _kTextTertiary,
-                          ),
-                          onTap: _openChangePassword,
-                        ),
-                        const Divider(height: 1, color: _kBorderSubtle),
-                        _PreferenceTile(
-                          icon: Icons.devices_other,
-                          title: AppStrings.logoutAll,
-                          subtitle: AppStrings.logoutAllSubtitle,
-                          trailing: const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 13,
-                            color: _kTextTertiary,
-                          ),
-                          onTap: _confirmLogoutAll,
-                        ),
-                        const Divider(height: 1, color: _kBorderSubtle),
-                        _PreferenceTile(
-                          icon: Icons.delete_outline,
-                          title: AppStrings.deleteAccount,
-                          subtitle: AppStrings.deleteAccountSubtitle,
-                          trailing: const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 13,
-                            color: _kTextTertiary,
-                          ),
-                          onTap: _confirmDeleteAccount,
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
       ),
@@ -2376,7 +2098,11 @@ class _SkillChip extends StatelessWidget {
             const SizedBox(width: 4),
             GestureDetector(
               onTap: onRemove,
-              child: const Icon(Icons.close, size: 13, color: _kTextSecondary),
+              child: const Icon(
+                PhosphorIconsRegular.x,
+                size: 13,
+                color: _kTextSecondary,
+              ),
             ),
           ],
         ],
@@ -2409,7 +2135,11 @@ class _ExperienceItem extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: _kBorderSubtle),
           ),
-          child: const Icon(Icons.work_outline, size: 18, color: _kPrimary),
+          child: const Icon(
+            PhosphorIconsRegular.briefcase,
+            size: 18,
+            color: _kPrimary,
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -2434,7 +2164,7 @@ class _ExperienceItem extends StatelessWidget {
                     children: [
                       IconButton(
                         icon: const Icon(
-                          Icons.edit_outlined,
+                          PhosphorIconsRegular.pencilSimple,
                           size: 14,
                           color: _kTextSecondary,
                         ),
@@ -2445,7 +2175,7 @@ class _ExperienceItem extends StatelessWidget {
                       const SizedBox(width: 8),
                       IconButton(
                         icon: const Icon(
-                          Icons.delete_outline,
+                          PhosphorIconsRegular.trash,
                           size: 14,
                           color: Colors.redAccent,
                         ),
@@ -2510,7 +2240,11 @@ class _EducationItem extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: _kBorderSubtle),
           ),
-          child: const Icon(Icons.school_outlined, size: 18, color: _kPrimary),
+          child: const Icon(
+            PhosphorIconsRegular.graduationCap,
+            size: 18,
+            color: _kPrimary,
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -2535,7 +2269,7 @@ class _EducationItem extends StatelessWidget {
                     children: [
                       IconButton(
                         icon: const Icon(
-                          Icons.edit_outlined,
+                          PhosphorIconsRegular.pencilSimple,
                           size: 14,
                           color: _kTextSecondary,
                         ),
@@ -2546,7 +2280,7 @@ class _EducationItem extends StatelessWidget {
                       const SizedBox(width: 8),
                       IconButton(
                         icon: const Icon(
-                          Icons.delete_outline,
+                          PhosphorIconsRegular.trash,
                           size: 14,
                           color: Colors.redAccent,
                         ),
@@ -2736,11 +2470,12 @@ class _PreferenceTile extends StatelessWidget {
     required this.subtitle,
     required this.trailing,
     this.onTap,
+    super.key,
   });
 
   final IconData icon;
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final Widget trailing;
   final VoidCallback? onTap;
 
@@ -2761,19 +2496,21 @@ class _PreferenceTile extends StatelessWidget {
                   Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: _kTextPrimary,
                     ),
                   ),
-                  const SizedBox(height: 1),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: _kTextSecondary,
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: _kTextSecondary,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -3125,7 +2862,9 @@ class _HandleLine extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Icon(
-              handle == null ? Icons.add_circle_outline : Icons.edit_outlined,
+              handle == null
+                  ? Icons.add_circle_outline
+                  : PhosphorIconsRegular.pencilSimple,
               size: 13,
               color: _kTextSecondary,
             ),
@@ -3271,6 +3010,55 @@ class _FeedInterestsCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// The way from the profile to Settings (account and app preferences).
+class _OpenSettingsTile extends StatelessWidget {
+  const _OpenSettingsTile({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Surfaces.radius),
+        side: const BorderSide(color: Brand.border),
+      ),
+      child: ListTile(
+        key: const ValueKey('profile-open-settings'),
+        onTap: onTap,
+        leading: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: Brand.ink,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(
+            PhosphorIconsRegular.gear,
+            size: 18,
+            color: Colors.white,
+          ),
+        ),
+        title: const Text(
+          'Settings',
+          style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+        ),
+        subtitle: const Text(
+          'Premium, preferences, account and security',
+          style: TextStyle(fontSize: 12.5, color: Brand.inkSoft),
+        ),
+        trailing: const Icon(
+          PhosphorIconsRegular.caretRight,
+          size: 14,
+          color: Brand.inkFaint,
+        ),
       ),
     );
   }

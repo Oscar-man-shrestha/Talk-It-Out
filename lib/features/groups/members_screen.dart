@@ -16,6 +16,7 @@ import 'package:talk_it_out/features/groups/data/group_invitation.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/invites/invite_sheet.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 class MembersScreen extends ConsumerWidget {
   const MembersScreen({required this.groupId, super.key});
@@ -198,7 +199,7 @@ class MembersScreen extends ConsumerWidget {
                 width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: () => showAddMembersSheet(context, groupId),
-                  icon: const Icon(Icons.person_add_alt_1, size: 16),
+                  icon: const Icon(PhosphorIconsRegular.userPlus, size: 16),
                   label: const Text('Invite members'),
                   style: FilledButton.styleFrom(
                     backgroundColor: Brand.ink,
@@ -220,7 +221,7 @@ class MembersScreen extends ConsumerWidget {
                     groupId: groupId,
                     agenda: group.value?.agenda ?? '',
                   ),
-                  icon: const Icon(Icons.link, size: 16),
+                  icon: const Icon(PhosphorIconsRegular.link, size: 16),
                   label: const Text('Invite with a link or QR code'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Brand.ink,
@@ -365,7 +366,7 @@ class MembersScreen extends ConsumerWidget {
               child: Row(
                 children: [
                   Icon(
-                    Icons.warning_amber_rounded,
+                    PhosphorIconsRegular.warning,
                     color: Colors.red.shade700,
                     size: 22,
                   ),

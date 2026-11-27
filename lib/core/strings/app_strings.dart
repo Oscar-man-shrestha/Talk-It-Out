@@ -54,6 +54,44 @@ abstract final class AppStrings {
   static const accept = 'Accept';
   static const reject = 'Reject';
   static const rewriteUnavailable = 'Rewrite unavailable';
+
+  /// Why the AI could not rephrase a message (API.md 72), in plain words.
+  /// Shown to the controller and in the sender's own preview only.
+  static String rewriteReason(String? code) => switch (code) {
+    'unsupported_language' =>
+      'The AI only rephrases messages written in English.',
+    'input_too_long' => 'The message is too long for the AI to rephrase.',
+    'intent_not_preserved' =>
+      'The AI could not rephrase it without changing its meaning.',
+    'abusive_language_kept' =>
+      'Every AI attempt still contained abusive wording, so none is shown.',
+    'hate_speech_kept' =>
+      'Every AI attempt still contained the hateful claim, so none is shown.',
+    'abuse_only' =>
+      'The message is only abusive language: there is nothing to rephrase.',
+    'model_refused' =>
+      'The AI declined: the message is mostly abuse, with little to rephrase.',
+    'output_too_long' ||
+    'blank_output' ||
+    'prompt_scaffold_leak' => 'The AI rewrite failed our safety checks.',
+    'model_timeout' ||
+    'model_unavailable' ||
+    'model_bad_response' ||
+    'model_empty_output' => 'The AI service was unavailable. Try again.',
+    _ => 'The AI could not rephrase this message.',
+  };
+
+  /// Advisory moderation flags on the original message (API.md 72).
+  static String moderationFlag(String flag) => switch (flag) {
+    'hate_speech' => 'Hate speech',
+    'threat' => 'Threat',
+    'abusive_language' => 'Abusive language',
+    'profanity' => 'Profanity',
+    'self_harm' => 'May need support',
+    _ => 'Flagged',
+  };
+  static const moderationFlagsNote =
+      'Flagged by the AI on the original. Advisory: you decide.';
   static const pipelineQueued = 'Waiting to rewrite';
   static const pipelineProcessing = 'Rewriting…';
   static const relevanceRelevant = 'Relevant';
@@ -133,6 +171,16 @@ abstract final class AppStrings {
 
   static String answerBest(String title) =>
       'Your answer was marked best on "$title".';
+
+  // Only the sender gets this, so it never reveals an anonymous author.
+  static String messagePublished(String agenda) =>
+      'Your message in $agenda was published.';
+
+  // Names the group only; the members list shows who.
+  static String memberJoined(String agenda) => 'A new member joined $agenda.';
+
+  static String questionLiked(String title) =>
+      'People liked your question "$title".';
   static const loading = 'Loading';
   static const retry = 'Try again';
   static const errorGeneric = 'Something went wrong. Please try again.';
@@ -286,6 +334,29 @@ abstract final class AppStrings {
   static const wrongPassword = 'That password is not correct.';
 
   static const continueWithGoogle = 'Continue with Google';
+
+  // "Continue as" (Run 119).
+  static String continuePasswordHint(String name) =>
+      'Enter the password for $name, then sign in.';
+  static String continueWithGoogleHint(String name) =>
+      '$name signs in with Google. Use "Continue with Google" below.';
+
+  // Sign-in hero (Run 117). Every line describes what the product does.
+  static const heroEyebrow = 'PRIVATE BY DESIGN';
+  static const heroTitle = 'Say what matters.\nKeep it safe.';
+  static const heroBody =
+      'Every message is rewritten for tone and approved by your group\'s '
+      'controller before anyone sees it.';
+  static const heroPointAnonymous = 'Speak up anonymously when you need to';
+  static const heroPointRewrite = 'AI rewrites the tone, never the meaning';
+  static const heroPointReview = 'A controller approves every message';
+  static const heroFootnote =
+      'The group sees the rewrite. Only the controller sees your original words.';
+
+  /// Create-group card on your own question (feed).
+  static const createGroupFromPostBody =
+      'Start a group to work on this question. You become its controller: '
+      'every message is rewritten for tone and you decide what is shared.';
   static const orDivider = 'or';
   static const googleFailed = 'Google sign-in failed. Please try again.';
   static const changePassword = 'Change password';
@@ -349,6 +420,11 @@ abstract final class AppStrings {
   static const commentReported =
       'Reported. The question\'s author can see it and remove the comment.';
   static const reportWithdrawn = 'Report withdrawn.';
+
+  /// Feed likes and answer upvotes.
+  static const likePost = 'Like';
+  static const unlikePost = 'Unlike';
+  static const cannotUpvoteOwnAnswer = "You can't upvote your own answer.";
   static const removeComment = 'Remove comment';
   static const commentRemoved = 'Comment removed.';
   static const removeCommentConfirm =
@@ -433,4 +509,155 @@ abstract final class AppStrings {
       'That message is further back. Tap "Load earlier messages" first.';
   static const jumpToLatest = 'Jump to latest';
   static const noMessagesYet = 'No messages yet';
+
+  // Premium (docs/PREMIUM_PLAN.md, API.md 71).
+  static const premium = 'Premium';
+  static const premiumTitle = 'Talk It Out Premium';
+  static const premiumTagline =
+      'More tools for the groups you lead. Everything you use today stays free.';
+  static const premiumPrice = '₹99';
+  static const premiumPerMonth = 'per month';
+  static const premiumSubscribe = 'Get Premium';
+  static const premiumRestore = 'Restore purchases';
+  static const premiumYouHave = "You're Premium";
+  static String premiumRenews(String date) => 'Renews on $date';
+  static String premiumEnds(String date) => 'Premium ends on $date';
+  static const premiumNoEnd = 'No end date';
+  static const premiumThanks = 'Welcome to Premium. Thank you!';
+  static const premiumCancelled = 'No charge was made.';
+  static const premiumFailed =
+      'The store could not complete the purchase. Please try again.';
+  static const premiumRestored = 'Purchases restored.';
+  static const premiumStoreUnavailable =
+      'Get Premium in the Talk It Out app on iPhone or Android.';
+  static const premiumFreeTitle = 'Free, always';
+  static const premiumWebPayNote =
+      'Secure checkout by Razorpay: UPI, cards, net banking or wallets.';
+  static const premiumCancelWeb = 'Cancel web subscription';
+  static const premiumCancelWebConfirm =
+      'Premium stays on until the end of the month you paid for, then it stops renewing.';
+  static const premiumCancelledWeb =
+      'Cancelled. Premium stays on until the end of your paid month.';
+
+  // Plan comparison and payment (Premium screen, Run 122).
+  static const planYourPlan = 'Your plan';
+  static const starMessage = 'Star';
+  static const unstarMessage = 'Unstar';
+  static const starNeedsPremium = 'Starred messages are part of Premium.';
+  static const starredTitle = 'Starred messages';
+  static const starredEmpty =
+      'No starred messages yet. Long-press a message in a group and choose Star.';
+  static const chatThemeTitle = 'Chat theme';
+  static const premiumFeatureThemesBodyLocked =
+      'Choose your bubble colour and chat wallpaper with Premium.';
+  static const chatThemeBubbles = 'Your bubble colour';
+  static const chatThemeWallpaper = 'Wallpaper';
+  static const chatThemePreviewOther = 'How is the release going?';
+  static const chatThemePreviewMine = 'Nearly there, testing today.';
+  static const promoTitle = 'Get Talk It Out Premium';
+  static const promoBody = 'Insights, templates, chat themes and more.';
+  static const sidebarGetPremium = 'Get Premium';
+  static const sidebarPremium = 'Premium';
+  static const planFreeCaption = 'Everything you need to talk it out.';
+  static const planPremiumCaption =
+      'Everything in Free, plus tools to do more.';
+  static const planFreeFeatures = [
+    'Unlimited groups and chats',
+    'Anonymous messages',
+    'AI tone rewrites on every message',
+    'Controller review and safety tools',
+    'Public Q&A feed, answers and likes',
+    'Catch up summaries and notifications',
+  ];
+  static const planPremiumFeatures = [
+    'Everything in Free',
+    'Group Insights for the groups you lead',
+    'Group templates: retro, town hall, class feedback',
+    'Chat themes: your own bubble colour and wallpaper',
+    'Starred messages, saved to find later',
+    'Premium badge next to your name in the feed',
+    'Support an independent, privacy-first app',
+  ];
+  static const payTitle = 'How you pay';
+  static const payMethods = [
+    'UPI',
+    'Debit or credit card',
+    'Net banking',
+    'Wallets (web)',
+    'Google Play balance',
+    'Apple ID balance',
+  ];
+  static const paySteps = [
+    'On your phone, tap Get Premium in the Talk It Out app. On the website, tap Get Premium on this page.',
+    'Pay securely: Google Play or the App Store on phones, Razorpay on the web (UPI, cards, net banking, wallets). Talk It Out never sees your card or UPI details.',
+    'Premium starts at once and works wherever you sign in.',
+    'It renews every month for ₹99. Cancel anytime: in your store subscriptions on phones, or on this page for web payments.',
+  ];
+  static const premiumFreeBody =
+      'Groups, chat, anonymous messages, AI tone rewrites, review, the feed and Catch up. No limits added.';
+  static const premiumNeverSold =
+      'Anonymity, AI rewrites and moderation are never paid features, and Premium is never shown on anonymous messages.';
+  static const premiumFeatureInsights = 'Group Insights';
+  static const premiumFeatureInsightsBody =
+      'Activity, review times and top themes for the groups you lead. Counts only, never names.';
+  static const premiumFeatureTemplates = 'Group templates';
+  static const premiumFeatureTemplatesBody =
+      'Start a sprint retro, class feedback or town hall in one tap.';
+  static const premiumFeatureThemes = 'Chat themes';
+  static const premiumFeatureThemesBody =
+      'Your own bubble colour and chat wallpaper.';
+  static const premiumFeatureBadge = 'Premium badge';
+  static const premiumFeatureBadgeBody =
+      'A crown next to your name in the public feed.';
+  static const premiumFeatureStarred = 'Starred messages';
+  static const premiumFeatureStarredBody =
+      'Save important messages and find them later.';
+  static const premiumDisclosure =
+      'Renews every month until you cancel. Cancel anytime in your App Store or Google Play subscription settings; you keep Premium until the end of the paid month.';
+  static const premiumTerms = 'Terms';
+  static const premiumPrivacy = 'Privacy';
+  static const premiumLocked = 'Premium';
+  static const premiumUnlock = 'Unlock with Premium';
+
+  // Group Insights.
+  static const insightsTitle = 'Group Insights';
+  static String insightsWindow(int days) => 'Last $days days';
+  static const insightsMessages = 'Messages shared';
+  static const insightsPending = 'Waiting for review';
+  static const insightsAccepted = 'Approved';
+  static const insightsRejected = 'Not approved';
+  static const insightsReviewTime = 'Your typical review time';
+  static const insightsParticipants = 'People who posted by name';
+  static const insightsAnonymous = 'Anonymous messages';
+  static const insightsBusiest = 'Busiest hours';
+  static const insightsTopWords = 'Most talked about';
+  static const insightsNoWords = 'Not enough messages yet.';
+  static const insightsActivity = 'Activity';
+  static const insightsSmallGroup =
+      'Participation and timing appear once the group has 5 or more members, so nobody can be singled out.';
+  static const insightsPrivacy =
+      'Counts from published messages only. Nobody is named.';
+  static const insightsTeaserTitle = 'See how your group is doing';
+  static const insightsTeaserBody =
+      'Group Insights shows activity, review times and top themes for groups you lead. Part of Premium.';
+  static const insightsControllerOnly =
+      'Only the group’s controller can see its insights.';
+
+  // Group templates.
+  static const templatesTitle = 'Start from a template';
+  static const templateRetro = 'Sprint retro';
+  static const templateRetroAgenda =
+      'Sprint retro: what went well, what slowed us down, what to try next';
+  static const templateClass = 'Class feedback';
+  static const templateClassAgenda =
+      'Class feedback: what is working and what could help you learn better';
+  static const templateTownHall = 'Town hall Q&A';
+  static const templateTownHallAgenda =
+      'Town hall Q&A: questions for leadership, answered openly';
+  static const templateOneOnOne = '1:1 feedback';
+  static const templateOneOnOneAgenda =
+      '1:1 feedback: what I need from you and what you need from me';
+  static const templateExit = 'Exit conversation';
+  static const templateExitAgenda =
+      'Exit conversation: what we should keep, fix and stop doing';
 }

@@ -6,6 +6,7 @@ import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
 import 'package:talk_it_out/features/discovery/discovery_providers.dart';
 import 'package:talk_it_out/features/discovery/interest_icons.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 /// Pinterest-style "What are you into?" picker. [firstRun] shows the
 /// welcome wording and a Skip button.
@@ -59,8 +60,6 @@ class _InterestPickerScreenState extends ConsumerState<InterestPickerScreen> {
     return Scaffold(
       backgroundColor: Brand.canvas,
       appBar: AppBar(
-        backgroundColor: Brand.canvas,
-        surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: widget.firstRun ? null : const BackButton(),
         automaticallyImplyLeading: !widget.firstRun,
@@ -69,7 +68,10 @@ class _InterestPickerScreenState extends ConsumerState<InterestPickerScreen> {
             TextButton(
               key: const ValueKey('interests-skip'),
               onPressed: _saving ? null : () => _save(const []),
-              child: const Text('Skip', style: TextStyle(color: Brand.inkSoft)),
+              child: const Text(
+                'Skip',
+                style: TextStyle(color: Colors.white70),
+              ),
             ),
         ],
       ),
@@ -261,7 +263,7 @@ class _InterestTile extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
-                        Icons.check,
+                        PhosphorIconsRegular.check,
                         size: 15,
                         color: Brand.ink,
                       ),

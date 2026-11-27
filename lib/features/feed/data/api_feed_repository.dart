@@ -14,11 +14,20 @@ class ApiFeedRepository implements FeedRepository {
   final Dio _dio;
 
   @override
-  Future<PageResult<Post>> listPosts({int? limit, String? cursor}) {
+  Future<PageResult<Post>> listPosts({
+    int? limit,
+    String? cursor,
+    String? topic,
+    String? filter,
+  }) {
     return guardApi(() async {
       final response = await _dio.get(
         Endpoints.posts,
-        queryParameters: pageQuery(limit: limit, cursor: cursor),
+        queryParameters: {
+          ...pageQuery(limit: limit, cursor: cursor),
+          'topic': ?topic,
+          'filter': ?filter,
+        },
       );
       return decodePage(response.data, Post.fromJson);
     });

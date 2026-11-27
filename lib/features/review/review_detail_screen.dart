@@ -14,6 +14,8 @@ import 'package:talk_it_out/features/review/data/raw_message.dart';
 import 'package:talk_it_out/features/review/review_providers.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/groups/chat_image.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
+import 'package:talk_it_out/features/review/moderation_notes.dart';
 
 // Stitch Monochrome Precision Tokens
 const _kPrimary = Brand.accent;
@@ -197,8 +199,8 @@ class _ReviewDetailAppBar extends StatelessWidget
     return Container(
       height: 56,
       decoration: const BoxDecoration(
-        color: _kSurface,
-        border: Border(bottom: BorderSide(color: _kBorderSubtle)),
+        color: Color(0xFF0A0A0A),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
       ),
       child: SafeArea(
         bottom: false,
@@ -208,9 +210,9 @@ class _ReviewDetailAppBar extends StatelessWidget
             children: [
               IconButton(
                 icon: const Icon(
-                  Icons.arrow_back,
+                  PhosphorIconsRegular.arrowLeft,
                   size: 22,
-                  color: _kTextPrimary,
+                  color: Colors.white,
                 ),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
@@ -222,14 +224,14 @@ class _ReviewDetailAppBar extends StatelessWidget
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
-                  color: Brand.accent,
-                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Center(
                   child: Text(
                     'T',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Brand.ink,
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                     ),
@@ -247,7 +249,7 @@ class _ReviewDetailAppBar extends StatelessWidget
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.1,
-                      color: _kTextSecondary,
+                      color: Colors.white70,
                     ),
                   ),
                   Text(
@@ -256,7 +258,7 @@ class _ReviewDetailAppBar extends StatelessWidget
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.015,
-                      color: _kTextPrimary,
+                      color: Colors.white,
                     ),
                   ),
                 ],
@@ -266,9 +268,9 @@ class _ReviewDetailAppBar extends StatelessWidget
                 key: const ValueKey('review-menu'),
                 tooltip: 'More',
                 icon: const Icon(
-                  Icons.more_vert,
+                  PhosphorIconsRegular.dotsThreeVertical,
                   size: 20,
-                  color: _kTextSecondary,
+                  color: Colors.white70,
                 ),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
@@ -292,14 +294,14 @@ class _ReviewDetailAppBar extends StatelessWidget
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: _kSurfaceSubtle,
+                  color: const Color(0x1AFFFFFF),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _kBorderSubtle),
+                  border: Border.all(color: const Color(0x33FFFFFF)),
                 ),
                 child: const Icon(
-                  Icons.person_outline,
+                  PhosphorIconsRegular.user,
                   size: 18,
-                  color: _kTextPrimary,
+                  color: Colors.white,
                 ),
               ),
             ],
@@ -369,8 +371,17 @@ class ReviewDetailBody extends StatelessWidget {
               _SectionToggleBar(diffActive: diffActive, onToggle: onToggleDiff),
               const SizedBox(height: 12),
 
+              if (message.moderationFlags.isNotEmpty) ...[
+                ModerationFlagChips(message: message),
+                const SizedBox(height: 10),
+              ],
               // 4. Card 1: Original Contributor Draft
               _OriginalDraftCard(message: message),
+              if (message.rewrittenText == null &&
+                  message.rewriteUnavailable) ...[
+                const SizedBox(height: 10),
+                RewriteReasonNote(message: message),
+              ],
               if (message.attachmentId != null) ...[
                 const SizedBox(height: 12),
                 _AttachedImageCard(message: message),
@@ -450,7 +461,6 @@ class _SubmissionHeader extends StatelessWidget {
                 Text(
                   'REVIEW SUBMISSION #$subId',
                   style: const TextStyle(
-                    fontFamily: 'monospace',
                     fontSize: 11,
                     letterSpacing: 0.12,
                     fontWeight: FontWeight.w600,
@@ -560,7 +570,7 @@ class _MetadataCard extends StatelessWidget {
             child: Icon(
               message.isAnonymous
                   ? Icons.visibility_off_outlined
-                  : Icons.person_outline,
+                  : PhosphorIconsRegular.user,
               size: 18,
               color: _kTextSecondary,
             ),
@@ -585,7 +595,7 @@ class _MetadataCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 5),
                     const Icon(
-                      Icons.verified_user,
+                      PhosphorIconsFill.shieldCheck,
                       size: 14,
                       color: _kTextSecondary,
                     ),
@@ -613,7 +623,7 @@ class _MetadataCard extends StatelessWidget {
                 Icon(
                   message.relevanceLabel == null
                       ? Icons.hourglass_empty
-                      : Icons.check_circle,
+                      : PhosphorIconsFill.checkCircle,
                   size: 14,
                   color: message.relevanceLabel == null
                       ? _kTextSecondary
@@ -653,7 +663,6 @@ class _SectionToggleBar extends StatelessWidget {
         const Text(
           'ORIGINAL AND REWRITE',
           style: TextStyle(
-            fontFamily: 'monospace',
             fontSize: 12,
             letterSpacing: 0.08,
             fontWeight: FontWeight.w600,
@@ -668,7 +677,11 @@ class _SectionToggleBar extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.tune, size: 14, color: _kTextPrimary),
+                const Icon(
+                  PhosphorIconsRegular.slidersHorizontal,
+                  size: 14,
+                  color: _kTextPrimary,
+                ),
                 const SizedBox(width: 5),
                 Text(
                   diffActive ? 'Hide changes' : 'Show changes',
@@ -718,12 +731,15 @@ class _OriginalDraftCard extends StatelessWidget {
             children: [
               Row(
                 children: const [
-                  Icon(Icons.edit_note, size: 17, color: _kTextSecondary),
+                  Icon(
+                    PhosphorIconsRegular.notePencil,
+                    size: 17,
+                    color: _kTextSecondary,
+                  ),
                   SizedBox(width: 6),
                   Text(
                     'ORIGINAL MESSAGE',
                     style: TextStyle(
-                      fontFamily: 'monospace',
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.08,
@@ -741,11 +757,7 @@ class _OriginalDraftCard extends StatelessWidget {
                 ),
                 child: Text(
                   '$words words',
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    color: _kTextSecondary,
-                  ),
+                  style: const TextStyle(fontSize: 11, color: _kTextSecondary),
                 ),
               ),
             ],
@@ -784,7 +796,7 @@ class _OriginalDraftCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(
-                      Icons.info_outline,
+                      PhosphorIconsRegular.info,
                       size: 13,
                       color: _kTextSecondary,
                     ),
@@ -802,11 +814,7 @@ class _OriginalDraftCard extends StatelessWidget {
                 intentScore == null
                     ? 'Meaning kept: not scored yet'
                     : 'Meaning kept: ${(intentScore * 100).round()}%',
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                  color: _kTextSecondary,
-                ),
+                style: const TextStyle(fontSize: 11, color: _kTextSecondary),
               ),
             ],
           ),
@@ -876,7 +884,11 @@ class _AiProposalCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_awesome, size: 18, color: _kPrimary),
+              const Icon(
+                PhosphorIconsRegular.sparkle,
+                size: 18,
+                color: _kPrimary,
+              ),
               const SizedBox(width: 6),
               const Expanded(
                 child: Text(
@@ -947,7 +959,7 @@ class _AiProposalCard extends StatelessWidget {
           else
             _StatusPanel(
               key: const ValueKey('rewrite-failed'),
-              icon: Icons.error_outline,
+              icon: PhosphorIconsRegular.warningCircle,
               title: 'The AI could not rewrite this message',
               body: 'Ask for a new rewrite, or reject the message. Only a rewrite can be published, so the original wording never reaches the group.',
               action: 'Try a new rewrite',
@@ -1051,7 +1063,11 @@ class _RationalePill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.check, size: 13, color: _kTextPrimary),
+          const Icon(
+            PhosphorIconsRegular.check,
+            size: 13,
+            color: _kTextPrimary,
+          ),
           const SizedBox(width: 5),
           Text(
             text,
@@ -1088,7 +1104,11 @@ class _DecidedDock extends StatelessWidget {
         top: false,
         child: Row(
           children: [
-            Icon(Icons.lock_outline, size: 16, color: _kTextSecondary),
+            Icon(
+              PhosphorIconsRegular.lockSimple,
+              size: 16,
+              color: _kTextSecondary,
+            ),
             SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -1167,7 +1187,7 @@ class _FixedActionDock extends StatelessWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: const [
-                            Icon(Icons.close, size: 18),
+                            Icon(PhosphorIconsRegular.x, size: 18),
                             SizedBox(width: 8),
                             Text(
                               'Reject',
@@ -1249,7 +1269,11 @@ class _ErrorBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, size: 16, color: _kError),
+          const Icon(
+            PhosphorIconsRegular.warningCircle,
+            size: 16,
+            color: _kError,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -1285,7 +1309,7 @@ class _AttachedImageCard extends StatelessWidget {
         children: [
           const Row(
             children: [
-              Icon(Icons.image_outlined, size: 16, color: Brand.inkSoft),
+              Icon(PhosphorIconsRegular.image, size: 16, color: Brand.inkSoft),
               SizedBox(width: 6),
               Text(
                 'ATTACHED PHOTO',
@@ -1381,7 +1405,10 @@ class _StatusPanel extends StatelessWidget {
                   OutlinedButton.icon(
                     key: const ValueKey('rewrite-retry'),
                     onPressed: onAction,
-                    icon: const Icon(Icons.refresh, size: 16),
+                    icon: const Icon(
+                      PhosphorIconsRegular.arrowClockwise,
+                      size: 16,
+                    ),
                     label: Text(action!),
                   ),
                 ],

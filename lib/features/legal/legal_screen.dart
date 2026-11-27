@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
+import 'package:talk_it_out/core/ui/page_padding.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 /// Privacy policy, terms and account deletion, readable before signing in
 /// (`/legal/privacy`, `/legal/terms`, `/legal/delete-account`). The same
@@ -26,15 +28,13 @@ class _LegalScreenState extends State<LegalScreen> {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final hPad = width > 860 ? (width - 760) / 2 : 16.0;
+    final hPad = pageHPad(width);
     return Scaffold(
       backgroundColor: Brand.canvas,
       appBar: AppBar(
-        backgroundColor: Brand.canvas,
-        surfaceTintColor: Colors.transparent,
         leading: IconButton(
           tooltip: 'Back',
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(PhosphorIconsRegular.arrowLeft),
           onPressed: () =>
               context.canPop() ? context.pop() : context.go('/login'),
         ),

@@ -9,6 +9,7 @@ import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/groups/data/group_repository.dart';
 import 'package:talk_it_out/features/groups/data/published_message.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 // ─── Pinned bar ───────────────────────────────────────────────────────────────
 
@@ -35,7 +36,11 @@ class PinnedBar extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.push_pin, size: 15, color: Brand.accentInk),
+            const Icon(
+              PhosphorIconsFill.pushPin,
+              size: 15,
+              color: Brand.accentInk,
+            ),
             const SizedBox(width: 8),
             const Text(
               '${AppStrings.pinned}: ',
@@ -166,8 +171,8 @@ class _PollCardState extends ConsumerState<PollCard> {
                       children: [
                         Icon(
                           poll.myVote == i
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
+                              ? PhosphorIconsFill.checkCircle
+                              : PhosphorIconsRegular.circle,
                           size: 16,
                           color: ink,
                         ),
@@ -296,7 +301,7 @@ class _CreatePollDialogState extends ConsumerState<_CreatePollDialog> {
                   child: TextButton.icon(
                     onPressed: () =>
                         setState(() => _options.add(TextEditingController())),
-                    icon: const Icon(Icons.add, size: 16),
+                    icon: const Icon(PhosphorIconsRegular.plus, size: 16),
                     label: const Text(AppStrings.addOption),
                   ),
                 ),
@@ -408,7 +413,7 @@ class _ChatSearchSheetState extends ConsumerState<ChatSearchSheet> {
               onChanged: _changed,
               decoration: InputDecoration(
                 hintText: AppStrings.searchHint,
-                prefixIcon: const Icon(Icons.search),
+                prefixIcon: const Icon(PhosphorIconsRegular.magnifyingGlass),
                 suffixIcon: _busy
                     ? const Padding(
                         padding: EdgeInsets.all(12),
@@ -580,7 +585,7 @@ class _PreviewSheetState extends ConsumerState<_PreviewSheet> {
         children: [
           const Row(
             children: [
-              Icon(Icons.auto_awesome, size: 18, color: Brand.ink),
+              Icon(PhosphorIconsRegular.sparkle, size: 18, color: Brand.ink),
               SizedBox(width: 8),
               Text(
                 AppStrings.previewTitle,
@@ -620,7 +625,8 @@ class _PreviewSheetState extends ConsumerState<_PreviewSheet> {
                   )
                 : Text(
                     p.failed
-                        ? AppStrings.previewFailed
+                        ? '${AppStrings.previewFailed} '
+                              '${AppStrings.rewriteReason(p.failureCode)}'
                         : (p.rewrittenText ?? ''),
                     key: const ValueKey('preview-text'),
                     style: const TextStyle(

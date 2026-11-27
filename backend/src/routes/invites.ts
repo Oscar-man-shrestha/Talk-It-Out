@@ -11,6 +11,7 @@ import { Config } from '../config';
 import { withTransaction } from '../db';
 import { ApiError, forbidden, notFound, parseWith } from '../errors';
 import { RequireAuth } from '../middleware/auth';
+import { notifyMemberJoined } from '../notifyMembers';
 
 const ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789'; // no 0/o, 1/l/i
 export const MAX_ACTIVE_INVITES = 20;
@@ -191,6 +192,7 @@ export function createInvitesRouter(pool: Pool, requireAuth: RequireAuth): Route
         [i.group_id, me],
       );
       await client.query('UPDATE group_invites SET uses = uses + 1 WHERE code = $1', [code]);
+      await notifyMemberJoined(client, i.group_id, me);
       return { groupId: i.group_id, joined: true };
     });
     res.status(result.joined ? 201 : 200).json({ group_id: result.groupId, joined: result.joined });

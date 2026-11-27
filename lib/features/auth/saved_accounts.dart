@@ -9,10 +9,18 @@ import 'package:talk_it_out/core/models/user.dart';
 /// kept: never a password or a token, so choosing one still asks for the
 /// password.
 class SavedAccount {
-  const SavedAccount({required this.name, required this.email});
+  const SavedAccount({
+    required this.name,
+    required this.email,
+    this.google = false,
+  });
 
   final String name;
   final String email;
+
+  /// Signed in with Google last time: "Continue as" goes through Google,
+  /// because such an account may have no password at all.
+  final bool google;
 
   /// "pr***@example.com": enough to recognise, not to read over a shoulder.
   String get maskedEmail {
@@ -31,7 +39,11 @@ class SavedAccount {
     return letters.isEmpty ? '?' : letters;
   }
 
-  Map<String, String> toJson() => {'name': name, 'email': email};
+  Map<String, Object> toJson() => {
+    'name': name,
+    'email': email,
+    if (google) 'via': 'google',
+  };
 }
 
 /// Where saved accounts are kept. Tests override it with null (memory only).
@@ -61,6 +73,7 @@ class SavedAccountsNotifier extends Notifier<List<SavedAccount>> {
             SavedAccount(
               name: x['name'] as String,
               email: x['email'] as String,
+              google: x['via'] == 'google',
             ),
       ];
       final known = {for (final a in state) a.email};
@@ -74,10 +87,10 @@ class SavedAccountsNotifier extends Notifier<List<SavedAccount>> {
   }
 
   /// Most recent first. Called after every successful sign-in.
-  void remember(User user) {
+  void remember(User user, {bool google = false}) {
     final email = user.email;
     if (email == null || email.isEmpty) return;
-    final account = SavedAccount(name: user.name, email: email);
+    final account = SavedAccount(name: user.name, email: email, google: google);
     state = [
       account,
       ...state.where((a) => a.email != email),

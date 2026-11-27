@@ -9,6 +9,9 @@ import 'package:talk_it_out/features/feed/edit_sheets.dart';
 import 'package:talk_it_out/features/groups/catch_up.dart';
 import 'package:talk_it_out/features/groups/group_providers.dart';
 import 'package:talk_it_out/features/invites/invite_sheet.dart';
+import 'package:talk_it_out/core/ui/page_padding.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
+import 'package:talk_it_out/core/strings/app_strings.dart';
 
 /// Group info, like WhatsApp's and Discord's: what the group is for, its
 /// rules, your own mute and pin, and shortcuts (`API.md` 67).
@@ -64,8 +67,6 @@ class GroupInfoScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Brand.canvas,
       appBar: AppBar(
-        backgroundColor: Brand.canvas,
-        surfaceTintColor: Colors.transparent,
         title: const Text(
           'Group info',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
@@ -84,7 +85,7 @@ class GroupInfoScreen extends ConsumerWidget {
           final controller = g.myRole == GroupRole.controller;
           final count = members?.length ?? g.memberCount;
           final width = MediaQuery.sizeOf(context).width;
-          final hPad = width > 860 ? (width - 760) / 2 : 16.0;
+          final hPad = pageHPad(width);
           return ListView(
             padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 32),
             children: [
@@ -183,7 +184,7 @@ class GroupInfoScreen extends ConsumerWidget {
                     const Divider(height: 1),
                     _SwitchRow(
                       key: const ValueKey('info-pin'),
-                      icon: Icons.push_pin_outlined,
+                      icon: PhosphorIconsRegular.pushPin,
                       title: 'Pin to top',
                       subtitle: 'Keep this group at the top of your list.',
                       value: g.pinned,
@@ -203,7 +204,7 @@ class GroupInfoScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     _LinkRow(
-                      Icons.group_outlined,
+                      PhosphorIconsRegular.users,
                       'Members',
                       '$count',
                       () => context.push('/groups/$groupId/members'),
@@ -211,7 +212,7 @@ class GroupInfoScreen extends ConsumerWidget {
                     if (controller) ...[
                       const Divider(height: 1),
                       _LinkRow(
-                        Icons.link,
+                        PhosphorIconsRegular.link,
                         'Invite with a link or QR code',
                         null,
                         () => showInviteSheet(
@@ -220,10 +221,19 @@ class GroupInfoScreen extends ConsumerWidget {
                           agenda: g.agenda,
                         ),
                       ),
+                      const Divider(height: 1),
+                      // Premium (API.md 71); the screen shows a teaser
+                      // without it.
+                      _LinkRow(
+                        PhosphorIconsRegular.chartBar,
+                        AppStrings.insightsTitle,
+                        AppStrings.premium,
+                        () => context.push('/groups/$groupId/insights'),
+                      ),
                     ],
                     const Divider(height: 1),
                     _LinkRow(
-                      Icons.auto_awesome_outlined,
+                      PhosphorIconsRegular.sparkle,
                       'Catch up',
                       null,
                       () => showCatchUpSheet(context, groupId),
@@ -437,7 +447,7 @@ class _LinkRow extends StatelessWidget {
                 style: const TextStyle(fontSize: 13, color: Brand.inkSoft),
               ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, color: Brand.inkSoft),
+            const Icon(PhosphorIconsRegular.caretRight, color: Brand.inkSoft),
           ],
         ),
       ),

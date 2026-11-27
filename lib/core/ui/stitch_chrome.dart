@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:talk_it_out/core/strings/app_strings.dart';
+import 'package:talk_it_out/core/ui/page_padding.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 class StitchPageHeader extends StatelessWidget implements PreferredSizeWidget {
   const StitchPageHeader({
@@ -20,91 +22,105 @@ class StitchPageHeader extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final isDesktop = screenWidth >= 900;
-    final isMobile = screenWidth < 600;
-    final hPad = isDesktop ? (screenWidth - 860) / 2 : (isMobile ? 12.0 : 16.0);
+    final hPad = pageHPad(screenWidth);
+    // On phones a back button replaces the logo tile, leaving the title
+    // room next to the actions (as messaging apps do).
+    final showLogo = leading == null || screenWidth >= 600;
 
+    // The compact black bar shared by inner screens (Run 125).
     return Material(
-      color: scheme.surface,
-      shape: Border(
-        bottom: BorderSide(
-          color: scheme.outlineVariant.withValues(alpha: 0.6),
-          width: 1,
-        ),
+      color: const Color(0xFF0A0A0A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
       ),
+      clipBehavior: Clip.antiAlias,
       child: SafeArea(
         bottom: false,
-        child: SizedBox(
-          height: 56,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: hPad),
-            child: Row(
-              children: [
-                ?leading,
-                if (leading != null) const SizedBox(width: 4),
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: scheme.primary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.diversity_3_rounded,
-                    size: 18,
-                    color: scheme.onPrimary,
-                  ),
+        // The bar has a fixed height; very large text would not fit in it.
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.3,
+          child: SizedBox(
+            height: 56,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: hPad),
+              child: IconButtonTheme(
+                data: IconButtonThemeData(
+                  style: IconButton.styleFrom(foregroundColor: Colors.white),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                child: Row(
+                  children: [
+                    ?leading,
+                    if (leading != null) const SizedBox(width: 4),
+                    if (showLogo) ...[
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          PhosphorIconsFill.usersThree,
+                          size: 18,
+                          color: Color(0xFF0A0A0A),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            AppStrings.appName.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
-                              color: emphasizePageTitle
-                                  ? scheme.onSurfaceVariant
-                                  : scheme.onSurface,
-                            ),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  AppStrings.appName.toUpperCase(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.8,
+                                    color: emphasizePageTitle
+                                        ? Colors.white60
+                                        : Colors.white,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: scheme.primary,
-                              shape: BoxShape.circle,
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: emphasizePageTitle ? 16 : 14,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: emphasizePageTitle ? -0.2 : 0,
+                              color: emphasizePageTitle
+                                  ? Colors.white
+                                  : Colors.white70,
                             ),
                           ),
                         ],
                       ),
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: emphasizePageTitle ? 16 : 14,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: emphasizePageTitle ? -0.2 : 0,
-                          color: emphasizePageTitle
-                              ? scheme.onSurface
-                              : scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                    ...actions,
+                  ],
                 ),
-                ...actions,
-              ],
+              ),
             ),
           ),
         ),

@@ -36,6 +36,16 @@ abstract final class Endpoints {
 
   static String group(String groupId) => '/groups/$groupId';
 
+  // Premium (API.md 71).
+  static const billingEntitlements = '/billing/entitlements';
+  static const billingSync = '/billing/sync';
+  // Razorpay on the web (API.md 75).
+  static const billingRazorpay = '/billing/razorpay';
+  static const billingRazorpaySubscription = '/billing/razorpay/subscription';
+  static const billingRazorpayVerify = '/billing/razorpay/verify';
+  static const billingRazorpayCancel = '/billing/razorpay/cancel';
+  static String groupInsights(String groupId) => '/groups/$groupId/insights';
+
   static String groupMembers(String groupId) => '/groups/$groupId/members';
 
   static String groupMessages(String groupId) => '/groups/$groupId/messages';

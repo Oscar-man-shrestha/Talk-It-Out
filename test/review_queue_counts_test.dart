@@ -10,6 +10,7 @@ import 'package:talk_it_out/features/review/data/mock_review_repository.dart';
 import 'package:talk_it_out/features/review/data/raw_message.dart';
 import 'package:talk_it_out/features/review/review_detail_screen.dart';
 import 'package:talk_it_out/features/review/review_queue_screen.dart';
+import 'package:talk_it_out/core/strings/app_strings.dart';
 
 /// A queue with one ready rewrite, one still running and one that failed.
 class _FixedQueue extends MockReviewRepository {
@@ -121,10 +122,12 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('1 rewriting • 1 not available'), findsOneWidget);
+    // The failed card says why (API.md 72) and what to do next.
     expect(
-      find.textContaining('Rewrite unavailable. Use the retry button'),
+      find.textContaining('Use the retry button to try a new rewrite'),
       findsOneWidget,
     );
+    expect(find.textContaining(AppStrings.rewriteReason(null)), findsOneWidget);
 
     // Unmount so the screen's refresh timer is cancelled.
     await tester.pumpWidget(const SizedBox());

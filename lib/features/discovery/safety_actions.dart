@@ -8,6 +8,7 @@ import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
 import 'package:talk_it_out/features/discovery/discovery_providers.dart';
 import 'package:talk_it_out/features/discovery/person_profile_screen.dart';
 import 'package:talk_it_out/features/feed/feed_providers.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 /// People you blocked (`API.md` 59).
 final blockedPeopleProvider = FutureProvider.autoDispose<List<PersonResult>>(
@@ -130,7 +131,7 @@ Future<bool> showReportQuestionSheet(
             ListTile(
               key: ValueKey('report-${r.id}'),
               title: Text(r.label),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: const Icon(PhosphorIconsRegular.caretRight),
               onTap: () => Navigator.of(ctx).pop(r),
             ),
           const SizedBox(height: 8),
@@ -181,12 +182,10 @@ class BlockedPeopleScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Brand.canvas,
       appBar: AppBar(
-        backgroundColor: Brand.canvas,
-        surfaceTintColor: Colors.transparent,
         // Opened from a link there is nothing to pop: go somewhere useful.
         leading: IconButton(
           tooltip: 'Back',
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(PhosphorIconsRegular.arrowLeft),
           onPressed: () =>
               context.canPop() ? context.pop() : context.go('/profile'),
         ),

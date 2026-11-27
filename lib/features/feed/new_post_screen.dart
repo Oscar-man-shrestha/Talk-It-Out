@@ -13,6 +13,8 @@ import 'package:talk_it_out/features/feed/feed_providers.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/discovery/data/discovery_models.dart';
 import 'package:talk_it_out/features/discovery/discovery_providers.dart';
+import 'package:talk_it_out/core/ui/page_padding.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
 
 const _ink = Brand.ink;
 const _muted = Brand.inkSoft;
@@ -169,7 +171,7 @@ class _NewPostScreenState extends ConsumerState<NewPostScreen> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final hPad = screenWidth > 860 ? (screenWidth - 800) / 2 : 16.0;
+    final hPad = pageHPad(screenWidth);
 
     return PopScope(
       canPop: !_hasDraft || _busy,
@@ -273,7 +275,7 @@ class _NewPostScreenState extends ConsumerState<NewPostScreen> {
                         child: Row(
                           children: [
                             const Icon(
-                              Icons.auto_awesome,
+                              PhosphorIconsRegular.sparkle,
                               size: 15,
                               color: _ink,
                             ),
@@ -354,7 +356,7 @@ class _NewPostScreenState extends ConsumerState<NewPostScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Icon(Icons.arrow_upward_rounded, size: 18),
+                    : const Icon(PhosphorIconsRegular.arrowUp, size: 18),
                 label: const Text(
                   AppStrings.askSubmit,
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
@@ -392,7 +394,7 @@ class _Notice extends StatelessWidget {
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.visibility_outlined, size: 18, color: _ink),
+          Icon(PhosphorIconsRegular.eye, size: 18, color: _ink),
           SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -485,11 +487,7 @@ class _Label extends StatelessWidget {
           if (counter != null)
             Text(
               counter!,
-              style: TextStyle(
-                fontSize: 11.5,
-                fontFamily: 'monospace',
-                color: over ? _error : _faint,
-              ),
+              style: TextStyle(fontSize: 11.5, color: over ? _error : _faint),
             ),
         ],
       ),
@@ -609,7 +607,11 @@ class _SimilarQuestions extends StatelessWidget {
                           : '${q.commentCount} answers',
                       style: const TextStyle(fontSize: 11.5, color: _muted),
                     ),
-                    const Icon(Icons.chevron_right, size: 18, color: _muted),
+                    const Icon(
+                      PhosphorIconsRegular.caretRight,
+                      size: 18,
+                      color: _muted,
+                    ),
                   ],
                 ),
               ),

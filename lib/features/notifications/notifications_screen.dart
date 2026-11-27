@@ -11,11 +11,13 @@ import 'package:talk_it_out/features/notifications/notification_providers.dart';
 import 'package:talk_it_out/features/notifications/notification_text.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/core/ui/empty_state.dart';
+import 'package:talk_it_out/core/ui/motion.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
+import 'package:talk_it_out/core/ui/large_title_header.dart';
 
 // Stitch Monochrome Precision tokens
 const _kPrimary = Brand.accent;
 const _kSurface = Brand.card;
-const _kSurfaceMuted = Brand.muted;
 const _kBorderSubtle = Brand.border;
 const _kTextPrimary = Brand.ink;
 const _kTextSecondary = Brand.inkSoft;
@@ -37,14 +39,17 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   bool _inFilter(AppNotification item, String filter) {
     switch (filter) {
       case 'submissions':
-        return item.type == NotificationType.messageRejected;
+        return item.type == NotificationType.messageRejected ||
+            item.type == NotificationType.messagePublished;
       case 'moderation':
         return item.type == NotificationType.messagePendingReview;
       case 'community':
         return item.type == NotificationType.groupInvitation ||
             item.type == NotificationType.questionAnswered ||
             item.type == NotificationType.answerBest ||
-            item.type == NotificationType.mentioned;
+            item.type == NotificationType.mentioned ||
+            item.type == NotificationType.memberJoined ||
+            item.type == NotificationType.questionLiked;
       default:
         return true;
     }
@@ -76,7 +81,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         context.go('/groups');
       case NotificationType.questionAnswered:
       case NotificationType.answerBest:
+      case NotificationType.questionLiked:
         if (item.post case final p?) context.push('/feed/${p.id}');
+      case NotificationType.messagePublished:
+        if (item.group case final g?) context.go('/groups/${g.id}');
+      case NotificationType.memberJoined:
+        if (item.group case final g?) context.push('/groups/${g.id}/members');
       case NotificationType.unknown:
         break;
     }
@@ -97,96 +107,31 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
     return Scaffold(
       backgroundColor: Brand.canvas,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(56),
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(bottom: BorderSide(color: _kBorderSubtle)),
-          ),
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: _kPrimary,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Icon(
-                      Icons.diversity_3,
-                      size: 16,
-                      color: Colors.white,
-                    ),
+      appBar: LargeTitleHeader(
+        title: 'Alerts',
+        subtitle: '$unread new',
+        actions: [
+          TextButton.icon(
+            onPressed: unread == 0
+                ? null
+                : () => _guard(
+                    ref.read(notificationsProvider.notifier).markAllRead,
                   ),
-                  const SizedBox(width: 10),
-                  const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'TALK IT OUT',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            '•',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: _kTextPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        'Talk It Out Alerts',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: _kTextSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.diversity_3_outlined,
-                      size: 20,
-                      color: _kTextSecondary,
-                    ),
-                    tooltip: 'Open groups',
-                    onPressed: () => context.go('/groups'),
-                  ),
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: const BoxDecoration(
-                      color: _kPrimary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.person,
-                      size: 17,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              disabledForegroundColor: HeroInk.inkSoft,
+              backgroundColor: HeroInk.fill,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              minimumSize: const Size(0, 36),
+              shape: const StadiumBorder(side: BorderSide(color: HeroInk.line)),
+            ),
+            icon: const Icon(PhosphorIconsRegular.checks, size: 15),
+            label: const Text(
+              'Mark all read',
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
             ),
           ),
-        ),
+        ],
       ),
       body: AsyncBody(
         status: asyncStatus(notifications, isEmpty: false),
@@ -199,77 +144,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         child: ListView(
           padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 40),
           children: [
-            // Sub-header Action Bar
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Text(
-                      'Alerts',
-                      style: TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.4,
-                        color: _kTextPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: unread == 0 ? _kSurfaceMuted : _kPrimary,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '$unread new',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontFamily: 'monospace',
-                          fontWeight: FontWeight.w600,
-                          color: unread == 0 ? _kTextSecondary : Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                TextButton.icon(
-                  onPressed: unread == 0
-                      ? null
-                      : () => _guard(
-                          ref.read(notificationsProvider.notifier).markAllRead,
-                        ),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    backgroundColor: _kSurfaceMuted,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  icon: const Icon(
-                    Icons.done_all,
-                    size: 15,
-                    color: _kTextSecondary,
-                  ),
-                  label: const Text(
-                    'Mark all read',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: _kTextSecondary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
             // Filter Chips Navigation
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -314,19 +188,30 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   body: AppStrings.notificationsEmpty,
                   points: [
                     (
-                      Icons.fact_check_outlined,
+                      PhosphorIconsRegular.listChecks,
                       'When a message you sent is published or not published',
                     ),
                     (
-                      Icons.forum_outlined,
+                      PhosphorIconsRegular.chatsCircle,
                       'When someone answers your question',
                     ),
-                    (Icons.group_add_outlined, 'When you are added to a group'),
+                    (
+                      PhosphorIconsRegular.userPlus,
+                      'When you are added to a group',
+                    ),
                   ],
                 ),
               ),
-            for (final item in visible) ...[
-              _NotificationCard(item: item, onOpen: () => _open(item)),
+            for (final (i, item) in visible.indexed) ...[
+              Reveal(
+                index: i,
+                child: PressScale(
+                  child: _NotificationCard(
+                    item: item,
+                    onOpen: () => _open(item),
+                  ),
+                ),
+              ),
               const SizedBox(height: 12),
             ],
             const SizedBox(height: 4),
@@ -336,7 +221,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               child: Column(
                 children: [
                   Icon(
-                    Icons.check_circle_outline,
+                    PhosphorIconsRegular.checkCircle,
                     size: 20,
                     color: _kTextTertiary,
                   ),
@@ -445,24 +330,39 @@ class _NotificationCard extends StatelessWidget {
         AppStrings.openMyMessages,
       ),
       NotificationType.groupInvitation => (
-        Icons.group_add_outlined,
+        PhosphorIconsRegular.userPlus,
         'GROUP INVITATION',
         'Accept or decline',
       ),
       NotificationType.mentioned => (
-        Icons.alternate_email,
+        PhosphorIconsRegular.at,
         'MENTIONED',
         'Open the chat',
       ),
       NotificationType.questionAnswered => (
-        Icons.forum_outlined,
+        PhosphorIconsRegular.chatsCircle,
         'NEW ANSWER',
         'Read the answer',
       ),
       NotificationType.answerBest => (
-        Icons.workspace_premium_outlined,
+        PhosphorIconsRegular.crown,
         'BEST ANSWER',
         'See your answer',
+      ),
+      NotificationType.messagePublished => (
+        PhosphorIconsRegular.checkCircle,
+        'PUBLISHED',
+        'Open the chat',
+      ),
+      NotificationType.memberJoined => (
+        PhosphorIconsRegular.userPlus,
+        'NEW MEMBER',
+        'See members',
+      ),
+      NotificationType.questionLiked => (
+        Icons.favorite_border,
+        'NEW LIKES',
+        'See your question',
       ),
       NotificationType.unknown => (
         Icons.notifications_none,
@@ -509,11 +409,7 @@ class _NotificationCard extends StatelessWidget {
                 ),
                 Text(
                   relativeTime(item.createdAt),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                    color: _kTextTertiary,
-                  ),
+                  style: const TextStyle(fontSize: 11, color: _kTextTertiary),
                 ),
               ],
             ),
@@ -541,7 +437,7 @@ class _NotificationCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     const Icon(
-                      Icons.arrow_forward,
+                      PhosphorIconsRegular.arrowRight,
                       size: 14,
                       color: _kTextPrimary,
                     ),

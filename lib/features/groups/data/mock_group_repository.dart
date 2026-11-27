@@ -351,7 +351,12 @@ class MockGroupRepository implements GroupRepository {
           message: AppStrings.previewExpired,
         );
       }
-      return (ready: true, failed: false, rewrittenText: demoRewrite(p.text));
+      return (
+        ready: true,
+        failed: false,
+        rewrittenText: demoRewrite(p.text),
+        failureCode: null,
+      );
     });
   }
 

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:talk_it_out/core/ui/brand.dart';
 import 'package:talk_it_out/features/groups/emoji_data.dart';
+import 'package:talk_it_out/core/ui/app_icons.dart';
+import 'package:talk_it_out/core/ui/emoji_text.dart';
 
 /// Recently used emoji, newest first, kept on this device.
 class RecentEmoji {
@@ -187,7 +189,10 @@ class _EmojiPickerPanelState extends State<EmojiPickerPanel> {
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
                         hintText: 'Search emoji',
-                        prefixIcon: const Icon(Icons.search, size: 20),
+                        prefixIcon: const Icon(
+                          PhosphorIconsRegular.magnifyingGlass,
+                          size: 20,
+                        ),
                         isDense: true,
                         filled: true,
                         fillColor: Brand.muted,
@@ -248,12 +253,7 @@ class _EmojiPickerPanelState extends State<EmojiPickerPanel> {
                         itemBuilder: (_, i) => InkWell(
                           borderRadius: BorderRadius.circular(8),
                           onTap: () => _pick(emojis[i]),
-                          child: Center(
-                            child: Text(
-                              emojis[i],
-                              style: const TextStyle(fontSize: 26),
-                            ),
-                          ),
+                          child: Center(child: EmojiGlyph(emojis[i], size: 26)),
                         ),
                       ),
               ),

@@ -170,4 +170,10 @@ typedef MessageHistoryPage = ({
 
 /// Where a rewrite preview stands. [failed] means the AI could not reword
 /// it; the draft can still be sent as is for the controller to judge.
-typedef RewritePreview = ({bool ready, bool failed, String? rewrittenText});
+/// [failureCode] says why there is no rewrite (API.md 72), when [failed].
+typedef RewritePreview = ({
+  bool ready,
+  bool failed,
+  String? rewrittenText,
+  String? failureCode,
+});

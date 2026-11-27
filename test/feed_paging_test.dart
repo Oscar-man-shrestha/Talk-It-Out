@@ -19,9 +19,19 @@ class _PagedFeed implements FeedRepository {
   var calls = 0;
 
   @override
-  Future<PageResult<Post>> listPosts({int? limit, String? cursor}) {
+  Future<PageResult<Post>> listPosts({
+    int? limit,
+    String? cursor,
+    String? topic,
+    String? filter,
+  }) {
     calls++;
-    return _inner.listPosts(limit: 4, cursor: cursor);
+    return _inner.listPosts(
+      limit: 4,
+      cursor: cursor,
+      topic: topic,
+      filter: filter,
+    );
   }
 
   // Everything else is not used by this test.
